@@ -1,0 +1,24 @@
+{
+  "name": "laneorchestrator",
+  "version": "0.1.0",
+  "description": "Adaptive GPT-5.6 routing for Codex skills and agents.",
+  "author": {
+    "name": "Karthik Ramesh",
+    "email": "180139999+KarthikRamesh9149@users.noreply.github.com",
+    "url": "https://github.com/KarthikRamesh9149"
+  },
+  "homepage": "https://github.com/KarthikRamesh9149/laneorchestrator",
+  "repository": "https://github.com/KarthikRamesh9149/laneorchestrator",
+  "license": "MIT",
+  "keywords": ["codex", "skills", "agents", "routing", "gpt-5.6"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "LaneOrchestrator",
+    "shortDescription": "Route Codex work by capability and risk.",
+    "longDescription": "Inspects project context, selects relevant skills and agents, chooses a GPT-5.6 execution lane, and verifies the result.",
+    "developerName": "Karthik Ramesh",
+    "category": "Productivity",
+    "capabilities": ["Adaptive routing", "Skill selection", "Agent selection", "Verification"],
+    "defaultPrompt": ["Route and implement this task safely.", "Inspect this project and choose the best implementation lane.", "Plan and verify this high-risk change."]
+  }
+}

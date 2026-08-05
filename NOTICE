@@ -1,0 +1,5 @@
+LaneOrchestrator is a clean-room implementation.
+
+It acknowledges high-level design inspiration from my-codex, SkillMesh, Sol Advisor,
+and awesome-codex-subagents. No code, prompt text, or packaged assets from those
+projects are distributed in this repository.
