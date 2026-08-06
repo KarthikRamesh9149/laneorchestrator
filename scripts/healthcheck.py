@@ -11,10 +11,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
     ROOT / ".codex-plugin" / "plugin.json",
+    ROOT / ".github" / "workflows" / "ci.yml",
+    ROOT / "CHANGELOG.md",
+    ROOT / "CONTRIBUTING.md",
+    ROOT / "RELEASING.md",
+    ROOT / "SECURITY.md",
+    ROOT / "docs" / "architecture.md",
+    ROOT / "docs" / "security-model.md",
     ROOT / "skills" / "laneorchestrator" / "SKILL.md",
     ROOT / "skills" / "laneorchestrator" / "scripts" / "catalog.py",
     ROOT / "skills" / "laneorchestrator" / "scripts" / "route.py",
     ROOT / "scripts" / "install-agents.sh",
+    ROOT / "scripts" / "install_agents.py",
+    ROOT / "scripts" / "validate.sh",
 ]
 AGENT_FIELD = re.compile(r'^\s*(name|model|model_reasoning_effort|sandbox_mode)\s*=\s*"(.+)"\s*$', re.MULTILINE)
 EXPECTED_MODELS = {
@@ -34,6 +43,8 @@ def main() -> int:
         manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
         if manifest.get("name") != "laneorchestrator":
             errors.append("plugin manifest name must be laneorchestrator")
+        if not re.fullmatch(r"\d+\.\d+\.\d+", str(manifest.get("version", ""))):
+            errors.append("plugin manifest version must use semantic versioning")
     except (OSError, json.JSONDecodeError) as error:
         errors.append(f"invalid plugin manifest: {error}")
     for filename, (model, sandbox) in EXPECTED_MODELS.items():
