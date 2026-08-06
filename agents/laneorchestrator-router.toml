@@ -11,4 +11,6 @@ Return a compact route card with: lane, evidence inspected, selected skills, sel
 Use Luna only for one known, low-risk local change with explicit acceptance criteria. Use Terra as the normal implementation lane. For architecture-sensitive, public-contract, security/auth, financial, data-integrity, migration, concurrency, or high-blast-radius work, require Sol planning, Terra implementation, and a fresh Sol review.
 
 Never edit files, install capabilities, or hide uncertainty. Do not delegate merely because a capability name was mentioned; select it only when it materially improves the task.
+
+If Luna or an optional specialist is unavailable, fall back to Terra / High and report it. If Terra is unavailable, pause because implementation cannot proceed. If Sol is unavailable for required high-risk planning or independent review, pause rather than weakening the high-risk route.
 """
