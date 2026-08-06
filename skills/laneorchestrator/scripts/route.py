@@ -31,12 +31,19 @@ def main() -> int:
     parser.add_argument("--known-area", action="store_true")
     parser.add_argument("--acceptance-criteria", action="store_true")
     parser.add_argument("--files", type=int, default=2)
+    parser.add_argument("--risk-assessment", choices=("low", "normal", "high", "unknown"), default="unknown")
     args = parser.parse_args()
     lowered = args.objective.lower()
     signals = sorted(term for term in HIGH_RISK_TERMS | HIGH_RISK_PHRASES if contains_term(lowered, term))
-    if signals:
-        route = {"lane": "sol-plan-terra-sol-review", "model": "gpt-5.6-sol", "reasoning_effort": "high", "reason": "high-risk signal", "signals": signals}
-    elif args.known_area and args.acceptance_criteria and args.files == 1:
+    if signals or args.risk_assessment in {"high", "unknown"}:
+        if signals:
+            reason = "high-risk signal"
+        elif args.risk_assessment == "high":
+            reason = "explicit high-risk assessment"
+        else:
+            reason = "risk assessment required"
+        route = {"lane": "sol-plan-terra-sol-review", "model": "gpt-5.6-sol", "reasoning_effort": "high", "reason": reason, "signals": signals}
+    elif args.risk_assessment == "low" and args.known_area and args.acceptance_criteria and args.files == 1:
         route = {"lane": "luna", "model": "gpt-5.6-luna", "reasoning_effort": "high", "reason": "bounded known-area task", "signals": []}
     else:
         route = {"lane": "terra", "model": "gpt-5.6-terra", "reasoning_effort": "high", "reason": "default implementation lane", "signals": []}

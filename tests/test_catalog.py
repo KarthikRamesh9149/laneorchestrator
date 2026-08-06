@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "laneorchestrator" / "scripts" / "catalog.py"
+SPEC = importlib.util.spec_from_file_location("laneorchestrator_catalog", SCRIPT)
+assert SPEC and SPEC.loader
+CATALOG = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = CATALOG
+SPEC.loader.exec_module(CATALOG)
 
 
 def write(path: Path, text: str) -> None:
@@ -62,6 +69,28 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(payload["agents"], [])
         self.assertEqual(payload["skills"], [])
         self.assertTrue(all(item["score"] is None and item["role"] == "required-lane" for item in payload["lane_agents"]))
+
+    def test_stops_at_configured_skill_file_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            skills = Path(directory) / "skills"
+            write(skills / "first" / "SKILL.md", "---\nname: first\ndescription: First bounded skill.\n---\n")
+            write(skills / "second" / "SKILL.md", "---\nname: second\ndescription: Second bounded skill.\n---\n")
+            capabilities, warnings = CATALOG.collect_skills([skills], max_files=1)
+        self.assertEqual(len(capabilities), 1)
+        self.assertTrue(any("stopped skill discovery after 1 files" in warning for warning in warnings))
+
+    def test_rejects_oversized_and_symlinked_skill_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            skills = Path(directory) / "skills"
+            large = skills / "large" / "SKILL.md"
+            write(large, "---\nname: large\ndescription: " + "x" * 128 + "\n---\n")
+            linked = skills / "linked" / "SKILL.md"
+            linked.parent.mkdir(parents=True)
+            linked.symlink_to(large)
+            capabilities, warnings = CATALOG.collect_skills([skills], max_file_bytes=64)
+        self.assertEqual(capabilities, [])
+        self.assertTrue(any("larger than 64 bytes" in warning for warning in warnings))
+        self.assertTrue(any("symbolic-link skill file" in warning for warning in warnings))
 
 
 if __name__ == "__main__":

@@ -74,6 +74,7 @@ class RoutingMatrixTests(unittest.TestCase):
                 command.append("--known-area")
             if acceptance_criteria:
                 command.append("--acceptance-criteria")
+            command.extend(["--risk-assessment", "low" if expected_lane == "luna" else "normal" if expected_lane == "terra" else "high"])
             actual = json.loads(subprocess.run(command, check=True, capture_output=True, text=True).stdout)["lane"]
             if actual != expected_lane:
                 failures.append(f"{name}: expected {expected_lane}, got {actual}")

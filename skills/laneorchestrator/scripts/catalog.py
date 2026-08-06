@@ -8,6 +8,7 @@ import json
 import math
 import os
 import re
+import stat
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,10 @@ LANE_AGENT_NAMES = {"laneorchestrator-router", "laneorchestrator-luna-executor",
 WORD_RE = re.compile(r"[a-z0-9][a-z0-9+.#/-]*")
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 TOML_FIELD_RE = re.compile(r'^\s*(name|description|model)\s*=\s*"(.*)"\s*$', re.MULTILINE)
+MAX_SKILL_FILES = 2048
+MAX_SKILL_DEPTH = 16
+MAX_SKILL_FILE_BYTES = 256 * 1024
+MAX_TOTAL_SKILL_BYTES = 8 * 1024 * 1024
 
 
 @dataclass
@@ -50,22 +55,32 @@ def source_for(root: Path) -> str:
     return "project"
 
 
-def read_skill(path: Path, root: Path) -> Optional[Capability]:
+def read_skill(path: Path, root: Path, max_bytes: int) -> tuple[Optional[Capability], int, Optional[str]]:
+    if path.is_symlink():
+        return None, 0, "skipped symbolic-link skill file"
     try:
-        text = path.read_text(encoding="utf-8")
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as source:
+            data = source.read(max_bytes + 1)
     except OSError:
-        return None
+        return None, 0, "could not read skill file"
+    if len(data) > max_bytes:
+        return None, len(data), f"skipped skill file larger than {max_bytes} bytes"
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None, len(data), "skipped non-UTF-8 skill file"
     match = FRONTMATTER_RE.match(text)
     if not match:
-        return None
+        return None, len(data), None
     fields: dict[str, str] = {}
     for line in match.group(1).splitlines():
         key, separator, value = line.partition(":")
         if separator:
             fields[key.strip()] = value.strip().strip('"\'')
     if not fields.get("name") or not fields.get("description"):
-        return None
-    return Capability("skill", fields["name"], fields["description"], str(path.parent), source_for(root))
+        return None, len(data), None
+    return Capability("skill", fields["name"], fields["description"], str(path.parent), source_for(root)), len(data), None
 
 
 def read_agent(path: Path, root: Path) -> Optional[Capability]:
@@ -92,19 +107,58 @@ def roots_for(cwd: Path, extra: list[str], no_default_roots: bool) -> list[Path]
     return roots
 
 
-def collect_skills(roots: list[Path]) -> list[Capability]:
+def collect_skills(
+    roots: list[Path],
+    *,
+    max_files: int = MAX_SKILL_FILES,
+    max_depth: int = MAX_SKILL_DEPTH,
+    max_file_bytes: int = MAX_SKILL_FILE_BYTES,
+    max_total_bytes: int = MAX_TOTAL_SKILL_BYTES,
+) -> tuple[list[Capability], list[str]]:
     found: dict[str, Capability] = {}
+    warnings: list[str] = []
+    files_seen = 0
+    total_bytes = 0
+    exhausted = False
     for root in roots:
+        if exhausted:
+            break
+        if root.is_symlink():
+            warnings.append(f"skipped symbolic-link skill root: {root}")
+            continue
         if not root.is_dir():
             continue
         try:
-            for path in root.rglob("SKILL.md"):
-                capability = read_skill(path, root)
+            for directory_name, directory_names, file_names in os.walk(root, followlinks=False):
+                directory = Path(directory_name)
+                relative = directory.relative_to(root)
+                depth = 0 if relative == Path(".") else len(relative.parts)
+                directory_names[:] = sorted(name for name in directory_names if not (directory / name).is_symlink())
+                if depth >= max_depth:
+                    if directory_names:
+                        warnings.append(f"stopped skill traversal below depth {max_depth}: {directory}")
+                    directory_names[:] = []
+                if "SKILL.md" not in file_names:
+                    continue
+                if files_seen >= max_files:
+                    warnings.append(f"stopped skill discovery after {max_files} files")
+                    exhausted = True
+                    break
+                if total_bytes >= max_total_bytes:
+                    warnings.append(f"stopped skill discovery after {max_total_bytes} bytes")
+                    exhausted = True
+                    break
+                path = directory / "SKILL.md"
+                capability, bytes_read, warning = read_skill(path, root, min(max_file_bytes, max_total_bytes - total_bytes))
+                files_seen += 1
+                total_bytes += bytes_read
+                if warning:
+                    warnings.append(f"{warning}: {path}")
                 if capability:
                     found.setdefault(capability.path, capability)
         except OSError:
-            pass
-    return list(found.values())
+            warnings.append(f"could not traverse skill root: {root}")
+    return list(found.values()), warnings
 
 
 def collect_agents(roots: list[Path]) -> list[Capability]:
@@ -159,7 +213,8 @@ def main() -> int:
     args = parser.parse_args()
     cwd = Path(args.cwd).resolve()
     agent_roots = [Path(item).expanduser() for item in args.agents_root] or [Path.home() / ".codex" / "agents"]
-    skills = rank(collect_skills(roots_for(cwd, args.skills_root, args.no_default_roots)), args.query)
+    discovered_skills, warnings = collect_skills(roots_for(cwd, args.skills_root, args.no_default_roots))
+    skills = rank(discovered_skills, args.query)
     discovered_agents = collect_agents(agent_roots)
     lane_agents = sorted((item for item in discovered_agents if item.name in LANE_AGENT_NAMES), key=lambda item: item.name)
     agents = rank(discovered_agents, args.query)
@@ -171,7 +226,7 @@ def main() -> int:
         payload["score"] = None
         payload["role"] = "required-lane"
         lane_agent_payload.append(payload)
-    print(json.dumps({"query": args.query, "cwd": str(cwd), "counts": {"skills": len(skills), "agents": len(agents), "lane_agents": len(lane_agents)}, "skills": [asdict(item) for item in skills[:args.top_skills]], "agents": [asdict(item) for item in agents[:args.top_agents]], "lane_agents": lane_agent_payload}, indent=2))
+    print(json.dumps({"query": args.query, "cwd": str(cwd), "counts": {"skills": len(skills), "agents": len(agents), "lane_agents": len(lane_agents)}, "warnings": warnings, "skills": [asdict(item) for item in skills[:args.top_skills]], "agents": [asdict(item) for item in agents[:args.top_agents]], "lane_agents": lane_agent_payload}, indent=2))
     return 0
 
 

@@ -17,7 +17,7 @@ def run_json(script: Path, *args: str) -> dict[str, object]:
 
 class EndToEndTests(unittest.TestCase):
     def test_bounded_change_uses_luna_lane(self) -> None:
-        route = run_json(ROUTE, "--objective", "fix a README title typo", "--known-area", "--acceptance-criteria", "--files", "1")
+        route = run_json(ROUTE, "--objective", "fix a README title typo", "--known-area", "--acceptance-criteria", "--files", "1", "--risk-assessment", "low")
         catalog = run_json(CATALOG, "--query", "fix a README title typo", "--cwd", str(ROOT), "--no-default-roots", "--agents-root", str(ROOT / "agents"))
         self.assertEqual(route["lane"], "luna")
         self.assertIn("laneorchestrator-luna-executor", [item["name"] for item in catalog["lane_agents"]])
