@@ -38,6 +38,14 @@ python3 ../.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/
 
 Use the validation commands in `tests/` before release.
 
+```bash
+python3 scripts/healthcheck.py
+python3 tests/test_catalog.py
+python3 tests/test_routes.py
+sh tests/test_installer.sh
+python3 -m unittest discover -s tests -v
+```
+
 ## Provenance
 
 This is a clean-room implementation. It takes high-level inspiration from [my-codex](https://github.com/sehoon787/my-codex), [SkillMesh](https://github.com/varunreddy/SkillMesh), [Sol Advisor](https://github.com/DannyMac180/sol-advisor), and [awesome-codex-subagents](https://github.com/VoltAgent/awesome-codex-subagents). No upstream implementation code or prompts are included.
