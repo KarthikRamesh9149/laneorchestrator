@@ -46,6 +46,8 @@ sh tests/test_installer.sh
 python3 -m unittest discover -s tests -v
 ```
 
+The suite includes a 50-case routing matrix spanning bounded edits, normal implementation, authentication, security, payments, migrations, public contracts, concurrency, and production operations.
+
 ## Provenance
 
 This is a clean-room implementation. It takes high-level inspiration from [my-codex](https://github.com/sehoon787/my-codex), [SkillMesh](https://github.com/varunreddy/SkillMesh), [Sol Advisor](https://github.com/DannyMac180/sol-advisor), and [awesome-codex-subagents](https://github.com/VoltAgent/awesome-codex-subagents). No upstream implementation code or prompts are included.
