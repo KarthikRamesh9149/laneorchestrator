@@ -16,6 +16,7 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 - Extracted the agent installer into a testable Python module behind the existing shell command.
 - Strengthened malformed-input validation and capability deduplication.
+- Upgraded CI actions to current Node.js 24 releases pinned by immutable commit SHA.
 
 ## 0.1.0 - 2026-08-07
 
