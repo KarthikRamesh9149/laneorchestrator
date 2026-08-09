@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Optional, Sequence
 
 from . import __version__
 from .diagnostics import CommandResult, command_result, error_result, render_human, render_json
+from .doctor import run_doctor, run_status
+from .models import codex_home
 
 
 class _ArgumentError(ValueError):
@@ -21,7 +24,7 @@ class _Parser(argparse.ArgumentParser):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="laneorchestrator")
-    parser.add_argument("command", nargs="?", help="command to run (currently: version)")
+    parser.add_argument("command", nargs="?", help="command to run (doctor, status, or version)")
     parser.add_argument("--json", action="store_true", help="emit the canonical JSON result")
     return parser
 
@@ -29,6 +32,15 @@ def build_parser() -> argparse.ArgumentParser:
 def dispatch(args: argparse.Namespace) -> CommandResult:
     if args.command == "version":
         return command_result("version", data={"version": __version__})
+    home = codex_home()
+    if args.command == "doctor":
+        return run_doctor(
+            Path(__file__).absolute().parents[1],
+            home / "laneorchestrator",
+            home / "agents",
+        )
+    if args.command == "status":
+        return run_status(home / "laneorchestrator", home / "agents")
     if args.command is None:
         return error_result("unknown", "invalid_arguments", "a command is required")
     return error_result("unknown", "invalid_arguments", "unknown command: {0}".format(args.command))
@@ -48,8 +60,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except _ArgumentError as exc:
         result = error_result("unknown", "invalid_arguments", str(exc))
         print(render_json(result) if _json_requested(arguments) else render_human(result))
-        return 1
+        return 2
 
     result = dispatch(args)
     print(render_json(result) if args.json else render_human(result))
+    if result.errors and result.errors[0].get("code") == "invalid_arguments":
+        return 2
     return 0 if result.ok else 1

@@ -126,10 +126,11 @@ def render_human(result: CommandResult) -> str:
         lines.append("data: {0}".format(json.dumps(_plain(result.data), sort_keys=True)))
     for diagnostic in result.diagnostics:
         lines.append(
-            "[{0}] {1}: {2}".format(
+            "[{0}] {1}: {2} evidence={3}".format(
                 diagnostic.level.value,
                 diagnostic.code,
                 diagnostic.message,
+                json.dumps(_plain(diagnostic.evidence), sort_keys=True),
             )
         )
     for error in result.errors:
