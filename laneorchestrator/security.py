@@ -15,6 +15,14 @@ import stat
 from pathlib import Path
 from typing import Optional, Tuple
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - native Windows is mutation-unsupported.
+    fcntl = None  # type: ignore
+
+
+PRIVATE_MUTATION_LOCK_NAME = ".laneorchestrator-state.lock"
+
 
 class SecurityError(ValueError):
     """Raised when an untrusted filesystem object fails a safety check."""
@@ -35,7 +43,9 @@ def platform_mutation_supported() -> Tuple[bool, str]:
         return False, "native Windows mutation is unsupported in v0.2.0"
     if os.name != "posix":
         return False, "filesystem mutation requires POSIX descriptor semantics"
-    required_constants = ("O_DIRECTORY", "O_NOFOLLOW")
+    if fcntl is None:
+        return False, "filesystem mutation requires POSIX advisory locking"
+    required_constants = ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")
     missing_constants = [name for name in required_constants if not hasattr(os, name)]
     if missing_constants:
         return False, "filesystem mutation requires {0}".format(missing_constants[0])
@@ -192,10 +202,105 @@ def write_all(descriptor: int, content: bytes) -> None:
         remaining = remaining[written:]
 
 
-def unlink_regular_nofollow_at_if_present(parent_fd: int, name: str) -> None:
-    """Unlink an optional regular sibling without following a link."""
+def _validate_private_lock_identity(metadata: os.stat_result) -> None:
+    if not stat.S_ISREG(metadata.st_mode):
+        raise SecurityError("private mutation lock is not a regular file")
+    if metadata.st_nlink != 1:
+        raise SecurityError("private mutation lock must not have multiple hard links")
+    if metadata.st_uid != os.geteuid():
+        raise SecurityError("private mutation lock has the wrong owner")
+
+
+def _validate_private_lock_metadata(metadata: os.stat_result) -> None:
+    _validate_private_lock_identity(metadata)
+    if stat.S_IMODE(metadata.st_mode) != 0o600:
+        raise SecurityError("private mutation lock mode must be 0600")
+
+
+def open_private_lock_at(parent_fd: int) -> int:
+    """Open, validate, and exclusively lock the private mutation lock file."""
 
     _require_mutation_support()
+    try:
+        parent_metadata = os.fstat(parent_fd)
+    except OSError as error:
+        raise SecurityError("could not inspect private lock parent") from error
+    _validate_private_leaf(parent_metadata)
+    common_flags = os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK
+    if hasattr(os, "O_CLOEXEC"):
+        common_flags |= os.O_CLOEXEC
+    created = False
+    try:
+        try:
+            descriptor = os.open(
+                PRIVATE_MUTATION_LOCK_NAME,
+                common_flags | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=parent_fd,
+            )
+            created = True
+        except FileExistsError:
+            descriptor = os.open(
+                PRIVATE_MUTATION_LOCK_NAME,
+                common_flags,
+                dir_fd=parent_fd,
+            )
+    except OSError as error:
+        raise SecurityError("could not open private mutation lock safely") from error
+
+    locked = False
+    successful = False
+    try:
+        opened = os.fstat(descriptor)
+        _validate_private_lock_identity(opened)
+        assert fcntl is not None
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        locked = True
+        if created:
+            os.fchmod(descriptor, 0o600)
+            os.fsync(descriptor)
+            os.fsync(parent_fd)
+        opened = os.fstat(descriptor)
+        _validate_private_lock_metadata(opened)
+        current = os.stat(
+            PRIVATE_MUTATION_LOCK_NAME,
+            dir_fd=parent_fd,
+            follow_symlinks=False,
+        )
+        _validate_private_lock_metadata(current)
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):
+            raise SecurityError("private mutation lock changed while acquiring it")
+        successful = True
+        return descriptor
+    except OSError as error:
+        raise SecurityError("could not acquire private mutation lock") from error
+    finally:
+        if not successful:
+            if locked:
+                assert fcntl is not None
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+                finally:
+                    os.close(descriptor)
+            else:
+                os.close(descriptor)
+
+
+def close_private_lock(descriptor: int) -> None:
+    """Release and close a descriptor returned by ``open_private_lock_at``."""
+
+    assert fcntl is not None
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+    finally:
+        os.close(descriptor)
+
+
+def _unlink_regular_nofollow_at_if_present_locked(parent_fd: int, name: str) -> None:
+    """Unlink an optional regular sibling while the private lock is held."""
+
+    if name == PRIVATE_MUTATION_LOCK_NAME:
+        raise SecurityError("private mutation lock must not be removed")
     metadata = validate_destination_at(parent_fd, name)
     if metadata is None:
         return
@@ -205,6 +310,17 @@ def unlink_regular_nofollow_at_if_present(parent_fd: int, name: str) -> None:
         return
     except OSError as error:
         raise SecurityError("could not remove private temporary file") from error
+
+
+def unlink_regular_nofollow_at_if_present(parent_fd: int, name: str) -> None:
+    """Lock and unlink an optional regular sibling without following a link."""
+
+    _require_mutation_support()
+    lock_fd = open_private_lock_at(parent_fd)
+    try:
+        _unlink_regular_nofollow_at_if_present_locked(parent_fd, name)
+    finally:
+        close_private_lock(lock_fd)
 
 
 def _same_destination(
@@ -231,11 +347,15 @@ def atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None:
         raise SecurityError("mode must grant permissions only to the owner")
 
     destination = Path(path)
+    if destination.name == PRIVATE_MUTATION_LOCK_NAME:
+        raise SecurityError("private mutation lock name is reserved")
     temporary_name = private_temporary_name(destination.name)
     parent_fd = open_parent_directory_nofollow(destination.parent)
     descriptor = -1
+    lock_fd = -1
     temporary_created = False
     try:
+        lock_fd = open_private_lock_at(parent_fd)
         inspected_destination = validate_destination_at(parent_fd, destination.name)
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
         if hasattr(os, "O_CLOEXEC"):
@@ -265,11 +385,21 @@ def atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None:
         temporary_created = False
         os.fsync(parent_fd)
     finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        if temporary_created:
-            unlink_regular_nofollow_at_if_present(parent_fd, temporary_name)
-        os.close(parent_fd)
+        try:
+            if descriptor >= 0:
+                os.close(descriptor)
+        finally:
+            try:
+                if temporary_created:
+                    _unlink_regular_nofollow_at_if_present_locked(
+                        parent_fd, temporary_name
+                    )
+            finally:
+                try:
+                    if lock_fd >= 0:
+                        close_private_lock(lock_fd)
+                finally:
+                    os.close(parent_fd)
 
 
 def read_regular_nofollow(path: Path, max_bytes: int) -> bytes:

@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+from laneorchestrator import security as security_module
 from laneorchestrator.security import (
+    PRIVATE_MUTATION_LOCK_NAME,
     SecurityError,
     atomic_private_write,
+    close_private_lock,
     open_parent_directory_nofollow,
+    open_private_lock_at,
     platform_mutation_supported,
     private_temporary_name,
     read_regular_nofollow,
@@ -39,6 +45,31 @@ class SecurityPrimitiveTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
+
+    def assert_lock_is_contended_by_child(self) -> None:
+        code = """
+import fcntl
+import os
+import sys
+
+descriptor = os.open(sys.argv[1], os.O_RDWR | os.O_NOFOLLOW)
+try:
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise SystemExit(73)
+    fcntl.flock(descriptor, fcntl.LOCK_UN)
+finally:
+    os.close(descriptor)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code, os.fspath(self.private / PRIVATE_MUTATION_LOCK_NAME)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 73, msg=result.stderr)
 
     def test_validate_absolute_private_root_accepts_owned_mode_0700(self) -> None:
         validate_absolute_private_root(self.private)
@@ -142,6 +173,140 @@ class SecurityPrimitiveTests(unittest.TestCase):
             atomic_private_write(destination, b"{}\n")
         self.assertFalse(outside.exists())
 
+    def test_private_lock_rejects_symlink_nonregular_hardlink_and_unsafe_mode(self) -> None:
+        lock_path = self.private / PRIVATE_MUTATION_LOCK_NAME
+        outside = self.root / "outside-lock"
+        outside.write_bytes(b"outside")
+        lock_path.symlink_to(outside)
+        with self.assertRaises(SecurityError):
+            atomic_private_write(self.private / "config.json", b"new")
+        self.assertEqual(outside.read_bytes(), b"outside")
+        self.assertFalse((self.private / "config.json").exists())
+
+        lock_path.unlink()
+        lock_path.mkdir()
+        with self.assertRaises(SecurityError):
+            atomic_private_write(self.private / "config.json", b"new")
+        lock_path.rmdir()
+
+        os.mkfifo(lock_path)
+        with self.assertRaises(SecurityError):
+            atomic_private_write(self.private / "config.json", b"new")
+        lock_path.unlink()
+
+        os.link(outside, lock_path)
+        with self.assertRaises(SecurityError):
+            atomic_private_write(self.private / "config.json", b"new")
+        lock_path.unlink()
+
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o644)
+        with self.assertRaises(SecurityError):
+            atomic_private_write(self.private / "config.json", b"new")
+        self.assertFalse((self.private / "config.json").exists())
+
+    def test_atomic_write_rejects_reserved_lock_destination(self) -> None:
+        parent_fd = open_parent_directory_nofollow(self.private)
+        lock_fd = open_private_lock_at(parent_fd)
+        close_private_lock(lock_fd)
+        os.close(parent_fd)
+        lock_path = self.private / PRIVATE_MUTATION_LOCK_NAME
+        before = lock_path.stat()
+        with self.assertRaises(SecurityError):
+            atomic_private_write(lock_path, b"replacement")
+        after = lock_path.stat()
+        self.assertEqual((before.st_dev, before.st_ino), (after.st_dev, after.st_ino))
+        self.assertEqual(lock_path.read_bytes(), b"")
+
+    def test_private_lock_is_exclusive_across_publication_and_cleanup(self) -> None:
+        destination = self.private / "config.json"
+        real_replace = os.replace
+        real_validate = validate_destination_at
+
+        def checked_validate(parent_fd: int, name: str) -> object:
+            if name == destination.name:
+                self.assert_lock_is_contended_by_child()
+            return real_validate(parent_fd, name)
+
+        def checked_replace(*args: object, **kwargs: object) -> None:
+            self.assert_lock_is_contended_by_child()
+            real_replace(*args, **kwargs)
+
+        with mock.patch(
+            "laneorchestrator.security.validate_destination_at",
+            side_effect=checked_validate,
+        ):
+            with mock.patch(
+                "laneorchestrator.security.os.replace", side_effect=checked_replace
+            ):
+                atomic_private_write(destination, b"published\n")
+        self.assertEqual(destination.read_bytes(), b"published\n")
+
+        real_cleanup = security_module._unlink_regular_nofollow_at_if_present_locked
+
+        def checked_cleanup(parent_fd: int, name: str) -> None:
+            self.assert_lock_is_contended_by_child()
+            real_cleanup(parent_fd, name)
+
+        with mock.patch("os.replace", side_effect=OSError("injected")):
+            with mock.patch(
+                "laneorchestrator.security._unlink_regular_nofollow_at_if_present_locked",
+                side_effect=checked_cleanup,
+            ):
+                with self.assertRaises(OSError):
+                    atomic_private_write(destination, b"not published\n")
+        self.assertEqual(destination.read_bytes(), b"published\n")
+        parent_fd = open_parent_directory_nofollow(self.private)
+        try:
+            lock_fd = open_private_lock_at(parent_fd)
+            close_private_lock(lock_fd)
+        finally:
+            os.close(parent_fd)
+
+    def test_cooperating_child_waits_for_lock_then_publishes(self) -> None:
+        parent_fd = open_parent_directory_nofollow(self.private)
+        lock_fd = open_private_lock_at(parent_fd)
+        destination = self.private / "config.json"
+        code = """
+import sys
+from pathlib import Path
+from laneorchestrator import security
+
+real_open_private_lock_at = security.open_private_lock_at
+def announce_then_lock(parent_fd):
+    print("waiting", flush=True)
+    return real_open_private_lock_at(parent_fd)
+
+security.open_private_lock_at = announce_then_lock
+security.atomic_private_write(Path(sys.argv[1]), b"child published\\n")
+print("done", flush=True)
+"""
+        process = subprocess.Popen(
+            [sys.executable, "-c", code, os.fspath(destination)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            self.assertIsNotNone(process.stdout)
+            self.assertEqual(process.stdout.readline().strip(), "waiting")
+            with self.assertRaises(subprocess.TimeoutExpired):
+                process.wait(timeout=0.25)
+            self.assertFalse(destination.exists())
+            close_private_lock(lock_fd)
+            lock_fd = -1
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 0, msg=stderr)
+            self.assertEqual(stdout.strip(), "done")
+            self.assertEqual(destination.read_bytes(), b"child published\n")
+        finally:
+            if lock_fd >= 0:
+                close_private_lock(lock_fd)
+            os.close(parent_fd)
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+
     def test_atomic_write_rejects_live_link_directory_fifo_and_symlinked_ancestor(self) -> None:
         outside = self.root / "outside"
         outside.write_bytes(b"outside")
@@ -189,7 +354,10 @@ class SecurityPrimitiveTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 atomic_private_write(destination, b"new\n")
         self.assertEqual(destination.read_bytes(), b"old\n")
-        self.assertEqual(list(self.private.iterdir()), [destination])
+        self.assertEqual(
+            {entry.name for entry in self.private.iterdir()},
+            {destination.name, PRIVATE_MUTATION_LOCK_NAME},
+        )
 
     def test_destination_replacement_race_is_rejected_before_publication(self) -> None:
         destination = self.private / "config.json"
@@ -208,12 +376,20 @@ class SecurityPrimitiveTests(unittest.TestCase):
             with self.assertRaises(SecurityError):
                 atomic_private_write(destination, b"new\n")
         self.assertEqual(destination.read_bytes(), b"raced\n")
-        self.assertEqual(list(self.private.iterdir()), [destination])
+        self.assertEqual(
+            {entry.name for entry in self.private.iterdir()},
+            {destination.name, PRIVATE_MUTATION_LOCK_NAME},
+        )
 
     def test_atomic_write_publishes_complete_private_file(self) -> None:
         destination = self.private / "config.json"
         content = (b"new complete content\n" * 4096)
         atomic_private_write(destination, content)
+        lock_metadata = (self.private / PRIVATE_MUTATION_LOCK_NAME).stat()
+        self.assertTrue(stat.S_ISREG(lock_metadata.st_mode))
+        self.assertEqual(lock_metadata.st_nlink, 1)
+        self.assertEqual(lock_metadata.st_uid, os.geteuid())
+        self.assertEqual(stat.S_IMODE(lock_metadata.st_mode), 0o600)
         self.assertEqual(destination.read_bytes(), content)
         self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o600)
         atomic_private_write(destination, b"replacement\n", mode=0o400)
@@ -297,6 +473,13 @@ class PlatformSupportTests(unittest.TestCase):
                     unlink_regular_nofollow_at_if_present(10, "temporary")
         opener.assert_not_called()
         inspector.assert_not_called()
+
+    def test_windows_lock_open_refuses_before_filesystem_access(self) -> None:
+        with mock.patch("laneorchestrator.security.os.name", "nt"):
+            with mock.patch("laneorchestrator.security.os.open") as opener:
+                with self.assertRaises(SecurityError):
+                    open_private_lock_at(10)
+        opener.assert_not_called()
 
 
 if __name__ == "__main__":

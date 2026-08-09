@@ -15,6 +15,8 @@
 - Keep `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/scripts/catalog.py`, and `scripts/install_agents.py` as backward-compatible wrappers through v0.2.0.
 - Treat capability metadata, configuration, state files, plan tokens, and destination paths as untrusted input.
 - Never follow symbolic links or weaken atomicity to make an operation succeed.
+- Treat other users, unsafe filesystem objects, symlink/path attacks, and all cooperating LaneOrchestrator instances as in-scope filesystem threats. Malicious processes already running with the same effective UID are out of scope because they can already access the user's private state and processes.
+- Serialize cooperating POSIX LaneOrchestrator mutations with a validated private advisory lock. This locking is not a control against hostile same-effective-UID code, and no task may claim an unavailable portable compare-and-replace guarantee.
 - Never modify profiles not named `laneorchestrator-*.toml`; never read or rewrite VoltAgent profiles.
 - Native Windows mutation must fail safely. WSL is the supported Windows installation path for v0.2.0.
 - Human and JSON output must be derived from the same typed result object.
@@ -298,12 +300,15 @@ def load_config(state_root: Path) -> EffectiveConfig:
 
 - `validate_absolute_private_root(path: Path) -> None` rejects relative paths, linked/non-directory components, non-sticky group/world-writable ancestors, and a state root not owned by the user with mode 0700 where those guarantees are available.
 - `read_regular_nofollow(path: Path, max_bytes: int) -> bytes` rejects links, non-regular files, oversized content, and replacement races.
-- `atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None` opens the parent chain without following links, creates a private sibling temp relative to the held parent descriptor, calls descriptor-relative same-directory `os.replace`, and syncs the parent.
+- `atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None` opens the parent chain without following links, holds the validated private advisory lock from before destination inspection through replacement or cleanup, creates a private sibling temp relative to the held parent descriptor, calls descriptor-relative same-directory `os.replace`, and syncs the parent.
 - `sha256_bytes(content: bytes) -> str` and `sha256_regular_file(path: Path, max_bytes: int) -> str` provide lowercase hex digests.
 - `platform_mutation_supported() -> Tuple[bool, str]` returns false on native Windows for v0.2.0.
-- Private helpers `open_parent_directory_nofollow`, `validate_destination_at`, `private_temporary_name`, `write_all`, and `unlink_regular_nofollow_at_if_present` are defined and tested in this module; all destination operations use the held parent descriptor and basename.
+- Private helpers `open_parent_directory_nofollow`, `open_private_lock_at`, `close_private_lock`, `validate_destination_at`, `private_temporary_name`, `write_all`, and `unlink_regular_nofollow_at_if_present` are defined and tested in this module; all destination and lock operations use the held parent descriptor and basename.
+- The persistent advisory lock is a regular, single-link, current-owner mode-0600 file opened relative to the held mode-0700 parent with no-follow/exclusive-safe flags. Symlinked, multiply linked, wrongly owned, wrongly permissioned, or non-regular lock objects fail closed.
+- The persistent advisory lock basename is reserved: atomic write and cleanup APIs must refuse to replace or remove it.
 
 - [ ] Write POSIX tests for regular files, dangling and live symlinks, symlinked ancestors, directories/FIFOs, oversized reads, modes, unchanged old file after injected pre-replace failure, and complete new file after success.
+- [ ] Prove advisory-lock exclusivity with a real cooperating child process: publication remains blocked while another instance holds the validated lock and completes after release. Assert the lock remains held during publication and failure cleanup, and reject unsafe or symlinked lock objects.
 
 ```python
 def test_atomic_write_never_follows_dangling_destination(self) -> None:
@@ -333,7 +338,9 @@ def atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None:
     parent_fd = open_parent_directory_nofollow(path.parent)
     temporary_name = private_temporary_name(path.name)
     fd = -1
+    lock_fd = -1
     try:
+        lock_fd = open_private_lock_at(parent_fd)
         validate_destination_at(parent_fd, path.name)
         fd = os.open(temporary_name,
                      os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -348,9 +355,13 @@ def atomic_private_write(path: Path, content: bytes, mode: int = 0o600) -> None:
     finally:
         if fd >= 0:
             os.close(fd)
-        unlink_regular_nofollow_at_if_present(parent_fd, temporary_name)
+        _unlink_regular_nofollow_at_if_present_locked(parent_fd, temporary_name)
+        if lock_fd >= 0:
+            close_private_lock(lock_fd)
         os.close(parent_fd)
 ```
+
+The identity check immediately before replacement and the advisory lock protect the documented boundary of other users, unsafe filesystem objects, and cooperating LaneOrchestrator instances. They are not represented as a portable conditional replace or as protection from a malicious process already running with the same effective UID.
 
 - [ ] Re-run focused tests under repeated mode (`for i in 1 2 3; do ...; done`) and full validation.
 - [ ] Commit with `git commit -m "feat: add safe atomic state primitives"`.

@@ -54,6 +54,12 @@ The current project has strong routing, discovery, installer, security, and test
 - Native Windows profile mutation will not be advertised unless equivalent reparse-point protections are implemented and verified. WSL is the supported Windows installation path for v0.2.0.
 - The release will not promise or manufacture GitHub stars, forks, testimonials, or benchmark outcomes.
 
+## Filesystem threat boundary
+
+Malicious processes already running with the same effective UID as LaneOrchestrator are outside the v0.2.0 threat boundary because they can already access the user's private state and processes. Other users, unsafe filesystem objects, symlink and path attacks, and all cooperating LaneOrchestrator instances remain inside the threat boundary.
+
+Within that boundary, mutation rejects unsafe ancestry, ownership, permissions, links, non-regular files, reserved lock-file destinations, and detected identity changes. A validated private advisory lock file serializes cooperating POSIX LaneOrchestrator mutations from destination inspection through atomic publication or cleanup. Advisory locking is serialization within this boundary; it is not claimed as a control against hostile code running with the same effective UID, and the design does not claim an unavailable portable compare-and-replace primitive.
+
 ## Audience
 
 The primary audience is a Codex user who wants one safe entry point for implementation, debugging, review, research, or refactoring. The user may have no external agents, a small hand-picked set, or a large global catalog such as VoltAgent. They should not need to understand LaneOrchestrator's internal model lanes before first use.
@@ -221,7 +227,7 @@ Mutation is always a two-step operation:
 
 Plans expire after ten minutes and are single-use. Tokens are generated with the Python `secrets` module and are bound by the stored plan. A failed or interrupted apply cannot be replayed. Applying unchanged state is idempotent.
 
-Configuration writes use a private sibling temporary file, `fsync`, atomic replacement, and parent-directory synchronization where supported. Failure leaves either the previous complete file or the new complete file, never a partially written JSON document.
+Configuration writes hold the validated private advisory lock, use a private sibling temporary file, `fsync`, atomic replacement, and parent-directory synchronization where supported. Cooperating LaneOrchestrator writers are serialized across inspection, publication, and cleanup. Failure leaves either the previous complete file or the new complete file, never a partially written JSON document.
 
 ## Doctor and status
 
@@ -401,7 +407,7 @@ Unit tests cover defaults, schema validation, migrations, atomic writes, diagnos
 
 ### Adversarial coverage
 
-Tests cover blank, malformed, oversized, deeply nested, control-character, and secret-like input; prompt injection in metadata; ranking manipulation; duplicate names; vendor mismatch; high-risk evasion; symlink and dangling-link paths; reparse-point detection where supported; races; collisions; interrupted writes; managed drift; unsafe permissions; corrupt state; expired/replayed confirmation; unavailable roles; output flooding; and discovery resource exhaustion.
+Tests cover blank, malformed, oversized, deeply nested, control-character, and secret-like input; prompt injection in metadata; ranking manipulation; duplicate names; vendor mismatch; high-risk evasion; symlink and dangling-link paths; reparse-point detection where supported; races between cooperating instances; advisory-lock validation and exclusivity; collisions; interrupted writes; managed drift; unsafe permissions; corrupt state; expired/replayed confirmation; unavailable roles; output flooding; and discovery resource exhaustion. Race claims apply to other users, unsafe filesystem objects, and cooperating LaneOrchestrator instances within the documented threat boundary, not malicious same-effective-UID code.
 
 ### Integration journeys
 
