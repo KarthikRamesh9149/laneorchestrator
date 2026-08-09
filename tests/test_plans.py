@@ -105,6 +105,24 @@ class MutationPlanTests(unittest.TestCase):
             "profiles.remove",
         )
 
+    def test_create_retries_a_leading_dash_token_that_argparse_cannot_consume(self) -> None:
+        option_shaped_token = "-" + ("A" * 42)
+        command_safe_token = "B" * 43
+        with mock.patch(
+            "laneorchestrator.plans.secrets.token_urlsafe",
+            side_effect=[option_shaped_token, command_safe_token],
+        ):
+            token = create_plan(
+                "profiles.install", self.operations, self.root, now=100
+            )
+
+        self.assertEqual(token, command_safe_token)
+        self.assertFalse(token.startswith("-"))
+        self.assertEqual(
+            load_plan(token, "profiles.install", self.root, now=101).kind,
+            "profiles.install",
+        )
+
     def test_concurrent_fixed_token_creators_never_replace_each_other(self) -> None:
         fixed_token = "C" * 43
         start_barrier = threading.Barrier(2)

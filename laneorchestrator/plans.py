@@ -352,6 +352,12 @@ def _create_unique_plan_locked(
     for _attempt in range(_TOKEN_GENERATION_ATTEMPTS):
         token = secrets.token_urlsafe(32)
         _validate_token(token)
+        # A raw value beginning with '-' is valid base64url but argparse treats
+        # it as another option in the documented ``--token TOKEN`` form.
+        # Rejection sampling preserves the 32-byte CSPRNG source policy while
+        # guaranteeing every token we issue is directly command-consumable.
+        if token.startswith("-"):
+            continue
         plan_path = _plan_path_for_token(token, plans_root)
         if _tombstone_exists(plan_path):
             continue

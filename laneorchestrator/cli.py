@@ -62,12 +62,24 @@ class _Parser(argparse.ArgumentParser):
         raise _ArgumentError(message)
 
 
+def _add_json_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="emit the canonical JSON result",
+    )
+
+
 def _subparser(parent: argparse._SubParsersAction, name: str) -> _Parser:
-    return parent.add_parser(name)  # type: ignore[return-value]
+    parser = parent.add_parser(name)  # type: ignore[assignment]
+    _add_json_option(parser)
+    return parser  # type: ignore[return-value]
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="laneorchestrator")
+    _add_json_option(parser)
     commands = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
 
     _subparser(commands, "doctor")
@@ -379,13 +391,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     raw_arguments = tuple(sys.argv[1:] if argv is None else argv)
     as_json = _json_requested(raw_arguments)
-    arguments = tuple(value for value in raw_arguments if value != "--json")
     parser = build_parser()
     try:
-        args = parser.parse_args(arguments)
-        args.json = as_json
+        args = parser.parse_args(raw_arguments)
+        as_json = bool(getattr(args, "json", False))
     except _ArgumentError as error:
-        result = error_result(_command_for_error(arguments), "INVALID_ARGUMENTS", str(error))
+        result = error_result(_command_for_error(raw_arguments), "INVALID_ARGUMENTS", str(error))
         _render(result, as_json)
         return 2
 

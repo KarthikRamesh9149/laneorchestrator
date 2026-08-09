@@ -72,6 +72,28 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(self.payload(benchmark)["errors"][0]["code"], "INVALID_ARGUMENTS")
         self.assertNotIn("Traceback", benchmark.stderr + benchmark.stdout)
 
+    def test_every_parser_help_surface_documents_json_mode(self) -> None:
+        surfaces = (
+            ("--help",),
+            ("doctor", "--help"),
+            ("status", "--help"),
+            ("version", "--help"),
+            ("configure", "--help"),
+            ("configure", "preview", "--help"),
+            ("configure", "apply", "--help"),
+            ("route", "--help"),
+            ("catalog", "--help"),
+            ("profiles", "--help"),
+            ("profiles", "install", "--help"),
+            ("profiles", "install", "preview", "--help"),
+            ("profiles", "install", "apply", "--help"),
+        )
+        for arguments in surfaces:
+            with self.subTest(arguments=arguments):
+                result = self.run_cli(*arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("--json", result.stdout)
+
     def test_configure_preview_apply_and_replay_use_one_time_plan(self) -> None:
         preview = self.run_cli(
             "configure",
