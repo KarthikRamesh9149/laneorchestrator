@@ -36,12 +36,21 @@ jobs:
         with:
           output: ${{ runner.temp }}/codeql-sarif
           upload: ${{ github.event.repository.private && 'never' || 'always' }}
+      - name: Require SARIF from successful private analysis
+        if: ${{ success() && github.event.repository.private }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sarif_dir="${RUNNER_TEMP}/codeql-sarif"
+          test -d "$sarif_dir"
+          find "$sarif_dir" -type f -name '*.sarif' -print -quit | grep -q .
       - name: Preserve private CodeQL SARIF evidence
-        if: ${{ github.event.repository.private }}
+        if: ${{ !cancelled() && github.event.repository.private }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codeql-sarif-${{ github.sha }}-${{ github.run_id }}
           path: ${{ runner.temp }}/codeql-sarif
-          if-no-files-found: error
+          # Do not replace a failed CodeQL diagnostic when no partial SARIF exists.
+          if-no-files-found: warn
           retention-days: 90
           include-hidden-files: false

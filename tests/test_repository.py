@@ -69,7 +69,10 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("security-events: write", security)
         self.assertIn("output: ${{ runner.temp }}/codeql-sarif", security)
         self.assertIn("upload: ${{ github.event.repository.private && 'never' || 'always' }}", security)
-        self.assertIn("if: ${{ github.event.repository.private }}", security)
+        self.assertIn("- name: Require SARIF from successful private analysis", security)
+        self.assertIn("if: ${{ !cancelled() && github.event.repository.private }}", security)
+        self.assertIn("if: ${{ success() && github.event.repository.private }}", security)
+        self.assertIn("if-no-files-found: warn", security)
         self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1", security)
 
     def test_validation_entry_points_are_executable(self) -> None:
