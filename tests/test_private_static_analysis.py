@@ -85,8 +85,67 @@ class PrivateStaticAnalysisTests(unittest.TestCase):
         (outside / "source.py").write_text("pass\n", encoding="utf-8")
         (self.root / "linked-source").symlink_to(outside, target_is_directory=True)
 
-        with self.assertRaisesRegex(ScannerError, "not a regular directory"):
+        with self.assertRaisesRegex(ScannerError, "contains symbolic link"):
             analyze(("linked-source",), workspace=self.root)
+
+    @unittest.skipUnless(os.name == "posix", "symbolic-link source boundary is POSIX-specific")
+    def test_rejects_symbolic_links_anywhere_in_the_tree(self) -> None:
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "outside.py").write_text("pass\n", encoding="utf-8")
+        nested = self.source / "nested"
+        nested.mkdir()
+        (nested / "clean.py").write_text("pass\n", encoding="utf-8")
+        (nested / "linked-file.txt").symlink_to(outside / "outside.py")
+
+        with self.assertRaisesRegex(ScannerError, "contains symbolic link"):
+            analyze(("source",), workspace=self.root)
+
+        (nested / "linked-file.txt").unlink()
+        (nested / "linked-directory").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ScannerError, "contains symbolic link"):
+            analyze(("source",), workspace=self.root)
+
+    def test_fails_closed_for_entry_and_depth_limits(self) -> None:
+        for name in ("one.py", "two.py", "three.py"):
+            (self.source / name).write_text("pass\n", encoding="utf-8")
+
+        with mock.patch("scripts.private_static_analysis.MAX_TREE_ENTRIES", 2):
+            with self.assertRaisesRegex(ScannerError, "entry limit"):
+                analyze(("source",), workspace=self.root)
+
+        for name in ("one.py", "two.py", "three.py"):
+            (self.source / name).unlink()
+        deep = self.source / "one" / "two"
+        deep.mkdir(parents=True)
+        (deep / "deep.py").write_text("pass\n", encoding="utf-8")
+        with mock.patch("scripts.private_static_analysis.MAX_DIRECTORY_DEPTH", 1):
+            with self.assertRaisesRegex(ScannerError, "directory depth"):
+                analyze(("source",), workspace=self.root)
+
+    def test_empty_source_writes_deterministic_failure_sarif(self) -> None:
+        first = self.root / "first.sarif"
+        second = self.root / "second.sarif"
+
+        with mock.patch("scripts.private_static_analysis._workspace_root", return_value=self.root):
+            self.assertEqual(main(("--source", "source", "--output", str(first))), 2)
+            self.assertEqual(main(("--source", "source", "--output", str(second))), 2)
+
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+        payload = json.loads(first.read_text(encoding="utf-8"))
+        self.assertEqual(payload["version"], "2.1.0")
+        self.assertEqual(payload["runs"][0]["results"][0]["ruleId"], "python/analysis-failure")
+
+    def test_unreadable_source_fails_closed_and_writes_failure_sarif(self) -> None:
+        (self.source / "blocked.py").write_text("pass\n", encoding="utf-8")
+        output = self.root / "failure.sarif"
+
+        with mock.patch("scripts.private_static_analysis._workspace_root", return_value=self.root):
+            with mock.patch("scripts.private_static_analysis.os.open", side_effect=PermissionError("blocked")):
+                self.assertEqual(main(("--source", "source", "--output", str(output))), 2)
+
+        payload = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(payload["runs"][0]["results"][0]["ruleId"], "python/analysis-failure")
 
 
 if __name__ == "__main__":

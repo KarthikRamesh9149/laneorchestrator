@@ -21,6 +21,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 MAX_FILES = 512
 MAX_FILE_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
+MAX_TREE_ENTRIES = 4096
+MAX_DIRECTORY_DEPTH = 32
 TOOL_NAME = "laneorchestrator-private-static-analysis"
 
 RULES = {
@@ -134,29 +136,84 @@ def _source_roots(values: Sequence[str], workspace: Path) -> Tuple[Path, ...]:
         candidate = Path(value)
         if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
             raise ScannerError("source must be a relative path inside the workspace: {0}".format(value))
-        requested = workspace / candidate
+        requested = workspace
+        for part in candidate.parts:
+            requested = requested / part
+            try:
+                metadata = requested.lstat()
+            except OSError as error:
+                raise ScannerError("could not inspect source: {0}".format(value)) from error
+            if stat.S_ISLNK(metadata.st_mode):
+                raise ScannerError("source path contains symbolic link: {0}".format(value))
         try:
             metadata = requested.lstat()
         except OSError as error:
             raise ScannerError("could not inspect source: {0}".format(value)) from error
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        if not stat.S_ISDIR(metadata.st_mode):
             raise ScannerError("source is not a regular directory: {0}".format(value))
-        path = requested.resolve()
-        try:
-            path.relative_to(workspace)
-        except ValueError as error:
-            raise ScannerError("source escapes the workspace: {0}".format(value)) from error
-        roots.append(path)
+        roots.append(requested)
     if not roots:
         raise ScannerError("at least one source directory is required")
-    return tuple(sorted(set(roots)))
+    canonical: List[Path] = []
+    for root in sorted(set(roots), key=lambda item: item.as_posix()):
+        if any(_is_within(root, existing) for existing in canonical):
+            continue
+        canonical.append(root)
+    return tuple(canonical)
+
+
+def _is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
 
 
 def _python_files(roots: Iterable[Path], workspace: Path) -> Tuple[Path, ...]:
     files: List[Path] = []
     total_bytes = 0
-    for root in roots:
-        for path in sorted(root.rglob("*.py")):
+    tree_entries = 0
+    pending: List[Tuple[Path, int]] = [(root, 0) for root in reversed(tuple(roots))]
+    while pending:
+        directory, depth = pending.pop()
+        entries: List[Tuple[str, Path, os.stat_result]] = []
+        try:
+            with os.scandir(directory) as stream:
+                for entry in stream:
+                    tree_entries += 1
+                    if tree_entries > MAX_TREE_ENTRIES:
+                        raise ScannerError("source traversal exceeds configured entry limit")
+                    try:
+                        if entry.is_symlink():
+                            raise ScannerError(
+                                "source tree contains symbolic link: {0}".format(
+                                    Path(entry.path).relative_to(workspace).as_posix()
+                                )
+                            )
+                        metadata = entry.stat(follow_symlinks=False)
+                    except OSError as error:
+                        raise ScannerError("could not inspect source entry: {0}".format(entry.path)) from error
+                    path = Path(entry.path)
+                    if stat.S_ISDIR(metadata.st_mode):
+                        if depth >= MAX_DIRECTORY_DEPTH:
+                            raise ScannerError("source traversal exceeds configured directory depth")
+                    elif not stat.S_ISREG(metadata.st_mode):
+                        raise ScannerError(
+                            "source tree contains unsupported filesystem entry: {0}".format(
+                                path.relative_to(workspace).as_posix()
+                            )
+                        )
+                    entries.append((entry.name, path, metadata))
+        except OSError as error:
+            raise ScannerError("could not traverse source directory: {0}".format(directory)) from error
+
+        for _name, path, metadata in reversed(sorted(entries, key=lambda item: item[0])):
+            if stat.S_ISDIR(metadata.st_mode):
+                pending.append((path, depth + 1))
+                continue
+            if path.suffix != ".py":
+                continue
             try:
                 metadata = path.lstat()
             except OSError as error:
@@ -164,14 +221,57 @@ def _python_files(roots: Iterable[Path], workspace: Path) -> Tuple[Path, ...]:
             if stat.S_ISLNK(metadata.st_mode):
                 raise ScannerError("source file is symbolic link: {0}".format(path.relative_to(workspace)))
             if not stat.S_ISREG(metadata.st_mode):
-                continue
+                raise ScannerError("source file is not regular: {0}".format(path.relative_to(workspace)))
             if metadata.st_size > MAX_FILE_BYTES:
                 raise ScannerError("source file exceeds byte limit: {0}".format(path.relative_to(workspace)))
             total_bytes += metadata.st_size
             if len(files) >= MAX_FILES or total_bytes > MAX_TOTAL_BYTES:
                 raise ScannerError("source analysis exceeds configured resource limits")
             files.append(path)
-    return tuple(sorted(set(files)))
+    files = sorted(set(files), key=lambda item: item.relative_to(workspace).as_posix())
+    if not files:
+        raise ScannerError("source analysis found no Python files")
+    return tuple(files)
+
+
+def _read_source(path: Path, workspace: Path) -> str:
+    """Read a regular source file without following a replacement symlink."""
+    try:
+        before = path.lstat()
+    except OSError as error:
+        raise ScannerError("could not inspect source file: {0}".format(path)) from error
+    if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+        raise ScannerError("source file is not a regular non-symbolic-link file: {0}".format(path.relative_to(workspace)))
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(os.fspath(path), flags)
+    except OSError as error:
+        raise ScannerError("could not read source file: {0}".format(path.relative_to(workspace))) from error
+    try:
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise ScannerError("source file changed during analysis: {0}".format(path.relative_to(workspace)))
+        chunks: List[bytes] = []
+        size = 0
+        while size <= MAX_FILE_BYTES:
+            chunk = os.read(descriptor, min(64 * 1024, MAX_FILE_BYTES + 1 - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+        if size > MAX_FILE_BYTES:
+            raise ScannerError("source file exceeds byte limit while reading: {0}".format(path.relative_to(workspace)))
+        after = os.fstat(descriptor)
+        if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) != (
+            opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns,
+        ):
+            raise ScannerError("source file changed during analysis: {0}".format(path.relative_to(workspace)))
+    finally:
+        os.close(descriptor)
+    try:
+        return b"".join(chunks).decode("utf-8")
+    except UnicodeError as error:
+        raise ScannerError("source file is not UTF-8: {0}".format(path.relative_to(workspace))) from error
 
 
 def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[Tuple[Finding, ...], Tuple[str, ...]]:
@@ -182,9 +282,9 @@ def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[T
     for path in _python_files(roots, workspace):
         relative = path.relative_to(workspace).as_posix()
         try:
-            source = path.read_text(encoding="utf-8")
+            source = _read_source(path, workspace)
             tree = ast.parse(source, filename=relative)
-        except (OSError, UnicodeError, SyntaxError) as error:
+        except SyntaxError as error:
             line = getattr(error, "lineno", 1) or 1
             column = getattr(error, "offset", 1) or 1
             findings.append(Finding(
@@ -206,6 +306,13 @@ def sarif(findings: Sequence[Finding], scanned: Sequence[str]) -> Dict[str, obje
             "name": "unparseable-source",
             "shortDescription": {"text": "Unparseable Python source"},
             "fullDescription": {"text": "Analysis cannot continue safely until Python source parses."},
+            "defaultConfiguration": {"level": "error"},
+        }
+    if any(finding.rule_id == "python/analysis-failure" for finding in findings):
+        rules["python/analysis-failure"] = {
+            "name": "analysis-failure",
+            "shortDescription": {"text": "Private static analysis could not complete"},
+            "fullDescription": {"text": "The bounded source analysis failed closed before it could establish complete evidence."},
             "defaultConfiguration": {"level": "error"},
         }
     return {
@@ -242,6 +349,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         findings, scanned = analyze(args.source)
         write_sarif(output, findings, scanned)
     except (OSError, ScannerError) as error:
+        failure = Finding(
+            "python/analysis-failure",
+            "Private static analysis could not complete safely: {0}".format(error),
+            "analysis://private-static-analysis",
+            1,
+            1,
+        )
+        try:
+            write_sarif(output, (failure,), ())
+        except OSError as write_error:
+            print("private static analysis could not write failure SARIF: {0}".format(write_error), file=sys.stderr)
         print("private static analysis failed: {0}".format(error), file=sys.stderr)
         return 2
     print("private static analysis: {0} result(s) across {1} Python file(s)".format(len(findings), len(scanned)))
