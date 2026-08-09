@@ -339,7 +339,7 @@ def _codex_parent_chain_inspection(directory: Path) -> Tuple[str, _PathSnapshot]
         except FileNotFoundError:
             return "missing", ()
         except OSError:
-            return "unsafe_executable_path", ()
+            return "unverified_executable_path", ()
         if _is_link_or_reparse(metadata) or not stat.S_ISDIR(metadata.st_mode):
             return "unsafe_executable_path", ()
         metadata_items.append(metadata)
@@ -384,14 +384,14 @@ def _codex_executable_inspection(candidate: Path) -> Tuple[str, _PathSnapshot]:
         chain_state, _snapshot = _codex_parent_chain_inspection(path.parent)
         if chain_state != "found":
             return chain_state, ()
-        return "unsafe_executable", ()
+        return "unverified_executable_trust", ()
     chain_state, chain_snapshot = _codex_parent_chain_inspection(path.parent)
     if chain_state != "found":
         return chain_state, ()
     try:
         metadata = path.lstat()
     except OSError:
-        return "unsafe_executable", ()
+        return "unverified_executable_trust", ()
     if _stat_identity(preliminary) != _stat_identity(metadata):
         return "unsafe_executable", ()
     if _is_link_or_reparse(metadata) or not stat.S_ISREG(metadata.st_mode):
@@ -416,6 +416,27 @@ def _codex_executable_state(candidate: Path) -> str:
     return state
 
 
+def _lexically_safe_absolute_path_entry(entry: str) -> bool:
+    """Reject lexical ambiguity before pathlib can normalize components."""
+
+    if not entry or not Path(entry).is_absolute():
+        return False
+    if os.name == "nt":
+        _drive, tail = os.path.splitdrive(entry)
+        if not tail or tail[0] not in ("/", "\\"):
+            return False
+        remainder = tail[1:]
+        components = re.split(r"[/\\]", remainder)
+    else:
+        if not entry.startswith("/"):
+            return False
+        remainder = entry[1:]
+        components = remainder.split("/")
+    if not remainder:
+        return True
+    return all(component not in ("", ".", "..") for component in components)
+
+
 def _codex_executable(
     environment: Mapping[str, str],
 ) -> Tuple[Optional[Path], str, _PathSnapshot]:
@@ -423,7 +444,7 @@ def _codex_executable(
     if not isinstance(path_value, str) or not path_value:
         return None, "missing", ()
     entries = path_value.split(os.pathsep)
-    if any(not entry or not Path(entry).is_absolute() for entry in entries):
+    if any(not _lexically_safe_absolute_path_entry(entry) for entry in entries):
         return None, "unsafe_path", ()
     for entry in entries:
         candidate = Path(entry) / ("codex.exe" if os.name == "nt" else "codex")
@@ -582,15 +603,27 @@ def check_codex_cli(env: Optional[Mapping[str, str]] = None) -> Diagnostic:
     environment = dict(supplied)
     executable, state, snapshot = _codex_executable(environment)
     if executable is None:
-        if state == "unverified_executable_path":
+        if state in (
+            "unverified_executable_path",
+            "unverified_executable_trust",
+        ):
+            parent_unverified = state == "unverified_executable_path"
             return Diagnostic(
                 "CODEX_CLI",
                 Level.UNKNOWN,
-                "Codex CLI executable parent chain cannot be authoritatively verified",
+                (
+                    "Codex CLI executable parent chain cannot be authoritatively verified"
+                    if parent_unverified
+                    else "Codex CLI executable identity cannot be authoritatively verified"
+                ),
                 dict(
                     _PROBE_POLICY_EVIDENCE,
-                    probe="unverified_executable_path",
-                    executable_trust="unverified_parent_chain",
+                    probe=state,
+                    executable_trust=(
+                        "unverified_parent_chain"
+                        if parent_unverified
+                        else "unverified_identity"
+                    ),
                 ),
             )
         if state in ("unsafe_path", "unsafe_executable"):
@@ -610,6 +643,29 @@ def check_codex_cli(env: Optional[Mapping[str, str]] = None) -> Diagnostic:
     outcome, output, returncode = _probe_codex(
         executable, environment, expected_snapshot=snapshot
     )
+    if outcome in (
+        "unverified_executable_path",
+        "unverified_executable_trust",
+    ):
+        parent_unverified = outcome == "unverified_executable_path"
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.UNKNOWN,
+            (
+                "Codex CLI executable parent chain cannot be authoritatively verified"
+                if parent_unverified
+                else "Codex CLI executable identity cannot be authoritatively verified"
+            ),
+            dict(
+                _PROBE_POLICY_EVIDENCE,
+                probe=outcome,
+                executable_trust=(
+                    "unverified_parent_chain"
+                    if parent_unverified
+                    else "unverified_identity"
+                ),
+            ),
+        )
     if outcome != "completed":
         return Diagnostic(
             "CODEX_CLI",

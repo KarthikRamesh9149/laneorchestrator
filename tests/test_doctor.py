@@ -241,6 +241,34 @@ class DoctorContractTests(unittest.TestCase):
                 self.assertEqual(diagnostic.level, Level.FAIL)
                 self.assertEqual(diagnostic.evidence["probe"], "unsafe_path")
 
+    def test_codex_probe_rejects_lexically_unsafe_absolute_path_entries(self) -> None:
+        cases = (
+            "/tmp/./bin",
+            "/tmp/../bin",
+            "/tmp//bin",
+        )
+        for path_value in cases:
+            with self.subTest(path=path_value):
+                diagnostic = check_codex_cli({"PATH": path_value})
+                self.assertEqual(diagnostic.level, Level.FAIL)
+                self.assertEqual(diagnostic.evidence["probe"], "unsafe_path")
+
+    def test_codex_probe_accepts_an_ordinary_absolute_path_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            if os.name == "posix":
+                self.assertEqual(diagnostic.level, Level.PASS)
+            else:
+                self.assertEqual(diagnostic.level, Level.UNKNOWN)
+                self.assertNotEqual(diagnostic.evidence["probe"], "unsafe_path")
+
     def test_codex_probe_rejects_malformed_environment_and_linked_executable(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
@@ -424,9 +452,7 @@ class DoctorContractTests(unittest.TestCase):
             safe.mkdir()
             dotdot = check_codex_cli({"PATH": str(safe / ".." / "bin")})
             self.assertEqual(dotdot.level, Level.FAIL)
-            self.assertEqual(
-                dotdot.evidence["probe"], "unsafe_executable_path"
-            )
+            self.assertEqual(dotdot.evidence["probe"], "unsafe_path")
             self.assertFalse(sentinel.exists())
 
             non_directory = root / "not-a-directory"
@@ -790,7 +816,7 @@ class DoctorContractTests(unittest.TestCase):
             )
             self.assertFalse(sentinel.exists())
 
-    def test_codex_probe_refuses_unverifiable_executable_trust(self) -> None:
+    def test_codex_probe_reports_unverifiable_executable_trust_as_unknown(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             sentinel = root / "executed"
@@ -806,11 +832,79 @@ class DoctorContractTests(unittest.TestCase):
             ), mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
                 diagnostic = check_codex_cli({"PATH": str(binary.parent)})
             launch.assert_not_called()
-            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(diagnostic.level, Level.UNKNOWN)
             self.assertEqual(
                 diagnostic.evidence["probe"], "unverified_executable_trust"
             )
+            self.assertEqual(
+                diagnostic.evidence["executable_trust"], "unverified_identity"
+            )
             self.assertFalse(sentinel.exists())
+
+    def test_parent_metadata_permission_error_is_unknown_without_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            real_lstat = Path.lstat
+
+            def deny_parent_metadata(path: Path) -> os.stat_result:
+                if Path(path) == binary.parent:
+                    raise PermissionError("denied parent metadata")
+                return real_lstat(path)
+
+            with mock.patch.object(
+                Path,
+                "lstat",
+                autospec=True,
+                side_effect=deny_parent_metadata,
+            ), mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+                diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            launch.assert_not_called()
+            self.assertEqual(diagnostic.level, Level.UNKNOWN)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unverified_executable_path"
+            )
+            self.assertEqual(
+                diagnostic.evidence["executable_trust"],
+                "unverified_parent_chain",
+            )
+
+    def test_leaf_metadata_permission_error_is_unknown_without_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            real_lstat = Path.lstat
+
+            def deny_leaf_metadata(path: Path) -> os.stat_result:
+                if Path(path) == binary:
+                    raise PermissionError("denied leaf metadata")
+                return real_lstat(path)
+
+            with mock.patch.object(
+                Path,
+                "lstat",
+                autospec=True,
+                side_effect=deny_leaf_metadata,
+            ), mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+                diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            launch.assert_not_called()
+            self.assertEqual(diagnostic.level, Level.UNKNOWN)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unverified_executable_trust"
+            )
+            self.assertEqual(
+                diagnostic.evidence["executable_trust"], "unverified_identity"
+            )
 
     @unittest.skipUnless(
         Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
