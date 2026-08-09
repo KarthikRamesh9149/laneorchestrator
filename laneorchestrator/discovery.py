@@ -11,6 +11,7 @@ import json
 import math
 import os
 import re
+import stat
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
@@ -145,11 +146,16 @@ def read_bounded_utf8(path: Path, max_bytes: int, kind: str) -> Tuple[Optional[s
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
         with os.fdopen(fd, "rb") as source:
-            data = source.read(max_bytes + 1)
+            metadata = os.fstat(source.fileno())
+            if not stat.S_ISREG(metadata.st_mode):
+                return None, 0, "could not read {0} file".format(kind)
+            if metadata.st_size > max_bytes:
+                return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
+            data = source.read(max_bytes)
+            if os.fstat(source.fileno()).st_size > max_bytes:
+                return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
     except OSError:
         return None, 0, "could not read {0} file".format(kind)
-    if len(data) > max_bytes:
-        return None, len(data), "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
     try:
         return data.decode("utf-8"), len(data), None
     except UnicodeDecodeError:

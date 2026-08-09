@@ -20,9 +20,14 @@ Profile and configuration updates use private exact-state previews, bound tokens
 
 These controls serialize cooperating LaneOrchestrator writers inside the documented POSIX boundary. They do not claim protection from malicious code sharing the same effective user identity, a compromised host, or an external system compromise. Native Windows mutation is disabled in this release; use WSL for configuration and profile mutation.
 
+## Regression boundaries
+
+Security regressions exercise dangling and live destination links, unsafe filesystem objects, bounded metadata reads, high-risk lexical evasions, malformed or replayed plans, and cooperating-writer races. Descriptor-relative POSIX controls protect against other users and unsafe filesystem objects; they do not provide hostile same-effective-user compare-and-swap semantics. Capability metadata remains untrusted index data: it is bounded and ranked as text, never executed as instructions. Diagnostic path and message output is bounded and redacted where it could otherwise expose mutation tokens.
+
 ## Known limitations
 
 - Lexical risk signals are not complete semantic classification; the trusted router must assess repository evidence.
+- Prompt-injection-like metadata cannot override the control plane, but no lexical filter can prove that a model will never follow untrusted text in another host context.
 - Deterministic lexical ranking is not an embedding model and does not replace router review.
 - Model and custom-agent availability are controlled by the Codex host.
 - `CODEX_HOME`, if set, must be absolute. It identifies state and agent roots but does not grant mutation approval.
