@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Verify LaneOrchestrator release archives without extracting untrusted data."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import io
+import os
+import re
+import stat
+import sys
+import tarfile
+import unicodedata
+import zipfile
+from pathlib import Path, PurePosixPath
+from typing import Dict, Iterable, List, Sequence, Tuple
+
+try:
+    from scripts.build_release import (
+        MAX_MEMBER_BYTES,
+        MAX_MEMBERS,
+        MAX_TOTAL_BYTES,
+        ReleaseError,
+        _captured_members,
+        release_version,
+    )
+except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execution.
+    from build_release import (  # type: ignore
+        MAX_MEMBER_BYTES,
+        MAX_MEMBERS,
+        MAX_TOTAL_BYTES,
+        ReleaseError,
+        _captured_members,
+        release_version,
+    )
+
+
+MAX_ASSET_BYTES = 24 * 1024 * 1024
+MAX_COMPRESSION_RATIO = 100
+_DIGEST_LINE = re.compile(r"^([0-9a-f]{64})  (laneorchestrator-[0-9]+\.[0-9]+\.[0-9]+\.(?:tar\.gz|zip))$")
+
+
+class ReleaseVerificationError(ValueError):
+    """Raised when a release asset does not satisfy the public contract."""
+
+
+def _read_asset(path: Path, max_bytes: int = MAX_ASSET_BYTES) -> bytes:
+    try:
+        before = os.lstat(path)
+        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+            raise ReleaseVerificationError("asset is not a single regular file: {0}".format(path.name))
+        if before.st_size > max_bytes:
+            raise ReleaseVerificationError("asset exceeds size limit: {0}".format(path.name))
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except FileNotFoundError as error:
+        raise ReleaseVerificationError("asset is missing: {0}".format(path.name)) from error
+    except OSError as error:
+        raise ReleaseVerificationError("could not open asset: {0}".format(path.name)) from error
+    try:
+        opened = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino) or not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ReleaseVerificationError("asset changed while opening: {0}".format(path.name))
+        chunks: List[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        content = b"".join(chunks)
+    finally:
+        os.close(descriptor)
+    if len(content) > max_bytes:
+        raise ReleaseVerificationError("asset exceeds size limit: {0}".format(path.name))
+    return content
+
+
+def _validate_name(name: str, prefix: str) -> str:
+    if not isinstance(name, str) or not name or name != unicodedata.normalize("NFC", name):
+        raise ReleaseVerificationError("archive member has invalid name")
+    if "\\" in name or "\x00" in name or name.startswith("/") or name.startswith("//") or re.match(r"^[A-Za-z]:", name):
+        raise ReleaseVerificationError("archive member has unsafe name: {0!r}".format(name))
+    parts = name.split("/")
+    if any(part in ("", ".", "..") for part in parts) or any(ord(character) < 32 or ord(character) == 127 for character in name):
+        raise ReleaseVerificationError("archive member has unsafe name: {0!r}".format(name))
+    expected_prefix = prefix + "/"
+    if not name.startswith(expected_prefix):
+        raise ReleaseVerificationError("archive member has wrong release prefix: {0!r}".format(name))
+    relative = name[len(expected_prefix):]
+    if not relative or relative != PurePosixPath(relative).as_posix():
+        raise ReleaseVerificationError("archive member has unsafe name: {0!r}".format(name))
+    return relative
+
+
+def _record(records: List[Tuple[str, bytes]], seen: set, name: str, content: bytes, prefix: str) -> None:
+    relative = _validate_name(name, prefix)
+    identity = unicodedata.normalize("NFKC", relative).casefold()
+    if identity in seen:
+        raise ReleaseVerificationError("duplicate archive member: {0}".format(name))
+    seen.add(identity)
+    if len(content) > MAX_MEMBER_BYTES:
+        raise ReleaseVerificationError("archive member exceeds size limit: {0}".format(name))
+    records.append((relative, content))
+    if len(records) > MAX_MEMBERS or sum(len(item[1]) for item in records) > MAX_TOTAL_BYTES:
+        raise ReleaseVerificationError("archive exceeds member resource limit")
+
+
+def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
+    records: List[Tuple[str, bytes]] = []
+    seen = set()
+    try:
+        if len(content) < 10 or content[4:8] != b"\0\0\0\0" or content[3] != 0:
+            raise ReleaseVerificationError("tar gzip header is not deterministic")
+        with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as archive:
+            for member in archive:
+                if not member.isfile() or member.issym() or member.islnk() or member.linkname:
+                    raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
+                if member.mode != 0o644 or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
+                    raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
+                if member.size < 0 or member.size > MAX_MEMBER_BYTES:
+                    raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
+                source = archive.extractfile(member)
+                if source is None:
+                    raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
+                data = source.read(MAX_MEMBER_BYTES + 1)
+                _record(records, seen, member.name, data, prefix)
+    except (tarfile.TarError, OSError) as error:
+        raise ReleaseVerificationError("invalid tar archive") from error
+    return records
+
+
+def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
+    records: List[Tuple[str, bytes]] = []
+    seen = set()
+    try:
+        with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
+            if archive.comment:
+                raise ReleaseVerificationError("zip archive has a comment")
+            for info in archive.infolist():
+                if info.is_dir() or info.flag_bits & 0x1 or info.flag_bits & 0x8:
+                    raise ReleaseVerificationError("zip member has unsupported flags: {0}".format(info.filename))
+                if info.extra or info.comment or info.date_time != (1980, 1, 1, 0, 0, 0):
+                    raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
+                mode = (info.external_attr >> 16) & 0o777777
+                if info.create_system != 3 or mode != 0o100644 or info.compress_type != zipfile.ZIP_DEFLATED:
+                    raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
+                if info.file_size > MAX_MEMBER_BYTES or info.compress_size <= 0 or info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
+                    raise ReleaseVerificationError("zip member exceeds resource limit: {0}".format(info.filename))
+                data = archive.read(info, pwd=None)
+                _record(records, seen, info.filename, data, prefix)
+    except (zipfile.BadZipFile, OSError, RuntimeError) as error:
+        raise ReleaseVerificationError("invalid zip archive") from error
+    return records
+
+
+def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]:
+    try:
+        text = content.decode("ascii")
+    except UnicodeDecodeError as error:
+        raise ReleaseVerificationError("SHA256SUMS is not ASCII") from error
+    if not text.endswith("\n") or "\r" in text:
+        raise ReleaseVerificationError("SHA256SUMS must use final LF-only records")
+    lines = text.splitlines()
+    if len(lines) != len(expected_names):
+        raise ReleaseVerificationError("SHA256SUMS has wrong record count")
+    parsed: Dict[str, str] = {}
+    for line in lines:
+        match = _DIGEST_LINE.fullmatch(line)
+        if match is None:
+            raise ReleaseVerificationError("SHA256SUMS has malformed record")
+        digest, name = match.groups()
+        if name in parsed:
+            raise ReleaseVerificationError("SHA256SUMS has duplicate record")
+        parsed[name] = digest
+    if list(parsed) != sorted(expected_names) or set(parsed) != set(expected_names):
+        raise ReleaseVerificationError("SHA256SUMS has unexpected asset names")
+    return parsed
+
+
+def _check_content(name: str, content: bytes) -> None:
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ReleaseVerificationError("release content is not UTF-8: {0}".format(name)) from error
+    secret_patterns = (
+        r"-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----",
+        r"\bAKIA[0-9A-Z]{16}\b",
+        r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b",
+        r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b",
+    )
+    if any(re.search(pattern, text) for pattern in secret_patterns):
+        raise ReleaseVerificationError("release content contains credential-like data: {0}".format(name))
+    if re.search(r"/(?:Users|home)/[^\s`'\"]+|[A-Za-z]:\\Users\\", text):
+        raise ReleaseVerificationError("release content contains local path: {0}".format(name))
+
+
+def verify_release(dist_dir: Path, root: Path = None) -> None:
+    """Validate exact release assets against an allowlisted source root.
+
+    No archive member is extracted to disk.  Both formats must have the same
+    ordered contents and must equal a fresh, no-follow source capture.
+    """
+
+    source_root = Path.cwd() if root is None else Path(root)
+    source_root = source_root.resolve()
+    version = release_version(source_root)
+    prefix = "laneorchestrator-{0}".format(version)
+    expected_assets = ("{0}.tar.gz".format(prefix), "{0}.zip".format(prefix))
+    directory = Path(dist_dir)
+    try:
+        metadata = os.lstat(directory)
+    except OSError as error:
+        raise ReleaseVerificationError("distribution directory is missing") from error
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise ReleaseVerificationError("distribution directory is unsafe")
+    actual = sorted(item.name for item in directory.iterdir())
+    if actual != sorted(expected_assets + ("SHA256SUMS",)):
+        raise ReleaseVerificationError("distribution directory has missing or unexpected assets")
+    assets = {name: _read_asset(directory / name) for name in expected_assets}
+    sums = _parse_sums(_read_asset(directory / "SHA256SUMS", max_bytes=4096), expected_assets)
+    for name in expected_assets:
+        if hashlib.sha256(assets[name]).hexdigest() != sums[name]:
+            raise ReleaseVerificationError("checksum mismatch: {0}".format(name))
+    tar_members = _tar_members(assets[expected_assets[0]], prefix)
+    zip_members = _zip_members(assets[expected_assets[1]], prefix)
+    expected_members = _captured_members(source_root)
+    if tar_members != zip_members:
+        raise ReleaseVerificationError("tar and zip archive content differs")
+    if tar_members != expected_members:
+        raise ReleaseVerificationError("archive content differs from release allowlist")
+    for name, content in tar_members:
+        _check_content(name, content)
+
+
+def main(argv: Sequence[str] = None) -> int:
+    parser = argparse.ArgumentParser(description="Verify deterministic LaneOrchestrator release assets.")
+    parser.add_argument("dist_dir", type=Path)
+    parser.add_argument("--root", type=Path, default=Path.cwd())
+    args = parser.parse_args(argv)
+    try:
+        verify_release(args.dist_dir, root=args.root)
+    except (ReleaseVerificationError, ReleaseError) as error:
+        print("verify_release: {0}".format(error), file=sys.stderr)
+        return 1
+    except OSError as error:
+        print("verify_release: operational error: {0}".format(error), file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

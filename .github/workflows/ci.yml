@@ -13,14 +13,14 @@ concurrency:
 
 jobs:
   validate:
-    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    name: POSIX Python ${{ matrix.python }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python: ["3.9", "3.13"]
+        python: ["3.9", "3.14"]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,3 +32,67 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Validate repository
         run: sh scripts/validate.sh
+
+  windows-control-plane:
+    name: Windows read-only control plane Python ${{ matrix.python }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run explicit native-Windows read-only partition
+        shell: pwsh
+        run: >-
+          python -m unittest -v
+          tests.test_models tests.test_diagnostics tests.test_routing_api
+          tests.test_routing_matrix tests.test_routes tests.test_benchmark
+          tests.test_plugin_manifests tests.test_repository tests.test_release_tools
+
+  release-evidence:
+    name: Verify release evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Generate benchmark evidence
+        run: python -m laneorchestrator benchmark --json > "$RUNNER_TEMP/benchmark.json"
+      - name: Build and verify release assets
+        run: |
+          python scripts/build_release.py --output "$RUNNER_TEMP/release"
+          python scripts/verify_release.py "$RUNNER_TEMP/release"
+      - name: Upload verified benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: benchmark-${{ github.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/benchmark.json
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false
+      - name: Upload verified release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/release/laneorchestrator-0.2.0.tar.gz
+            ${{ runner.temp }}/release/laneorchestrator-0.2.0.zip
+            ${{ runner.temp }}/release/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false

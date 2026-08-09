@@ -38,16 +38,27 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(failures, [])
 
     def test_ci_actions_are_immutable_and_matrix_covers_supported_platforms(self) -> None:
-        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        action_uses = ACTION_USE.findall(workflow)
-        self.assertGreaterEqual(len(action_uses), 2)
+        workflows = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+        text = "\n".join(path.read_text(encoding="utf-8") for path in workflows)
+        action_uses = ACTION_USE.findall(text)
+        self.assertGreaterEqual(len(action_uses), 7)
         self.assertTrue(all(re.search(r"@[0-9a-f]{40}$", action) for action in action_uses))
-        self.assertIn("ubuntu-latest", workflow)
-        self.assertIn("macos-latest", workflow)
-        self.assertIn('python: ["3.9", "3.13"]', workflow)
-        self.assertIn("permissions:\n  contents: read", workflow)
-        self.assertIn("persist-credentials: false", workflow)
-        self.assertIn("timeout-minutes: 10", workflow)
+        for path in workflows:
+            workflow = path.read_text(encoding="utf-8")
+            self.assertRegex(workflow, r"@[0-9a-f]{40}\s+# v[0-9]", path.name)
+            self.assertIn("timeout-minutes:", workflow, path.name)
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("ubuntu-latest", ci)
+        self.assertIn("macos-latest", ci)
+        self.assertIn("windows-latest", ci)
+        self.assertIn('python: ["3.9", "3.14"]', ci)
+        self.assertIn("windows-control-plane", ci)
+        self.assertIn("tests.test_release_tools", ci)
+        windows_partition = ci.split("windows-control-plane:", 1)[1].split("release-evidence:", 1)[0]
+        self.assertNotIn("sh scripts/validate.sh", windows_partition)
+        self.assertIn("permissions:\n  contents: read", ci)
+        self.assertIn("persist-credentials: false", ci)
+        self.assertIn("timeout-minutes: 10", ci)
 
     def test_validation_entry_points_are_executable(self) -> None:
         for relative in ("scripts/install-agents.sh", "scripts/install_agents.py", "scripts/validate.sh"):
