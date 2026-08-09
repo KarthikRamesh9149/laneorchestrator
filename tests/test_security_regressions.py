@@ -5,6 +5,8 @@ import hashlib
 import os
 import shutil
 import stat
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -30,7 +32,8 @@ from laneorchestrator.plans import (
     create_plan,
     load_plan,
 )
-from laneorchestrator.profiles import PROFILE_NAMES, ProfileConflict, preview_profiles
+from laneorchestrator.models import EffectiveConfig, RoleConfig
+from laneorchestrator.profiles import PROFILE_NAMES, ProfileConflict, apply_profiles, preview_profiles, render_profiles
 from laneorchestrator.routing import HIGH_RISK_PHRASES, HIGH_RISK_TERMS, RouteFacts, recommend_route
 
 
@@ -69,7 +72,7 @@ class SecurityRegressionTests(unittest.TestCase):
         return tuple(item for item in self.snapshot(root) if not item[0].endswith(".laneorchestrator-state.lock"))
 
     @unittest.skipUnless(os.name == "posix", "descriptor-relative mutation is POSIX-only")
-    def test_dangling_destination_symlink_cannot_escape_agents_root(self) -> None:
+    def test_live_destination_symlink_cannot_escape_agents_root(self) -> None:
         outside = self.root / "outside.toml"
         sentinel = b"outside sentinel\n"
         outside.write_bytes(sentinel)
@@ -84,6 +87,21 @@ class SecurityRegressionTests(unittest.TestCase):
         after_outside = outside.lstat()
         self.assertEqual(outside.read_bytes(), sentinel)
         self.assertEqual((after_outside.st_dev, after_outside.st_ino), (before_outside.st_dev, before_outside.st_ino))
+        self.assertEqual(self.managed_snapshot(self.agents), before_agents)
+        self.assertEqual(self.managed_snapshot(self.state), before_state)
+        self.assertFalse((self.state / "receipts.json").exists())
+        self.assertFalse((self.state / "plans").exists())
+
+    @unittest.skipUnless(os.name == "posix", "descriptor-relative mutation is POSIX-only")
+    def test_dangling_destination_symlink_cannot_escape_agents_root(self) -> None:
+        outside = self.root / "missing-outside.toml"
+        self.assertFalse(outside.exists())
+        target = self.agents / "laneorchestrator-router.toml"
+        target.symlink_to(outside)
+        before_agents, before_state = self.managed_snapshot(self.agents), self.managed_snapshot(self.state)
+        with self.assertRaises(ProfileConflict):
+            preview_profiles("install", load_config(self.state), self.agents, self.state, now=100)
+        self.assertFalse(outside.exists())
         self.assertEqual(self.managed_snapshot(self.agents), before_agents)
         self.assertEqual(self.managed_snapshot(self.state), before_state)
         self.assertFalse((self.state / "receipts.json").exists())
@@ -127,6 +145,35 @@ class SecurityRegressionTests(unittest.TestCase):
         self.assertLessEqual(counters["agent_bytes"], limits.max_total_agent_bytes)
         self.assertEqual(counters["agent_bytes"], limits.max_total_agent_bytes)
         self.assertTrue(any("larger than 10 bytes" in warning for warning in warnings))
+
+    @unittest.skipUnless(os.name == "posix", "writerless FIFO is a POSIX-only regression")
+    def test_writerless_fifos_are_refused_without_blocking_discovery(self) -> None:
+        skills = self.root / "fifo-skills"
+        agents = self.root / "fifo-agents"
+        skills.mkdir()
+        agents.mkdir()
+        skill_fifo = skills / "blocked" / "SKILL.md"
+        skill_fifo.parent.mkdir()
+        agent_fifo = agents / "blocked.toml"
+        os.mkfifo(skill_fifo)
+        os.mkfifo(agent_fifo)
+        command = [
+            sys.executable, "-m", "laneorchestrator", "catalog", "--query", "Python parser",
+            "--cwd", str(self.root), "--no-default-roots", "--skills-root", str(skills),
+            "--agents-root", str(agents), "--json",
+        ]
+        try:
+            cli = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=2, check=False)
+        except subprocess.TimeoutExpired as error:
+            self.fail("writerless FIFO blocked catalog discovery: {0}".format(error))
+        self.assertEqual(cli.returncode, 0, cli.stderr)
+        capabilities, warnings, counters = collect((skills, agents), DEFAULT_LIMITS)
+        direct = discover(DiscoveryRequest("Python parser", (skills, agents), (), 20))
+        self.assertEqual(capabilities, [])
+        self.assertEqual(tuple(direct.data["capabilities"]), ())
+        self.assertTrue(any("non-regular" in warning for warning in warnings))
+        self.assertEqual(counters["skill_bytes"], 0)
+        self.assertEqual(counters["agent_bytes"], 0)
 
     def test_discovery_treats_prompt_injection_and_stuffing_as_inert_metadata(self) -> None:
         skills = self.root / "skills"
@@ -177,10 +224,19 @@ class SecurityRegressionTests(unittest.TestCase):
         config.chmod(0o600)
         with self.assertRaisesRegex(ConfigError, "safely read"):
             load_config(self.state)
-        for size in (MAX_VALUE_CHARS - 1, MAX_VALUE_CHARS, MAX_VALUE_CHARS + 1):
+        for size in (127, 128, 129, MAX_VALUE_CHARS - 1, MAX_VALUE_CHARS, MAX_VALUE_CHARS + 1):
             with self.subTest(value_size=size):
-                with self.assertRaises(ConfigError):
-                    preview_config({"router.model": "x" * size}, self.state, now=100)
+                isolated = self.root / ("value-state-{0}".format(size))
+                isolated.mkdir(mode=0o700)
+                if size <= 128:
+                    token, _preview = preview_config({"router.model": "x" * size}, isolated, now=100)
+                    self.assertEqual(len(token), 43)
+                elif size <= MAX_VALUE_CHARS:
+                    with self.assertRaisesRegex(ConfigError, "invalid model identifier"):
+                        preview_config({"router.model": "x" * size}, isolated, now=100)
+                else:
+                    with self.assertRaisesRegex(ConfigError, "setting value is unsafe"):
+                        preview_config({"router.model": "x" * size}, isolated, now=100)
 
     @unittest.skipUnless(os.name == "posix", "private plan storage is POSIX-only")
     def test_plan_fuzz_expiry_replay_and_size_boundaries(self) -> None:
@@ -242,28 +298,40 @@ class SecurityRegressionTests(unittest.TestCase):
                 self.assertEqual(after, before)
 
     @unittest.skipUnless(os.name == "posix", "cooperating mutation race is POSIX-only")
-    def test_cooperating_plan_consumers_publish_once_without_partial_state(self) -> None:
-        plans = ensure_private_directory(self.state / "plans-race")
-        token = create_plan("race", (), plans, now=100)
+    def test_cooperating_profile_updates_publish_one_complete_state(self) -> None:
+        config = load_config(self.state)
+        install, _ = preview_profiles("install", config, self.agents, self.state, now=100)
+        apply_profiles("install", install, self.agents, self.state, now=101)
+        roles = dict(config.roles)
+        roles["router"] = RoleConfig("race-router", "ultra")
+        changed = EffectiveConfig(1, roles, "file")
+        first, _ = preview_profiles("update", changed, self.agents, self.state, now=200)
+        second, _ = preview_profiles("update", changed, self.agents, self.state, now=200)
         barrier = threading.Barrier(2)
         outcomes: list[str] = []
 
-        def consume() -> None:
+        def apply(token: str) -> None:
             try:
                 barrier.wait(timeout=2)
-                outcomes.append(str(consume_plan(token, "race", plans, lambda _plan: "applied", now=100)))
-            except PlanError:
+                apply_profiles("update", token, self.agents, self.state, now=201)
+                outcomes.append("applied")
+            except (PlanError, ProfileConflict):
                 outcomes.append("refused")
 
-        workers = [threading.Thread(target=consume) for _ in range(2)]
+        workers = [threading.Thread(target=apply, args=(token,)) for token in (first, second)]
         for worker in workers:
             worker.start()
         for worker in workers:
             worker.join(timeout=5)
             self.assertFalse(worker.is_alive())
         self.assertEqual(sorted(outcomes), ["applied", "refused"])
-        self.assertEqual(len(list((plans / "consumed").glob("*.json"))), 1)
-        self.assertEqual(list(plans.glob("*.json")), [])
+        self.assertEqual((self.agents / "laneorchestrator-router.toml").read_bytes(), render_profiles(changed)["laneorchestrator-router.toml"])
+        receipt = json.loads((self.state / "receipts.json").read_text(encoding="utf-8"))
+        self.assertEqual({entry["name"] for entry in receipt["profiles"]}, set(PROFILE_NAMES))
+        self.assertTrue(all((self.agents / name).is_file() for name in PROFILE_NAMES))
+        for token in (first, second):
+            with self.assertRaisesRegex(ProfileConflict, "already used"):
+                apply_profiles("update", token, self.agents, self.state, now=202)
 
 
 if __name__ == "__main__":

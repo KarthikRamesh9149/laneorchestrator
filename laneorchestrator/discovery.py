@@ -140,48 +140,56 @@ def source_for(root: Path) -> str:
     return "project"
 
 
-def read_bounded_utf8(path: Path, max_bytes: int, kind: str) -> Tuple[Optional[str], int, Optional[str]]:
+def _read_bounded_regular(path: Path, max_bytes: int, kind: str) -> Tuple[Optional[bytes], int, Optional[str]]:
+    """Read at most *max_bytes* from one no-follow regular metadata file."""
     if path.is_symlink():
         return None, 0, "skipped symbolic-link {0} file".format(kind)
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        return None, 0, "could not read {0} file".format(kind)
+    flags = os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0)
+    descriptor = -1
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(fd, "rb") as source:
-            metadata = os.fstat(source.fileno())
-            if not stat.S_ISREG(metadata.st_mode):
-                return None, 0, "could not read {0} file".format(kind)
-            if metadata.st_size > max_bytes:
-                return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
-            data = source.read(max_bytes)
-            if os.fstat(source.fileno()).st_size > max_bytes:
-                return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
+        descriptor = os.open(path, flags)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            return None, 0, "skipped non-regular {0} file".format(kind)
+        if metadata.st_size > max_bytes:
+            return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
+        data = os.read(descriptor, max_bytes)
+        current = os.fstat(descriptor)
+        if (metadata.st_dev, metadata.st_ino) != (current.st_dev, current.st_ino) or current.st_size > max_bytes:
+            return None, max_bytes, "skipped {0} file larger than {1} bytes".format(kind, max_bytes)
     except OSError:
         return None, 0, "could not read {0} file".format(kind)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return data, len(data), None
+
+
+def read_bounded_utf8(path: Path, max_bytes: int, kind: str) -> Tuple[Optional[str], int, Optional[str]]:
+    data, bytes_read, warning = _read_bounded_regular(path, max_bytes, kind)
+    if data is None:
+        return None, bytes_read, warning
     try:
-        return data.decode("utf-8"), len(data), None
+        return data.decode("utf-8"), bytes_read, None
     except UnicodeDecodeError:
-        return None, len(data), "skipped non-UTF-8 {0} file".format(kind)
+        return None, bytes_read, "skipped non-UTF-8 {0} file".format(kind)
 
 
 def read_skill(path: Path, root: Path, max_bytes: int, limits: DiscoveryLimits) -> Tuple[Optional[Capability], int, Optional[str]]:
-    if path.is_symlink():
-        return None, 0, "skipped symbolic-link skill file"
-    try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(fd, "rb") as source:
-            data = source.read(max_bytes + 1)
-    except OSError:
-        return None, 0, "could not read skill file"
-    truncated = len(data) > max_bytes
-    data = data[:max_bytes]
+    data, bytes_read, warning = _read_bounded_regular(path, max_bytes, "skill")
+    if data is None:
+        if warning == "skipped skill file larger than {0} bytes".format(max_bytes):
+            warning = "skipped skill frontmatter exceeding {0} bytes".format(max_bytes)
+        return None, bytes_read, warning
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        return None, len(data), "skipped non-UTF-8 skill metadata"
-    bytes_read = len(data)
+        return None, bytes_read, "skipped non-UTF-8 skill metadata"
     match = FRONTMATTER_RE.match(text)
     if not match:
-        if truncated:
-            return None, bytes_read, "skipped skill frontmatter exceeding {0} bytes".format(max_bytes)
         return None, bytes_read, None
     fields: Dict[str, str] = {}
     for line in match.group(1).splitlines():

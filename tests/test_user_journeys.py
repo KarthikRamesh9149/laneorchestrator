@@ -114,6 +114,7 @@ class UserJourneyTests(unittest.TestCase):
     def install_profiles(self) -> None:
         self.assertEqual(self.preview_apply("install")["data"]["change_count"], 4)
 
+    @unittest.skipUnless(os.name == "posix", "profile mutation is POSIX-only")
     def test_clean_user_routes_without_external_agent_pack(self) -> None:
         self.install_profiles()
         route = self.run_cli(
@@ -132,7 +133,6 @@ class UserJourneyTests(unittest.TestCase):
         self.assertEqual(catalog_data["agents"], [])
 
     def test_user_with_optional_specialists_discovers_only_metadata(self) -> None:
-        self.install_profiles()
         skills = self.home / "skills"
         skill = skills / "dashboard-observability" / "SKILL.md"
         skill.parent.mkdir(parents=True)
@@ -148,7 +148,6 @@ class UserJourneyTests(unittest.TestCase):
         payload = self.payload(result)["data"]["catalog"]
         self.assertEqual([item["name"] for item in payload["skills"]], ["dashboard-observability"])
         self.assertNotIn("instruction", payload)
-        self.assertEqual({path.name for path in self.agents.glob("laneorchestrator-*.toml")}, set(PROFILE_NAMES))
 
     @unittest.skipUnless(os.name == "posix", "profile mutation is POSIX-only")
     def test_unmanaged_collision_is_refused_without_partial_state(self) -> None:
