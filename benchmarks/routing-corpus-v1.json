@@ -802,7 +802,7 @@
   {
     "id": "normal-1",
     "category": "normal",
-    "objective": "Add a saved view selector to the internal report screen",
+    "objective": "Introduce a saved view selector to the internal report screen",
     "known_area": false,
     "acceptance_criteria": true,
     "files": 2,
@@ -832,7 +832,7 @@
   {
     "id": "normal-4",
     "category": "normal",
-    "objective": "Add bulk selection controls to the catalog table",
+    "objective": "Provide bulk selection controls to the catalog table",
     "known_area": false,
     "acceptance_criteria": false,
     "files": 5,
@@ -852,7 +852,7 @@
   {
     "id": "normal-6",
     "category": "normal",
-    "objective": "Add keyboard navigation to the command palette",
+    "objective": "Enable keyboard navigation to the command palette",
     "known_area": false,
     "acceptance_criteria": false,
     "files": 3,
@@ -872,7 +872,7 @@
   {
     "id": "normal-8",
     "category": "normal",
-    "objective": "Add a sortable column to the project list",
+    "objective": "Streamline a sortable column to the project list",
     "known_area": false,
     "acceptance_criteria": false,
     "files": 5,
@@ -892,7 +892,7 @@
   {
     "id": "normal-10",
     "category": "normal",
-    "objective": "Add inline validation messages to the profile editor",
+    "objective": "Modernize inline validation messages to the profile editor",
     "known_area": false,
     "acceptance_criteria": false,
     "files": 3,
@@ -922,7 +922,7 @@
   {
     "id": "normal-13",
     "category": "normal",
-    "objective": "Add a timezone display preference to the dashboard",
+    "objective": "Support a timezone display preference to the dashboard",
     "known_area": false,
     "acceptance_criteria": true,
     "files": 2,

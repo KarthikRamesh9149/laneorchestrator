@@ -78,6 +78,19 @@ def _subparser(parent: argparse._SubParsersAction, name: str) -> _Parser:
     return parser  # type: ignore[return-value]
 
 
+def benchmark_repeat(value: str) -> int:
+    """Limit deterministic benchmark repetitions to an auditable local range."""
+    if len(value) > 3:
+        raise argparse.ArgumentTypeError("must be between 2 and 10")
+    try:
+        repeat = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer between 2 and 10") from error
+    if not 2 <= repeat <= 10:
+        raise argparse.ArgumentTypeError("must be between 2 and 10")
+    return repeat
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="laneorchestrator")
     _add_json_option(parser)
@@ -113,7 +126,7 @@ def build_parser() -> argparse.ArgumentParser:
     catalog.add_argument("--unscoped-high-risk", action="store_true")
 
     benchmark = _subparser(commands, "benchmark")
-    benchmark.add_argument("--repeat", type=positive_file_count, default=3)
+    benchmark.add_argument("--repeat", type=benchmark_repeat, default=3)
 
     profiles = _subparser(commands, "profiles")
     profile_actions = profiles.add_subparsers(dest="action", required=True, parser_class=_Parser)

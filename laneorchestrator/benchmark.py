@@ -13,7 +13,7 @@ import tempfile
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, List, Mapping, Sequence, Tuple
 
 from .diagnostics import CommandResult, Diagnostic, Level, command_result
 from .discovery import DEFAULT_LIMITS, Capability, collect, rank
@@ -38,7 +38,7 @@ _ROUTE_CATEGORIES = {
 _ROUTE_FIELDS = {
     "id", "category", "objective", "known_area", "acceptance_criteria", "files", "risk", "expected_lane",
 }
-_CAPABILITY_FIELDS = {"query", "capabilities", "expected_top3", "applicable_specialist", "adversarial"}
+_CAPABILITY_FIELDS = {"query", "capabilities", "expected_top3", "expected_sources", "applicable_specialist", "adversarial"}
 _MAX_CORPUS_BYTES = 512 * 1024
 _MAX_CAPABILITIES_PER_CASE = 8
 _CATALOG_SEED = 20260809
@@ -128,10 +128,13 @@ def load_capability_corpus(repo_root: Path) -> List[Dict[str, object]]:
             raise BenchmarkError("capability case {0} exceeds query bounds".format(index))
         capabilities = case["capabilities"]
         expected = case["expected_top3"]
+        expected_sources = case["expected_sources"]
         if not isinstance(capabilities, list) or not capabilities or len(capabilities) > _MAX_CAPABILITIES_PER_CASE:
             raise BenchmarkError("capability case {0} has an invalid catalog size".format(index))
         if not isinstance(expected, list) or len(expected) > 3 or len(set(expected)) != len(expected) or any(not isinstance(item, str) or not item for item in expected):
             raise BenchmarkError("capability case {0} has invalid expected_top3".format(index))
+        if not isinstance(expected_sources, dict) or set(expected_sources) != set(expected) or any(not isinstance(value, str) or not value for value in expected_sources.values()):
+            raise BenchmarkError("capability case {0} has invalid expected_sources".format(index))
         if type(case["applicable_specialist"]) is not bool or type(case["adversarial"]) is not bool:
             raise BenchmarkError("capability case {0} has invalid flags".format(index))
         if not case["applicable_specialist"] and expected:
@@ -151,6 +154,11 @@ def load_capability_corpus(repo_root: Path) -> List[Dict[str, object]]:
             names.add(item["name"])
         if not set(expected).issubset(names):
             raise BenchmarkError("capability case {0} labels a missing specialist".format(index))
+        sources_by_name = {}
+        for item in capabilities:
+            sources_by_name.setdefault(item["name"], set()).add(item["source"])
+        if any(source not in sources_by_name[name] for name, source in expected_sources.items()):
+            raise BenchmarkError("capability case {0} labels a missing specialist source".format(index))
         cases.append(dict(case))
     return cases
 
@@ -175,6 +183,8 @@ def evaluate_routes(cases: Sequence[Mapping[str, object]], repeat: int = 3) -> D
     high_indices = [index for index, lane in enumerate(expected) if lane == "sol-plan-terra-sol-review"]
     non_high_indices = [index for index, lane in enumerate(expected) if lane != "sol-plan-terra-sol-review"]
     adversarial_indices = [index for index, case in enumerate(cases) if case["category"] == "high-risk-evasion"]
+    explicit_high_indices = [index for index, case in enumerate(cases) if case["risk"] == "high"]
+    unknown_indices = [index for index, case in enumerate(cases) if case["risk"] == "unknown"]
     agreement = sum(found == wanted for found, wanted in zip(actual, expected)) / float(len(cases))
     high_recall = sum(actual[index] == expected[index] for index in high_indices) / float(len(high_indices))
     false_positives = sum(actual[index] == "sol-plan-terra-sol-review" for index in non_high_indices)
@@ -183,42 +193,71 @@ def evaluate_routes(cases: Sequence[Mapping[str, object]], repeat: int = 3) -> D
         "overall_lane_agreement": agreement,
         "high_risk_recall": high_recall,
         "false_positive_rate": false_positives / float(len(non_high_indices)),
+        "explicit_high_risk_recall": sum(actual[index] == expected[index] for index in explicit_high_indices) / float(len(explicit_high_indices)) if explicit_high_indices else 1.0,
+        "unknown_risk_escalation_recall": sum(actual[index] == expected[index] for index in unknown_indices) / float(len(unknown_indices)) if unknown_indices else 1.0,
+        "lexical_high_risk_evasion_recall": adversarial,
         "deterministic_repeatability": 1.0 if all(snapshot == snapshots[0] for snapshot in snapshots[1:]) else 0.0,
         "route_adversarial_pass_rate": adversarial,
         "route_cases": float(len(cases)),
         "high_risk_cases": float(len(high_indices)),
         "non_high_risk_cases": float(len(non_high_indices)),
+        "explicit_high_risk_cases": float(len(explicit_high_indices)),
+        "unknown_risk_cases": float(len(unknown_indices)),
+        "lexical_high_risk_evasion_cases": float(len(adversarial_indices)),
     }
 
 
-def _ranked_names(case: Mapping[str, object]) -> List[str]:
-    capabilities = [Capability(str(item["kind"]), str(item["name"]), str(item["description"]), "synthetic/{0}".format(index), str(item["source"])) for index, item in enumerate(case["capabilities"])]  # type: ignore[index]
-    return [item.name for item in rank(str(case["query"]), capabilities, ())]
+def _ranked_capabilities(case: Mapping[str, object], reverse: bool = False) -> List[Tuple[str, str]]:
+    """Return a source-aware ranking; stable paths prevent input-order leakage."""
+    metadata = list(case["capabilities"])  # type: ignore[arg-type]
+    if reverse:
+        metadata.reverse()
+    capabilities = [
+        Capability(
+            str(item["kind"]), str(item["name"]), str(item["description"]),
+            "synthetic/{0}/{1}/{2}".format(item["source"], item["kind"], item["name"]), str(item["source"]),
+        )
+        for item in metadata
+    ]
+    return [(item.name, item.source) for item in rank(str(case["query"]), capabilities, ())]
 
 
 def evaluate_capabilities(cases: Sequence[Mapping[str, object]], repeat: int = 3) -> Dict[str, float]:
     """Measure top-k specialist relevance against bounded synthetic catalogs."""
     if repeat < 2:
         raise BenchmarkError("benchmark repeat must be at least 2")
-    snapshots = [[_ranked_names(case) for case in cases] for _ in range(repeat)]
-    rankings = snapshots[0]
+    snapshots = [
+        ([_ranked_capabilities(case) for case in cases], [_ranked_capabilities(case, reverse=True) for case in cases])
+        for _ in range(repeat)
+    ]
+    rankings = snapshots[0][0]
     applicable = [(case, ranking) for case, ranking in zip(cases, rankings) if bool(case["applicable_specialist"])]
     if not applicable:
         raise BenchmarkError("capability corpus has no applicable specialist cases")
-    top1 = sum(bool(set(ranking[:1]) & set(case["expected_top3"])) for case, ranking in applicable)
-    top3 = sum(bool(set(ranking[:3]) & set(case["expected_top3"])) for case, ranking in applicable)
+    top1 = sum(bool({name for name, _source in ranking[:1]} & set(case["expected_top3"])) for case, ranking in applicable)
+    top3 = sum(bool({name for name, _source in ranking[:3]} & set(case["expected_top3"])) for case, ranking in applicable)
+    source_hits = sum(
+        all(dict(ranking).get(name) == source for name, source in case["expected_sources"].items())
+        for case, ranking in applicable
+    )
+    non_applicable = [(case, ranking) for case, ranking in zip(cases, rankings) if not bool(case["applicable_specialist"])]
     adversarial = [(case, ranking) for case, ranking in zip(cases, rankings) if bool(case["adversarial"])]
     adversarial_passes = sum(
-        bool(set(ranking[:3]) & set(case["expected_top3"])) if case["applicable_specialist"] else not ranking
+        (
+            bool({name for name, _source in ranking[:3]} & set(case["expected_top3"]))
+            and all(dict(ranking).get(name) == source for name, source in case["expected_sources"].items())
+        ) if case["applicable_specialist"] else not ranking
         for case, ranking in adversarial
     )
     return {
         "top1_specialist_recall": top1 / float(len(applicable)),
         "top3_specialist_recall": top3 / float(len(applicable)),
+        "source_precedence_recall": source_hits / float(len(applicable)),
+        "non_applicable_abstention_rate": sum(not ranking for _case, ranking in non_applicable) / float(len(non_applicable)) if non_applicable else 1.0,
         "capability_adversarial_pass_rate": adversarial_passes / float(len(adversarial)) if adversarial else 1.0,
         "capability_cases": float(len(cases)),
         "applicable_specialist_cases": float(len(applicable)),
-        "capability_repeatability": 1.0 if all(snapshot == snapshots[0] for snapshot in snapshots[1:]) else 0.0,
+        "capability_repeatability": 1.0 if all(original == reversed_ for original, reversed_ in snapshots) and all(snapshot == snapshots[0] for snapshot in snapshots[1:]) else 0.0,
     }
 
 
