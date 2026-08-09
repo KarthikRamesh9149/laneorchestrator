@@ -69,6 +69,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("security-events: write", security)
         self.assertIn("output: ${{ runner.temp }}/codeql-sarif", security)
         self.assertIn("upload: ${{ github.event.repository.private && 'never' || 'always' }}", security)
+        self.assertIn("upload-database: ${{ github.event.repository.private && 'false' || 'true' }}", security)
         self.assertIn("- name: Require SARIF from successful private analysis", security)
         self.assertIn("if: ${{ !cancelled() && github.event.repository.private }}", security)
         self.assertIn("if: ${{ success() && github.event.repository.private }}", security)

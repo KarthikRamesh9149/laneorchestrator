@@ -36,6 +36,10 @@ jobs:
         with:
           output: ${{ runner.temp }}/codeql-sarif
           upload: ${{ github.event.repository.private && 'never' || 'always' }}
+          # `upload: never` only suppresses SARIF upload. Keep the separate
+          # CodeQL database upload off for private repositories without Code
+          # Scanning, while preserving both uploads when the repository is public.
+          upload-database: ${{ github.event.repository.private && 'false' || 'true' }}
       - name: Require SARIF from successful private analysis
         if: ${{ success() && github.event.repository.private }}
         shell: bash
