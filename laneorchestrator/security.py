@@ -45,6 +45,20 @@ def platform_mutation_supported() -> Tuple[bool, str]:
         return False, "filesystem mutation requires POSIX descriptor semantics"
     if fcntl is None:
         return False, "filesystem mutation requires POSIX advisory locking"
+    if not callable(getattr(fcntl, "flock", None)):
+        return False, "filesystem mutation requires callable fcntl.flock"
+    lock_ex = getattr(fcntl, "LOCK_EX", None)
+    lock_un = getattr(fcntl, "LOCK_UN", None)
+    if (
+        isinstance(lock_ex, bool)
+        or not isinstance(lock_ex, int)
+        or lock_ex <= 0
+        or isinstance(lock_un, bool)
+        or not isinstance(lock_un, int)
+        or lock_un <= 0
+        or lock_ex == lock_un
+    ):
+        return False, "filesystem mutation requires usable fcntl.LOCK_EX and fcntl.LOCK_UN"
     required_constants = ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK")
     missing_constants = [name for name in required_constants if not hasattr(os, name)]
     if missing_constants:

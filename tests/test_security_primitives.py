@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 from laneorchestrator import security as security_module
@@ -447,6 +448,42 @@ print("done", flush=True)
 
 
 class PlatformSupportTests(unittest.TestCase):
+    def test_missing_or_partial_fcntl_fails_before_destination_access(self) -> None:
+        destination = Path("/state/config.json")
+        cases = (
+            (object(), "filesystem mutation requires callable fcntl.flock"),
+            (
+                SimpleNamespace(flock=None, LOCK_EX=2, LOCK_UN=8),
+                "filesystem mutation requires callable fcntl.flock",
+            ),
+            (
+                SimpleNamespace(flock=lambda descriptor, operation: None),
+                "filesystem mutation requires usable fcntl.LOCK_EX and fcntl.LOCK_UN",
+            ),
+            (
+                SimpleNamespace(
+                    flock=lambda descriptor, operation: None,
+                    LOCK_EX=0,
+                    LOCK_UN=8,
+                ),
+                "filesystem mutation requires usable fcntl.LOCK_EX and fcntl.LOCK_UN",
+            ),
+        )
+        for partial_fcntl, expected_reason in cases:
+            with self.subTest(partial_fcntl=partial_fcntl):
+                with mock.patch("laneorchestrator.security.fcntl", partial_fcntl):
+                    self.assertEqual(
+                        platform_mutation_supported(), (False, expected_reason)
+                    )
+                    with mock.patch("laneorchestrator.security.Path") as path_factory:
+                        with mock.patch("laneorchestrator.security.os.open") as opener:
+                            with self.assertRaisesRegex(
+                                SecurityError, "^" + expected_reason.replace(".", r"\.") + "$"
+                            ):
+                                atomic_private_write(destination, b"content")
+                    path_factory.assert_not_called()
+                    opener.assert_not_called()
+
     def test_native_windows_reports_unsupported(self) -> None:
         with mock.patch("laneorchestrator.security.os.name", "nt"):
             supported, reason = platform_mutation_supported()
