@@ -195,8 +195,9 @@ class ReleaseToolTests(unittest.TestCase):
             env=dict(os.environ, LANEORCHESTRATOR_EXTRACTED_VALIDATION="1"),
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-        self.assertIn("test_fresh_trusted_archive_extracts_and_runs_the_complete_validator", result.stdout)
-        self.assertIn("skipped", result.stdout)
+        child_output = result.stdout + result.stderr
+        self.assertIn("test_fresh_trusted_archive_extracts_and_runs_the_complete_validator", child_output)
+        self.assertIn("skipped", child_output)
 
     def test_zip_preflight_and_cli_errors_are_bounded_and_structured(self) -> None:
         eocd = b"PK\x05\x06" + b"\0\0\0\0" + (513).to_bytes(2, "little") * 2 + b"\0" * 10
@@ -325,7 +326,7 @@ class ReleaseToolTests(unittest.TestCase):
                         info = tarfile.TarInfo(name)
                         info.size = len(content if name == target else payload)
                         info.mtime = 0
-                        info.mode = 0o644
+                        info.mode = self._archive_mode(name)
                         archive.addfile(info, io.BytesIO(content if name == target else payload))
 
     def _append_tar_member(self, path: Path, name: str, content: bytes) -> None:
@@ -338,7 +339,7 @@ class ReleaseToolTests(unittest.TestCase):
                     for member_name, payload in members + [(name, content)]:
                         info = tarfile.TarInfo(member_name)
                         info.size = len(payload)
-                        info.mode = 0o644
+                        info.mode = self._archive_mode(member_name)
                         archive.addfile(info, io.BytesIO(payload))
 
     def _replace_zip_member(self, path: Path, target: str, content: bytes) -> None:
@@ -348,9 +349,13 @@ class ReleaseToolTests(unittest.TestCase):
             for name, payload in members:
                 info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
                 info.create_system = 3
-                info.external_attr = 0o100644 << 16
+                info.external_attr = (0o100000 | self._archive_mode(name)) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, content if name == target else payload)
+
+    def _archive_mode(self, name: str) -> int:
+        relative = name.split("/", 1)[1]
+        return 0o755 if relative in RELEASE_EXECUTABLES else 0o644
 
     def _write_hostile_dist(self, directory: Path, name: str) -> None:
         version = "0.2.0"
