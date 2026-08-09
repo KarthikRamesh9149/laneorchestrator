@@ -160,6 +160,11 @@ class DiscoveryApiTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "max_results"):
             validate_request(self.request("Python"), replace(DEFAULT_LIMITS, max_results=DEFAULT_LIMITS.max_results + 1))
 
+    def test_collect_rejects_unbounded_roots_before_enumeration(self) -> None:
+        roots = tuple(self.skills for _ in range(DEFAULT_LIMITS.max_explicit_roots + 1))
+        with self.assertRaisesRegex(ValueError, "explicit roots"):
+            collect(roots, DEFAULT_LIMITS)
+
 
 if __name__ == "__main__":
     unittest.main()

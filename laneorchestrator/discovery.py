@@ -321,6 +321,7 @@ def _collect_agents(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
 def collect(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[List[Capability], List[str], Mapping[str, int]]:
     """Enumerate local metadata without following symlinks and within limits."""
     _validate_limits(limits)
+    _validate_roots(roots, limits)
     root_paths = tuple(Path(root).expanduser() for root in roots)
     skills, skill_warnings, skill_counters = _collect_skills(root_paths, limits)
     agents, agent_warnings, agent_counters = _collect_agents(root_paths, limits)
@@ -382,8 +383,7 @@ def validate_request(request: DiscoveryRequest, limits: DiscoveryLimits) -> Disc
         raise ValueError("--context may be repeated at most {0} times".format(limits.max_context_items))
     if sum(len(item) for item in request.context) > limits.max_context_chars:
         raise ValueError("combined --context must not exceed {0} characters".format(limits.max_context_chars))
-    if len(request.roots) > limits.max_explicit_roots:
-        raise ValueError("explicit roots must not exceed {0} per capability type".format(limits.max_explicit_roots))
+    _validate_roots(request.roots, limits)
     if not 0 <= request.limit <= limits.max_results:
         raise ValueError("--limit must be between 0 and {0}".format(limits.max_results))
     return request
@@ -397,6 +397,12 @@ def _validate_limits(limits: DiscoveryLimits) -> None:
         maximum = defaults[item.name]
         if not isinstance(value, int) or value < 0 or value > maximum:
             raise ValueError("{0} must be between 0 and {1}".format(item.name, maximum))
+
+
+def _validate_roots(roots: Sequence[Path], limits: DiscoveryLimits) -> None:
+    """Reject an unbounded root set before any path is materialized or read."""
+    if len(roots) > limits.max_explicit_roots:
+        raise ValueError("explicit roots must not exceed {0} per capability type".format(limits.max_explicit_roots))
 
 
 def _limits_payload(limits: DiscoveryLimits) -> Dict[str, int]:
