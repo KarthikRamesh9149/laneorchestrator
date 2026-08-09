@@ -292,8 +292,21 @@ def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[T
             ))
             scanned.append(relative)
             continue
+        except (RecursionError, SystemError, OverflowError) as error:
+            raise ScannerError(
+                "source AST analysis exceeded interpreter resource limits ({0}): {1}".format(
+                    type(error).__name__, relative,
+                )
+            ) from error
         visitor = SecurityVisitor(relative)
-        visitor.visit(tree)
+        try:
+            visitor.visit(tree)
+        except (RecursionError, SystemError, OverflowError) as error:
+            raise ScannerError(
+                "source AST analysis exceeded interpreter resource limits ({0}): {1}".format(
+                    type(error).__name__, relative,
+                )
+            ) from error
         findings.extend(visitor.findings)
         scanned.append(relative)
     return tuple(sorted(findings, key=lambda item: (item.path, item.line, item.column, item.rule_id))), tuple(scanned)
