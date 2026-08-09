@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import signal
 import stat
+import sys
 import tempfile
 import time
 import unittest
@@ -12,7 +14,12 @@ from unittest import mock
 
 from laneorchestrator.config import DEFAULT_ROLES, serialize_config
 from laneorchestrator.diagnostics import Level
-from laneorchestrator.doctor import check_codex_cli, inspect_role_evidence, run_doctor
+from laneorchestrator.doctor import (
+    _codex_executable,
+    check_codex_cli,
+    inspect_role_evidence,
+    run_doctor,
+)
 from laneorchestrator.models import Availability, EffectiveConfig
 from laneorchestrator.profiles import PROFILE_NAMES, TEMPLATE_VERSION, render_profiles
 
@@ -153,6 +160,15 @@ class DoctorContractTests(unittest.TestCase):
             [item.level for item in result.diagnostics],
             [Level.PASS] * 13 + [Level.UNKNOWN],
         )
+        codex = _diagnostic(result, "CODEX_CLI")
+        self.assertEqual(
+            codex.evidence["cleanup_scope"],
+            "launched_process_group_best_effort",
+        )
+        self.assertEqual(
+            codex.evidence["executable_trust"],
+            "owner_or_root_nonwritable",
+        )
 
     def test_missing_optional_small_role_warns_and_falls_back_to_terra(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -254,6 +270,113 @@ class DoctorContractTests(unittest.TestCase):
             time.sleep(1.2)
             self.assertEqual(diagnostic.level, Level.FAIL)
             self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_truthfully_bounds_child_that_escapes_process_group(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "escaped-session-finished"
+            pid_file = root / "escaped-session.pid"
+            binary = root / "bin" / "codex"
+            child_code = (
+                "import os,time; time.sleep(0.5); "
+                "open(os.environ['ESCAPED_SENTINEL'],'w').close()"
+            )
+            script = (
+                "#!{0}\n"
+                "import os, subprocess, sys\n"
+                "child = subprocess.Popen([sys.executable, '-c', {1!r}], "
+                "stdout=sys.stdout, stderr=sys.stderr, start_new_session=True)\n"
+                "open(os.environ['ESCAPED_PID_FILE'], 'w').write(str(child.pid))\n"
+            ).format(sys.executable, child_code)
+            _write(binary, script.encode("utf-8"), 0o700)
+            started = time.monotonic()
+            diagnostic = check_codex_cli(
+                {
+                    "PATH": str(binary.parent),
+                    "ESCAPED_SENTINEL": str(sentinel),
+                    "ESCAPED_PID_FILE": str(pid_file),
+                }
+            )
+            elapsed = time.monotonic() - started
+            deadline = time.monotonic() + 3.0
+            while not sentinel.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            child_pid = int(pid_file.read_text(encoding="utf-8"))
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(child_pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.05)
+            else:
+                os.kill(child_pid, signal.SIGKILL)
+                self.fail("controlled escaped-session child did not exit")
+            self.assertLess(elapsed, 5.0)
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertTrue(sentinel.exists())
+            self.assertEqual(
+                diagnostic.evidence["cleanup_scope"],
+                "launched_process_group_best_effort",
+            )
+            self.assertEqual(
+                diagnostic.evidence["executable_trust"],
+                "owner_or_root_nonwritable",
+            )
+            self.assertNotIn("failed safely", diagnostic.message.casefold())
+
+    def test_codex_probe_rejects_writable_and_wrong_owner_executables(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(binary, b"#!/bin/sh\n/usr/bin/touch \"$SENTINEL\"\n", 0o777)
+            writable = check_codex_cli(
+                {"PATH": str(binary.parent), "SENTINEL": str(sentinel)}
+            )
+            self.assertEqual(writable.level, Level.FAIL)
+            self.assertEqual(writable.evidence["probe"], "unsafe_executable")
+            self.assertFalse(sentinel.exists())
+
+            binary.chmod(0o700)
+            owner = binary.lstat().st_uid
+            if owner != 0 and hasattr(os, "geteuid"):
+                with mock.patch(
+                    "laneorchestrator.doctor.os.geteuid", return_value=owner + 1
+                ):
+                    wrong_owner = check_codex_cli({"PATH": str(binary.parent)})
+                self.assertEqual(wrong_owner.level, Level.FAIL)
+                self.assertEqual(
+                    wrong_owner.evidence["probe"], "unsafe_executable"
+                )
+
+    def test_codex_probe_refuses_unverifiable_executable_trust(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(binary, b"#!/bin/sh\n/usr/bin/touch \"$SENTINEL\"\n", 0o700)
+            with mock.patch(
+                "laneorchestrator.doctor._executable_identity_supported",
+                return_value=False,
+            ):
+                diagnostic = check_codex_cli(
+                    {"PATH": str(binary.parent), "SENTINEL": str(sentinel)}
+                )
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unverified_executable_trust"
+            )
+            self.assertFalse(sentinel.exists())
+
+    @unittest.skipUnless(
+        Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+        "ChatGPT Codex binary is not installed",
+    )
+    def test_chatgpt_codex_binary_remains_eligible(self) -> None:
+        installed = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
+        executable, state = _codex_executable({"PATH": str(installed.parent)})
+        self.assertEqual(state, "found")
+        self.assertEqual(executable, installed)
 
     def test_codex_probe_platform_pipe_failure_is_a_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

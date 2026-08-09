@@ -1,4 +1,10 @@
-"""Read-only, truthful environment diagnostics and status summaries."""
+"""Read-only, truthful environment diagnostics and status summaries.
+
+Codex probing accepts only an owner- or root-owned non-writable executable.
+Cleanup is best effort within the launched process group; executable contents
+that deliberately escape that group under the same effective user are outside
+the local diagnostic threat boundary.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +49,10 @@ _VERSION_RE = re.compile(r"\bcodex(?:-cli)?\s+(\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 _ACTIVE_OPERATIONS = frozenset(("install", "adopt", "update"))
 _OPERATIONS = frozenset(("install", "adopt", "update", "uninstall"))
+_PROBE_POLICY_EVIDENCE = {
+    "cleanup_scope": "launched_process_group_best_effort",
+    "executable_trust": "owner_or_root_nonwritable",
+}
 _ROLE_PROFILE = {
     "router": "laneorchestrator-router.toml",
     "small_task_executor": "laneorchestrator-luna-executor.toml",
@@ -286,6 +296,34 @@ def check_python_and_platform() -> Sequence[Diagnostic]:
     )
 
 
+def _executable_identity_supported() -> bool:
+    """Return whether local uid and mode evidence is authoritative enough."""
+
+    return os.name == "posix" and callable(getattr(os, "geteuid", None))
+
+
+def _codex_executable_state(candidate: Path) -> str:
+    """Classify one absolute candidate under the local executable policy."""
+
+    if not Path(candidate).is_absolute():
+        return "unsafe_executable"
+    try:
+        metadata = Path(candidate).lstat()
+    except OSError:
+        return "missing"
+    if _is_link_or_reparse(metadata) or not stat.S_ISREG(metadata.st_mode):
+        return "unsafe_executable"
+    if not _executable_identity_supported():
+        return "unverified_executable_trust"
+    if not os.access(candidate, os.X_OK):
+        return "unsafe_executable"
+    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return "unsafe_executable"
+    if hasattr(os, "geteuid") and metadata.st_uid not in (0, os.geteuid()):
+        return "unsafe_executable"
+    return "found"
+
+
 def _codex_executable(environment: Mapping[str, str]) -> Tuple[Optional[Path], str]:
     path_value = environment.get("PATH", "")
     if not isinstance(path_value, str) or not path_value:
@@ -295,18 +333,18 @@ def _codex_executable(environment: Mapping[str, str]) -> Tuple[Optional[Path], s
         return None, "unsafe_path"
     for entry in entries:
         candidate = Path(entry) / ("codex.exe" if os.name == "nt" else "codex")
-        try:
-            metadata = candidate.lstat()
-        except OSError:
+        state = _codex_executable_state(candidate)
+        if state == "missing":
             continue
-        if stat.S_ISLNK(metadata.st_mode):
-            return None, "unsafe_executable"
-        if stat.S_ISREG(metadata.st_mode) and os.access(candidate, os.X_OK):
+        if state == "found":
             return candidate, "found"
+        return None, state
     return None, "missing"
 
 
 def _kill_probe(process: subprocess.Popen[bytes]) -> None:
+    """Best-effort cleanup of the parent and its launched process group."""
+
     try:
         if os.name == "posix":
             os.killpg(process.pid, signal.SIGKILL)
@@ -326,8 +364,12 @@ def _kill_probe(process: subprocess.Popen[bytes]) -> None:
 
 
 def _probe_codex(executable: Path, environment: Mapping[str, str]) -> Tuple[str, bytes, Optional[int]]:
+    """Run a bounded probe; cleanup cannot contain a deliberate new session."""
+
     started = time.monotonic()
     deadline = started + CODEX_TIMEOUT_SECONDS - 0.25
+    if _codex_executable_state(executable) != "found":
+        return "unsafe_executable", b"", None
     try:
         process = subprocess.Popen(
             [os.fspath(executable), "--version"],
@@ -375,8 +417,9 @@ def _probe_codex(executable: Path, environment: Mapping[str, str]) -> Tuple[str,
                     _kill_probe(process)
                     return "output_limit", bytes(output[:MAX_CODEX_OUTPUT_BYTES]), None
             if process.poll() is not None and not events:
-                # The main process exited. A descendant retaining the pipe is
-                # not allowed to extend this bounded probe.
+                # A retained pipe is detected and the launched group is cleaned
+                # up best effort. A child that created another session may be
+                # outside that cleanup scope.
                 _kill_probe(process)
                 return "descendant_pipe", bytes(output), None
         remaining = max(0.01, deadline - time.monotonic())
@@ -407,22 +450,69 @@ def check_codex_cli(env: Optional[Mapping[str, str]] = None) -> Diagnostic:
         or "\x00" in value
         for key, value in supplied.items()
     ):
-        return Diagnostic("CODEX_CLI", Level.FAIL, "Codex CLI environment is invalid", {"probe": "invalid_environment"})
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.FAIL,
+            "Codex CLI environment is invalid",
+            dict(_PROBE_POLICY_EVIDENCE, probe="invalid_environment"),
+        )
     environment = dict(supplied)
     executable, state = _codex_executable(environment)
     if executable is None:
-        message = "Codex CLI search path or executable is unsafe" if state in ("unsafe_path", "unsafe_executable") else "Codex CLI was not found"
-        return Diagnostic("CODEX_CLI", Level.FAIL, message, {"probe": state})
+        if state in ("unsafe_path", "unsafe_executable"):
+            message = "Codex CLI search path or executable is unsafe"
+        elif state == "unverified_executable_trust":
+            message = "Codex CLI executable ownership and mode cannot be authoritatively verified"
+        else:
+            message = "Codex CLI was not found"
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.FAIL,
+            message,
+            dict(_PROBE_POLICY_EVIDENCE, probe=state),
+        )
     outcome, output, returncode = _probe_codex(executable, environment)
     if outcome != "completed":
-        return Diagnostic("CODEX_CLI", Level.FAIL, "Codex CLI version probe failed safely", {"probe": outcome, "retained_bytes": len(output)})
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.FAIL,
+            "Codex CLI version probe failed within bounded execution limits",
+            dict(
+                _PROBE_POLICY_EVIDENCE,
+                probe=outcome,
+                retained_bytes=len(output),
+            ),
+        )
     if returncode != 0:
-        return Diagnostic("CODEX_CLI", Level.FAIL, "Codex CLI version probe returned a failure", {"probe": "nonzero_exit", "returncode": returncode})
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.FAIL,
+            "Codex CLI version probe returned a failure",
+            dict(
+                _PROBE_POLICY_EVIDENCE,
+                probe="nonzero_exit",
+                returncode=returncode,
+            ),
+        )
     text = output.decode("utf-8", "replace")
     match = _VERSION_RE.search(text)
     if match is None:
-        return Diagnostic("CODEX_CLI", Level.FAIL, "Codex CLI version output was malformed", {"probe": "malformed_version", "retained_bytes": len(output)})
-    return Diagnostic("CODEX_CLI", Level.PASS, "Codex CLI version was directly verified", {"version": _safe_text(match.group(1), 64)})
+        return Diagnostic(
+            "CODEX_CLI",
+            Level.FAIL,
+            "Codex CLI version output was malformed",
+            dict(
+                _PROBE_POLICY_EVIDENCE,
+                probe="malformed_version",
+                retained_bytes=len(output),
+            ),
+        )
+    return Diagnostic(
+        "CODEX_CLI",
+        Level.PASS,
+        "Codex CLI version was directly verified",
+        dict(_PROBE_POLICY_EVIDENCE, version=_safe_text(match.group(1), 64)),
+    )
 
 
 def _read_repo_file(path: Path, max_bytes: int) -> bytes:
