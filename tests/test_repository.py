@@ -67,6 +67,10 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("actions: read", security)
         self.assertIn("contents: read", security)
         self.assertIn("security-events: write", security)
+        self.assertIn("output: ${{ runner.temp }}/codeql-sarif", security)
+        self.assertIn("upload: ${{ github.event.repository.private && 'never' || 'always' }}", security)
+        self.assertIn("if: ${{ github.event.repository.private }}", security)
+        self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1", security)
 
     def test_validation_entry_points_are_executable(self) -> None:
         for relative in ("scripts/install-agents.sh", "scripts/install_agents.py", "scripts/validate.sh"):
