@@ -13,7 +13,14 @@ This is the exact post-code-gate plan. It does not assert current repository set
 
 Create exactly one active ruleset named `protect-main`, targeting only `main`. Do not create another branch as part of this step.
 
-- Require these current CI status checks: `POSIX Python 3.9 on ubuntu-latest`, `POSIX Python 3.14 on ubuntu-latest`, `POSIX Python 3.9 on macos-latest`, `POSIX Python 3.14 on macos-latest`, `Windows read-only control plane Python 3.9`, `Windows read-only control plane Python 3.14`, and `Verify release evidence`.
+- Require these current CI status checks with their expected source bound to the `GitHub Actions` app, never `Any source`:
+  - `POSIX Python 3.9 on ubuntu-latest` — expected source: `GitHub Actions` app.
+  - `POSIX Python 3.14 on ubuntu-latest` — expected source: `GitHub Actions` app.
+  - `POSIX Python 3.9 on macos-latest` — expected source: `GitHub Actions` app.
+  - `POSIX Python 3.14 on macos-latest` — expected source: `GitHub Actions` app.
+  - `Windows read-only control plane Python 3.9` — expected source: `GitHub Actions` app.
+  - `Windows read-only control plane Python 3.14` — expected source: `GitHub Actions` app.
+  - `Verify release evidence` — expected source: `GitHub Actions` app.
 - Require the branch to be up to date before the checks pass.
 - force pushes: block.
 - deletions: block.
@@ -22,4 +29,4 @@ Create exactly one active ruleset named `protect-main`, targeting only `main`. D
 
 ## Post-apply verification
 
-After applying the settings, use the GitHub UI or API and `git ls-remote --heads origin` to verify the exact metadata, Discussions state, sole `main` target, required checks, force-push/deletion blocks, bypass configuration, and remote branch state. Record that evidence in the operational release runbook; do not infer it from this file or a detached local checkout.
+After applying the settings, use the GitHub UI or API and `git ls-remote --heads origin` to verify the exact metadata, Discussions state, sole `main` target, every required check's `GitHub Actions` expected-source binding (never `Any source`), force-push/deletion blocks, bypass configuration, and remote branch state. Record that evidence in the operational release runbook; do not infer it from this file or a detached local checkout.

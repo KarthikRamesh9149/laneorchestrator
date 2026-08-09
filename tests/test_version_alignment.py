@@ -66,10 +66,15 @@ class VersionAlignmentTests(unittest.TestCase):
             "Windows read-only control plane Python 3.9", "Windows read-only control plane Python 3.14",
             "Verify release evidence",
         ):
-            self.assertIn(check, settings)
+            self.assertRegex(
+                settings,
+                r"`{0}` — expected source: `GitHub Actions` app\.".format(re.escape(check)),
+            )
+        self.assertIn("never `Any source`", settings)
         self.assertIn("force pushes: block", settings)
         self.assertIn("deletions: block", settings)
         self.assertIn("post-apply verification", settings.lower())
+        self.assertIn("every required check's `GitHub Actions` expected-source binding", settings)
 
 
 if __name__ == "__main__":
