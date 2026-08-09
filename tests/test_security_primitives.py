@@ -17,6 +17,8 @@ from laneorchestrator.security import (
     atomic_private_write,
     close_private_lock,
     create_private_file_at_locked,
+    open_owned_directory_nofollow,
+    open_owned_lock_at,
     open_parent_directory_nofollow,
     open_private_lock_at,
     platform_mutation_supported,
@@ -75,6 +77,41 @@ finally:
 
     def test_validate_absolute_private_root_accepts_owned_mode_0700(self) -> None:
         validate_absolute_private_root(self.private)
+
+    def test_owned_managed_root_accepts_0755_with_private_lock(self) -> None:
+        managed = self.root / "managed"
+        managed.mkdir(mode=0o755)
+        managed.chmod(0o755)
+        descriptor = open_owned_directory_nofollow(managed)
+        try:
+            lock = open_owned_lock_at(descriptor)
+            try:
+                metadata = os.stat(
+                    PRIVATE_MUTATION_LOCK_NAME,
+                    dir_fd=descriptor,
+                    follow_symlinks=False,
+                )
+                self.assertEqual(stat.S_IMODE(metadata.st_mode), 0o600)
+            finally:
+                close_private_lock(lock)
+        finally:
+            os.close(descriptor)
+
+    def test_owned_managed_root_rejects_writable_or_wrong_owner_leaf(self) -> None:
+        managed = self.root / "managed"
+        managed.mkdir(mode=0o755)
+        for mode in (0o770, 0o775, 0o777):
+            managed.chmod(mode)
+            with self.subTest(mode=oct(mode)), self.assertRaisesRegex(
+                SecurityError, "writable"
+            ):
+                open_owned_directory_nofollow(managed)
+        managed.chmod(0o755)
+        with mock.patch(
+            "laneorchestrator.security.os.geteuid",
+            return_value=os.geteuid() + 1,
+        ), self.assertRaisesRegex(SecurityError, "owned"):
+            open_owned_directory_nofollow(managed)
 
     def test_validate_absolute_private_root_rejects_relative_and_wrong_mode(self) -> None:
         with self.assertRaises(SecurityError):

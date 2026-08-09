@@ -151,16 +151,22 @@ def open_target_directory(path: Path, *, create: bool) -> Optional[int]:
         raise SystemExit(f"Unsafe target directory {path}: {error.strerror or error}") from error
 
 
-def _ensure_private_root(path: Path, *, create: bool = True) -> Path:
+def _ensure_private_root(
+    path: Path, *, create: bool = True, managed_agents: bool = False
+) -> Path:
     canonical = Path(canonical_system_path(path))
     descriptor = open_target_directory(canonical, create=create)
     if descriptor is None:
         raise SystemExit(f"Unsafe target directory {path}: directory disappeared")
     try:
         metadata = os.fstat(descriptor)
-        if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != DIRECTORY_MODE:
+        mode = stat.S_IMODE(metadata.st_mode)
+        unsafe_mode = mode & (stat.S_IWGRP | stat.S_IWOTH) if managed_agents else mode != DIRECTORY_MODE
+        if metadata.st_uid != os.geteuid() or unsafe_mode:
             raise SystemExit(
-                f"Unsafe target directory {path}: managed roots must be owned by the current user with mode 0700"
+                f"Unsafe target directory {path}: managed roots must be owned by the current user and not group or other writable"
+                if managed_agents
+                else f"Unsafe target directory {path}: private state roots require current-user ownership and mode 0700"
             )
     finally:
         os.close(descriptor)
@@ -193,7 +199,7 @@ def _read_compatibility_status(
 
 def _print_statuses(target: Path, statuses: dict[str, str]) -> int:
     conflict = False
-    for name in PROFILE_NAMES:
+    for name in sorted(PROFILE_NAMES):
         status = statuses[name]
         if status == "conflict":
             print(f"conflict {target / name} (left untouched)", file=sys.stderr)
@@ -243,14 +249,16 @@ def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> 
     canonical_target = Path(canonical_system_path(target))
     target_fd = open_target_directory(canonical_target, create=False)
     if target_fd is None and check_only:
-        for name in PROFILE_NAMES:
+        for name in sorted(PROFILE_NAMES):
             print(f"missing {target / name}")
         return 0
     if target_fd is not None:
         os.close(target_fd)
 
     if check_only:
-        canonical_target = _ensure_private_root(canonical_target, create=False)
+        canonical_target = _ensure_private_root(
+            canonical_target, create=False, managed_agents=True
+        )
         state = state_root_for_target(canonical_target)
         state_exists = _exists_nofollow(state)
         config = load_config(state) if state_exists else load_config(state)
@@ -259,22 +267,34 @@ def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> 
         )
         return _print_statuses(target, statuses)
 
-    canonical_target = _ensure_private_root(canonical_target)
-    state = _ensure_private_root(state_root_for_target(canonical_target))
-    config = load_config(state)
-    try:
+    canonical_target = _ensure_private_root(
+        canonical_target, managed_agents=True
+    )
+    state_path = state_root_for_target(canonical_target)
+    state_exists = _exists_nofollow(state_path)
+    if not state_exists:
+        config = load_config(state_path)
         statuses = _read_compatibility_status(
-            canonical_target, config, state_exists=True
+            canonical_target, config, state_exists=False
         )
-    except ProfileConflict:
-        return _print_statuses(target, _collision_statuses(canonical_target))
-    if all(status == "missing" for status in statuses.values()):
-        action = "install"
-    elif _all_adoptable(canonical_target) and not _exists_nofollow(
-        state / "receipts.json"
-    ):
-        action = "adopt"
+        if all(status == "missing" for status in statuses.values()):
+            action = "install"
+        elif _all_adoptable(canonical_target):
+            action = "adopt"
+        else:
+            return _print_statuses(
+                target, _collision_statuses(canonical_target)
+            )
+        state = _ensure_private_root(state_path)
     else:
+        state = _ensure_private_root(state_path, create=False)
+        config = load_config(state)
+        try:
+            statuses = _read_compatibility_status(
+                canonical_target, config, state_exists=True
+            )
+        except ProfileConflict:
+            return _print_statuses(target, _collision_statuses(canonical_target))
         action = "install"
     try:
         token, preview = preview_profiles(action, config, canonical_target, state)
@@ -284,7 +304,7 @@ def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> 
     if not preview.ok or not result.ok:
         return 1
     label = "installed" if result.data["change_count"] else "unchanged"
-    for name in PROFILE_NAMES:
+    for name in sorted(PROFILE_NAMES):
         print(f"{label} {name}")
     return 0
 

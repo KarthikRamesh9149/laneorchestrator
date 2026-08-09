@@ -15,6 +15,12 @@ from scripts.install_agents import load_templates, state_root_for_target
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts" / "install-agents.sh"
+PRESENTATION_NAMES = (
+    "laneorchestrator-luna-executor.toml",
+    "laneorchestrator-router.toml",
+    "laneorchestrator-sol-reviewer.toml",
+    "laneorchestrator-terra-executor.toml",
+)
 
 
 class InstallerTests(unittest.TestCase):
@@ -27,6 +33,10 @@ class InstallerTests(unittest.TestCase):
             result = subprocess.run(["sh", str(INSTALLER), "--check", "--target", str(target)], check=True, capture_output=True, text=True)
             self.assertFalse(target.exists())
         self.assertEqual(result.stdout.count("missing "), 4)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            ["missing {0}".format(target / name) for name in PRESENTATION_NAMES],
+        )
 
     def test_new_profiles_are_private_and_complete(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -49,13 +59,17 @@ class InstallerTests(unittest.TestCase):
     def test_installer_creates_canonical_receipt_then_update_and_uninstall_work(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory).resolve() / "agents"
+            target.mkdir(mode=0o755)
             result = subprocess.run(
                 ["sh", str(INSTALLER), "--target", str(target)],
                 check=True,
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(result.stdout.count("installed "), 4)
+            self.assertEqual(
+                result.stdout.splitlines(),
+                ["installed " + name for name in PRESENTATION_NAMES],
+            )
             state = state_root_for_target(target)
             self.assertTrue((state / "receipts.json").is_file())
             config = load_config(state)
@@ -68,11 +82,55 @@ class InstallerTests(unittest.TestCase):
             apply_profiles("uninstall", token, target, state, now=201)
             self.assertTrue(all(not path.exists() for path in target.glob("laneorchestrator-*.toml")))
 
+    def test_legacy_output_order_and_collision_streams_are_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory).resolve() / "agents"
+            first = subprocess.run(
+                ["sh", str(INSTALLER), "--target", str(target)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                first.stdout.splitlines(),
+                ["installed " + name for name in PRESENTATION_NAMES],
+            )
+            second = subprocess.run(
+                ["sh", str(INSTALLER), "--target", str(target)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                second.stdout.splitlines(),
+                ["unchanged " + name for name in PRESENTATION_NAMES],
+            )
+            router = target / "laneorchestrator-router.toml"
+            router.write_text(router.read_text() + "# drift\n", encoding="utf-8")
+            conflict = subprocess.run(
+                ["sh", str(INSTALLER), "--target", str(target)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(conflict.returncode, 2)
+            self.assertEqual(
+                conflict.stdout.splitlines(),
+                [
+                    "unchanged laneorchestrator-luna-executor.toml",
+                    "unchanged laneorchestrator-sol-reviewer.toml",
+                    "unchanged laneorchestrator-terra-executor.toml",
+                ],
+            )
+            self.assertEqual(
+                conflict.stderr,
+                "conflict {0} (left untouched)\n".format(router),
+            )
+
     def test_exact_v010_set_is_adopted_but_near_match_is_exit_two_and_untouched(self) -> None:
         fixtures = ROOT / "tests" / "fixtures" / "profiles" / "v0.1.0"
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory).resolve() / "agents"
-            target.mkdir(mode=0o700)
+            target.mkdir(mode=0o755)
             for source in fixtures.glob("*.toml"):
                 shutil.copyfile(source, target / source.name)
             result = subprocess.run(
@@ -101,7 +159,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("conflict ", result.stderr)
             self.assertEqual(changed.read_bytes(), before)
-            self.assertFalse((state_root_for_target(target) / "receipts.json").exists())
+            self.assertFalse(state_root_for_target(target).exists())
 
     def test_source_loading_ignores_a_fifth_unrelated_toml(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -170,6 +228,22 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("conflict ", result.stderr)
                 self.assertNotIn("Traceback", result.stderr)
+                self.assertFalse(state_root_for_target(target).exists())
+
+    def test_group_or_other_writable_target_is_rejected_before_state_creation(self) -> None:
+        for mode in (0o770, 0o775, 0o777):
+            with self.subTest(mode=oct(mode)), tempfile.TemporaryDirectory() as directory:
+                target = Path(directory).resolve() / "agents"
+                target.mkdir(mode=mode)
+                target.chmod(mode)
+                result = subprocess.run(
+                    ["sh", str(INSTALLER), "--target", str(target)],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Unsafe target directory", result.stderr)
+                self.assertFalse(state_root_for_target(target).exists())
 
 
 if __name__ == "__main__":

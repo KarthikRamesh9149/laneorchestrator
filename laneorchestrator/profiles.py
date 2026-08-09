@@ -19,6 +19,8 @@ from .plans import MutationPlan, Operation, PlanError, consume_plan, create_plan
 from .security import (
     SecurityError,
     close_private_lock,
+    open_owned_directory_nofollow,
+    open_owned_lock_at,
     open_parent_directory_nofollow,
     open_private_lock_at,
     platform_mutation_supported,
@@ -172,12 +174,16 @@ def _reject_duplicate_keys(pairs: List[Tuple[str, object]]) -> Dict[str, object]
     return result
 
 
-def _validate_root(path: Path, label: str) -> Path:
+def _validate_root(path: Path, label: str, *, owned_agents: bool = False) -> Path:
     candidate = Path(path)
     if not candidate.is_absolute():
         raise ProfileConflict("{0} must be an absolute private directory".format(label))
     try:
-        descriptor = open_parent_directory_nofollow(candidate)
+        descriptor = (
+            open_owned_directory_nofollow(candidate)
+            if owned_agents
+            else open_parent_directory_nofollow(candidate)
+        )
     except SecurityError as error:
         raise ProfileConflict("{0} is unsafe: {1}".format(label, error)) from error
     else:
@@ -185,8 +191,12 @@ def _validate_root(path: Path, label: str) -> Path:
     return candidate
 
 
-def _root_device(path: Path) -> int:
-    descriptor = open_parent_directory_nofollow(Path(path))
+def _root_device(path: Path, *, owned_agents: bool = False) -> int:
+    descriptor = (
+        open_owned_directory_nofollow(Path(path))
+        if owned_agents
+        else open_parent_directory_nofollow(Path(path))
+    )
     try:
         return os.fstat(descriptor).st_dev
     finally:
@@ -197,10 +207,10 @@ def _validate_environment(agents_root: Path, state_root: Path) -> Tuple[Path, Pa
     supported, reason = platform_mutation_supported()
     if not supported:
         raise ProfileConflict(reason)
-    agents = _validate_root(agents_root, "agents root")
+    agents = _validate_root(agents_root, "agents root", owned_agents=True)
     state = _validate_root(state_root, "state root")
     try:
-        agents_device = _root_device(agents)
+        agents_device = _root_device(agents, owned_agents=True)
         state_device = _root_device(state)
     except SecurityError as error:
         raise ProfileConflict("could not validate profile root devices") from error
@@ -295,8 +305,33 @@ def _read_optional(
         os.close(parent_fd)
 
 
+def _read_existing_backup(
+    state_root: Path, name: str
+) -> Optional[bytes]:
+    """Inspect an optional private backup without creating its directory."""
+
+    backup_root = state_root / BACKUPS_DIRECTORY
+    try:
+        backup_root.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise ProfileConflict("could not inspect profile backup directory") from error
+    try:
+        return _read_optional(
+            backup_root,
+            name,
+            MAX_PROFILE_BYTES,
+            required_mode=0o600,
+        )
+    except (OSError, SecurityError) as error:
+        raise ProfileConflict("existing profile backup is unsafe") from error
+
+
 @contextmanager
-def _locked_roots(roots: Sequence[Path]) -> Iterator[Mapping[Path, int]]:
+def _locked_roots(
+    roots: Sequence[Path], *, agents_root: Optional[Path] = None
+) -> Iterator[Mapping[Path, int]]:
     """Lock distinct private roots in lexical order to prevent deadlocks."""
 
     unique = sorted({Path(root) for root in roots}, key=lambda item: os.fspath(item))
@@ -304,9 +339,18 @@ def _locked_roots(roots: Sequence[Path]) -> Iterator[Mapping[Path, int]]:
     locks: List[int] = []
     try:
         for root in unique:
-            descriptor = open_parent_directory_nofollow(root)
+            owned_agents = agents_root is not None and root == agents_root
+            descriptor = (
+                open_owned_directory_nofollow(root)
+                if owned_agents
+                else open_parent_directory_nofollow(root)
+            )
             descriptors[root] = descriptor
-            locks.append(open_private_lock_at(descriptor))
+            locks.append(
+                open_owned_lock_at(descriptor)
+                if owned_agents
+                else open_private_lock_at(descriptor)
+            )
         yield descriptors
     finally:
         for lock in reversed(locks):
@@ -429,7 +473,9 @@ def _read_snapshot(
     str,
 ]:
     try:
-        with _locked_roots((agents_root, state_root)) as descriptors:
+        with _locked_roots(
+            (agents_root, state_root), agents_root=agents_root
+        ) as descriptors:
             agents_fd = descriptors[agents_root]
             state_fd = descriptors[state_root]
             profiles = {
@@ -462,7 +508,7 @@ def _active_receipt(receipt: Optional[Mapping[str, object]]) -> bool:
 
 def _require_private_managed_profile_modes(agents_root: Path) -> None:
     try:
-        with _locked_roots((agents_root,)) as descriptors:
+        with _locked_roots((agents_root,), agents_root=agents_root) as descriptors:
             for name in PROFILE_NAMES:
                 _read_at(
                     descriptors[agents_root],
@@ -665,16 +711,9 @@ def _build_preview(
             backup_path = state_root / BACKUPS_DIRECTORY / (
                 name + "." + backup_hash + ".bak"
             )
-            backup_root = _ensure_private_child(state_root, BACKUPS_DIRECTORY)
-            try:
-                existing_backup = _read_optional(
-                    backup_root,
-                    backup_path.name,
-                    MAX_PROFILE_BYTES,
-                    required_mode=0o600,
-                )
-            except (OSError, SecurityError) as error:
-                raise ProfileConflict("existing profile backup is unsafe") from error
+            existing_backup = _read_existing_backup(
+                state_root, backup_path.name
+            )
             if existing_backup is None:
                 operations.append(_operation(backup_path, None, prior))
             elif existing_backup == prior:
@@ -908,8 +947,8 @@ def _apply_plan(
     classified = _classify_operations(plan, action, agents_root, state_root)
     backup_root = state_root / BACKUPS_DIRECTORY
     if any(
-        root == backup_root
-        for _kind, root, _name, _operation_item in classified.values()
+        kind == "mutate" and root == backup_root
+        for kind, root, _name, _operation_item in classified.values()
     ):
         _ensure_private_child(state_root, BACKUPS_DIRECTORY)
     roots = sorted(
@@ -919,7 +958,7 @@ def _apply_plan(
     before_contents: Dict[str, Optional[bytes]] = {}
     applied: List[str] = []
     try:
-        with _locked_roots(roots) as descriptors:
+        with _locked_roots(roots, agents_root=agents_root) as descriptors:
             try:
                 for key, (kind, root, name, operation) in classified.items():
                     if kind == "root":
@@ -1045,11 +1084,28 @@ def inspect_profiles(
     receipt = _load_receipt(receipt_bytes, agents)
     statuses: Dict[str, str] = {}
     entries = _receipt_entries(receipt) if receipt is not None and _active_receipt(receipt) else {}
+    expected_config_hash = _sha256(serialize_config(config))
+    config_drift = bool(entries) and any(
+        entry["config_sha256"] != expected_config_hash
+        for entry in entries.values()
+    )
     for name in PROFILE_NAMES:
         content = profiles[name]
+        try:
+            metadata = os.lstat(agents / name)
+            private_mode = stat.S_IMODE(metadata.st_mode) == 0o600
+        except FileNotFoundError:
+            private_mode = False
+        except OSError:
+            private_mode = False
         if content is None:
             statuses[name] = "missing"
-        elif name in entries and _sha256(content) == entries[name]["content_sha256"]:
+        elif (
+            not config_drift
+            and private_mode
+            and name in entries
+            and _sha256(content) == entries[name]["content_sha256"]
+        ):
             statuses[name] = "unchanged" if content == rendered[name] else "managed"
         else:
             statuses[name] = "conflict"

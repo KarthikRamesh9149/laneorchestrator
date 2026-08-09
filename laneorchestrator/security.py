@@ -109,8 +109,17 @@ def _validate_private_leaf(metadata: os.stat_result) -> None:
         raise SecurityError("private root mode must be 0700")
 
 
-def _open_absolute_private_directory(path: Path) -> int:
-    """Open and validate an absolute private directory chain without links."""
+def _validate_owned_mutation_leaf(metadata: os.stat_result) -> None:
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise SecurityError("managed root is not a directory")
+    if metadata.st_uid != os.geteuid():
+        raise SecurityError("managed root is not owned by the current user")
+    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise SecurityError("managed root must not be group or other writable")
+
+
+def _open_absolute_directory(path: Path, *, owned_mutation_leaf: bool) -> int:
+    """Open and validate one absolute directory chain without links."""
 
     _require_mutation_support()
     candidate = Path(path)
@@ -130,7 +139,11 @@ def _open_absolute_private_directory(path: Path) -> int:
         if components:
             _validate_ancestor_directory(root_metadata)
         else:
-            _validate_private_leaf(root_metadata)
+            (
+                _validate_owned_mutation_leaf(root_metadata)
+                if owned_mutation_leaf
+                else _validate_private_leaf(root_metadata)
+            )
         for index, component in enumerate(components):
             try:
                 child_descriptor = os.open(component, flags, dir_fd=descriptor)
@@ -139,7 +152,11 @@ def _open_absolute_private_directory(path: Path) -> int:
             try:
                 metadata = os.fstat(child_descriptor)
                 if index == len(components) - 1:
-                    _validate_private_leaf(metadata)
+                    (
+                        _validate_owned_mutation_leaf(metadata)
+                        if owned_mutation_leaf
+                        else _validate_private_leaf(metadata)
+                    )
                 else:
                     _validate_ancestor_directory(metadata)
             except BaseException:
@@ -154,6 +171,12 @@ def _open_absolute_private_directory(path: Path) -> int:
         raise
 
 
+def _open_absolute_private_directory(path: Path) -> int:
+    """Open and validate an absolute mode-0700 directory without links."""
+
+    return _open_absolute_directory(path, owned_mutation_leaf=False)
+
+
 def validate_absolute_private_root(path: Path) -> None:
     """Reject a state root whose complete directory chain is not private."""
 
@@ -165,6 +188,12 @@ def open_parent_directory_nofollow(path: Path) -> int:
     """Open one absolute mode-0700 parent through a no-follow directory chain."""
 
     return _open_absolute_private_directory(path)
+
+
+def open_owned_directory_nofollow(path: Path) -> int:
+    """Open an EUID-owned final directory that is not writable by others."""
+
+    return _open_absolute_directory(path, owned_mutation_leaf=True)
 
 
 def _validate_basename(name: str) -> None:
@@ -231,15 +260,19 @@ def _validate_private_lock_metadata(metadata: os.stat_result) -> None:
         raise SecurityError("private mutation lock mode must be 0600")
 
 
-def open_private_lock_at(parent_fd: int) -> int:
-    """Open, validate, and exclusively lock the private mutation lock file."""
+def _open_lock_at(parent_fd: int, *, owned_mutation_parent: bool) -> int:
+    """Open, validate, and exclusively lock one mutation lock file."""
 
     _require_mutation_support()
     try:
         parent_metadata = os.fstat(parent_fd)
     except OSError as error:
         raise SecurityError("could not inspect private lock parent") from error
-    _validate_private_leaf(parent_metadata)
+    (
+        _validate_owned_mutation_leaf(parent_metadata)
+        if owned_mutation_parent
+        else _validate_private_leaf(parent_metadata)
+    )
     common_flags = os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK
     if hasattr(os, "O_CLOEXEC"):
         common_flags |= os.O_CLOEXEC
@@ -298,6 +331,18 @@ def open_private_lock_at(parent_fd: int) -> int:
                     os.close(descriptor)
             else:
                 os.close(descriptor)
+
+
+def open_private_lock_at(parent_fd: int) -> int:
+    """Lock one exact mode-0700 private mutation root."""
+
+    return _open_lock_at(parent_fd, owned_mutation_parent=False)
+
+
+def open_owned_lock_at(parent_fd: int) -> int:
+    """Lock one safe EUID-owned managed-agents mutation root."""
+
+    return _open_lock_at(parent_fd, owned_mutation_parent=True)
 
 
 def close_private_lock(descriptor: int) -> None:

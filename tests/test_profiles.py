@@ -20,6 +20,7 @@ from laneorchestrator.profiles import (
     PROFILE_NAMES,
     ProfileConflict,
     apply_profiles,
+    inspect_profiles,
     preview_profiles,
     render_profile,
     render_profiles,
@@ -203,6 +204,20 @@ class ProfileLifecycleTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(backup.stat().st_mode), 0o600)
         self.assertIn('model = "configured-router"', (self.agents / PROFILE_NAMES[0]).read_text())
 
+    def test_update_preview_does_not_create_backup_directory(self) -> None:
+        self._preview_apply("install")
+        roles = dict(DEFAULT_ROLES)
+        roles["router"] = RoleConfig("preview-only-router", "high")
+        changed = EffectiveConfig(1, roles, "file")
+        token, preview = preview_profiles(
+            "update", changed, self.agents, self.state, now=200
+        )
+        self.assertGreater(preview.data["change_count"], 0)
+        self.assertFalse((self.state / "backups").exists())
+        with self.assertRaisesRegex(Exception, "expired"):
+            apply_profiles("update", token, self.agents, self.state, now=801)
+        self.assertFalse((self.state / "backups").exists())
+
     def test_changed_managed_file_is_never_updated_or_uninstalled(self) -> None:
         self._preview_apply("install")
         destination = self.agents / "laneorchestrator-router.toml"
@@ -306,6 +321,48 @@ class ProfileLifecycleTests(unittest.TestCase):
         receipt.chmod(0o644)
         with self.assertRaisesRegex(ProfileConflict, "unsafe"):
             preview_profiles("update", self.config, self.agents, self.state, now=200)
+
+    def test_inspect_reports_configuration_and_mode_drift(self) -> None:
+        self._preview_apply("install")
+        receipt_path = self.state / "receipts.json"
+        original_receipt = receipt_path.read_bytes()
+        receipt = self._receipt()
+        for entry in receipt["profiles"]:
+            entry["config_sha256"] = "0" * 64
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        self.assertEqual(
+            set(inspect_profiles(self.config, self.agents, self.state).values()),
+            {"conflict"},
+        )
+        receipt_path.write_bytes(original_receipt)
+        changed = self.agents / PROFILE_NAMES[0]
+        changed.chmod(0o644)
+        statuses = inspect_profiles(self.config, self.agents, self.state)
+        self.assertEqual(statuses[PROFILE_NAMES[0]], "conflict")
+        self.assertTrue(
+            all(statuses[name] == "unchanged" for name in PROFILE_NAMES[1:])
+        )
+
+    def test_safe_owned_0755_agents_root_supports_full_lifecycle(self) -> None:
+        self.agents.chmod(0o755)
+        self._preview_apply("install")
+        lock = self.agents / ".laneorchestrator-state.lock"
+        self.assertEqual(stat.S_IMODE(lock.stat().st_mode), 0o600)
+        roles = dict(DEFAULT_ROLES)
+        roles["router"] = RoleConfig("safe-0755-router", "high")
+        changed = EffectiveConfig(1, roles, "file")
+        self._preview_apply("update", changed, now=200)
+        self._preview_apply("uninstall", changed, now=300)
+
+    def test_group_or_other_writable_agents_root_is_refused(self) -> None:
+        for mode in (0o770, 0o775, 0o777):
+            with self.subTest(mode=oct(mode)):
+                self.agents.chmod(mode)
+                with self.assertRaisesRegex(ProfileConflict, "agents root|writable"):
+                    preview_profiles(
+                        "install", self.config, self.agents, self.state, now=100
+                    )
+        self.agents.chmod(0o700)
 
     def test_reusing_an_exact_content_addressed_backup_is_safe(self) -> None:
         self._preview_apply("install")
@@ -527,6 +584,54 @@ class ProfileLifecycleTests(unittest.TestCase):
         receipt = self._receipt()
         operations = {item["operation"] for item in receipt["profiles"]}
         self.assertEqual(operations, {"update"} if all(existing) else {"uninstall"})
+
+    def test_shared_0755_agents_root_serializes_different_state_roots(self) -> None:
+        self.agents.chmod(0o755)
+        self._preview_apply("install")
+        second_state = self.root / "second-state"
+        second_state.mkdir(mode=0o700)
+        second_receipt = second_state / "receipts.json"
+        second_receipt.write_bytes((self.state / "receipts.json").read_bytes())
+        second_receipt.chmod(0o600)
+        roles = dict(DEFAULT_ROLES)
+        roles["router"] = RoleConfig("shared-root-router", "high")
+        changed = EffectiveConfig(1, roles, "file")
+        update_token, _ = preview_profiles(
+            "update", changed, self.agents, self.state, now=200
+        )
+        uninstall_token, _ = preview_profiles(
+            "uninstall", self.config, self.agents, second_state, now=200
+        )
+        barrier = threading.Barrier(3)
+        outcomes = []
+
+        def run(action, token, state):
+            barrier.wait()
+            try:
+                apply_profiles(action, token, self.agents, state, now=201)
+            except Exception as error:  # noqa: BLE001 - asserted outcome.
+                outcomes.append((action, "error", str(error)))
+            else:
+                outcomes.append((action, "ok", ""))
+
+        threads = [
+            threading.Thread(
+                target=run, args=("update", update_token, self.state)
+            ),
+            threading.Thread(
+                target=run,
+                args=("uninstall", uninstall_token, second_state),
+            ),
+        ]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join(10)
+            self.assertFalse(thread.is_alive())
+        self.assertEqual(sum(item[1] == "ok" for item in outcomes), 1)
+        existing = [(self.agents / name).exists() for name in PROFILE_NAMES]
+        self.assertIn(existing, ([False] * 4, [True] * 4))
 
     def test_links_and_non_regular_destinations_are_refused(self) -> None:
         outside = self.root / "outside"
