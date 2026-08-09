@@ -25,12 +25,12 @@ RELEASE_FILES = (
     "NOTICE", "README.md", "RELEASING.md", "SECURITY.md", "SUPPORT.md",
     "plugin.json", ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
 )
-# ``benchmarks`` is required by the documented ``benchmark`` control-plane
-# command and by the link in docs/benchmarks.md.  Keeping it explicit avoids a
-# release archive whose included documentation or CLI is self-inconsistent.
+# This is a source release archive: included contributor/release guides invoke
+# the validator and installer, so their scripts, tests, benchmark corpus and
+# CI evidence definitions are deliberately shipped as bounded trees too.
 RELEASE_TREES = (
     "agents", "laneorchestrator", "skills/laneorchestrator", "docs", "benchmarks",
-    ".github/ISSUE_TEMPLATE",
+    "scripts", "tests", ".github/ISSUE_TEMPLATE", ".github/workflows",
 )
 MAX_MEMBER_BYTES = 1024 * 1024
 MAX_MEMBERS = 512
@@ -173,6 +173,8 @@ def archive_members(root: Path) -> List[Path]:
             raise ReleaseError("release tree is missing or unsafe: {0}".format(tree))
         for path in sorted(source.rglob("*"), key=lambda item: item.as_posix()):
             if tree == "docs" and "superpowers" in path.relative_to(source).parts:
+                continue
+            if "__pycache__" in path.parts or path.suffix == ".pyc":
                 continue
             trees.append(path)
     members = validate_release_members(root, explicit + trees)

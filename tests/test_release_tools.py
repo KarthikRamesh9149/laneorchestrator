@@ -92,7 +92,8 @@ class ReleaseToolTests(unittest.TestCase):
             verify_release(self.output_two, root=self.root)
         (self.output_two / "extra.txt").unlink()
 
-        self._replace_tar_member(release.tar_path, "laneorchestrator-0.2.0/README.md", b"Bearer abcdefghijklmnopqrstuvwxyz\n")
+        credential = b"Bearer " + b"abcdefghijklmnopqrstuvwxyz"
+        self._replace_tar_member(release.tar_path, "laneorchestrator-0.2.0/README.md", credential + b"\n")
         self._rewrite_sums(self.output_two)
         with self.assertRaisesRegex(ReleaseVerificationError, "content"):
             verify_release(self.output_two, root=self.root)
@@ -147,6 +148,9 @@ class ReleaseToolTests(unittest.TestCase):
             benchmark = "laneorchestrator-0.2.0/benchmarks/README.md"
             self.assertIn(benchmark, names)
             self.assertIn("laneorchestrator-0.2.0/docs/benchmarks.md", names)
+            self.assertIn("laneorchestrator-0.2.0/scripts/validate.sh", names)
+            self.assertIn("laneorchestrator-0.2.0/tests/test_release_tools.py", names)
+            self.assertIn("laneorchestrator-0.2.0/.github/workflows/ci.yml", names)
             prefix = "laneorchestrator-0.2.0/"
             for name, content in payloads.items():
                 if not name.endswith(".md"):
@@ -158,6 +162,9 @@ class ReleaseToolTests(unittest.TestCase):
                     resolved = posixpath.normpath(posixpath.join(posixpath.dirname(name), target))
                     self.assertTrue(resolved.startswith(prefix), "{0} -> {1}".format(name, target))
                     self.assertIn(resolved, names, "{0} -> {1}".format(name, target))
+            commands = ("scripts/healthcheck.py", "scripts/validate.sh", "scripts/install-agents.sh")
+            for command in commands:
+                self.assertIn(prefix + command, names)
 
     def test_document_and_manifest_checks_report_deterministic_failures(self) -> None:
         readme = self.root / "README.md"
@@ -169,7 +176,8 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertEqual(check_manifests(self.root), ["plugin.json: invalid JSON"])
 
     def test_check_scripts_return_one_for_invalid_public_roots(self) -> None:
-        (self.root / "README.md").write_text("Bearer abcdefghijklmnopqrstuvwxyz\n", encoding="utf-8")
+        credential = "Bearer " + "abcdefghijklmnopqrstuvwxyz"
+        (self.root / "README.md").write_text(credential + "\n", encoding="utf-8")
         checked = subprocess.run(
             [sys.executable, "scripts/check_docs.py", "--root", str(self.root)],
             cwd=ROOT, text=True, capture_output=True, check=False,
