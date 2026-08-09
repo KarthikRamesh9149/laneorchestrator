@@ -18,6 +18,29 @@ ROUTING_CORPUS = ROOT / "benchmarks" / "routing-corpus-v1.json"
 CAPABILITY_CORPUS = ROOT / "benchmarks" / "capability-corpus-v1.json"
 
 
+def _is_source_precedence_adversarial_gold(case: dict[str, object]) -> bool:
+    if not case.get("adversarial") or not case.get("applicable_specialist"):
+        return False
+    expected_sources = case.get("expected_sources")
+    capabilities = case.get("capabilities")
+    if not isinstance(expected_sources, dict) or not isinstance(capabilities, list):
+        return False
+    for name, expected_source in expected_sources.items():
+        matching_sources = {
+            item.get("source") for item in capabilities
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+            and item["name"].casefold() == str(name).casefold()
+        }
+        matches = [
+            item for item in capabilities
+            if isinstance(item, dict) and isinstance(item.get("name"), str)
+            and item["name"].casefold() == str(name).casefold()
+        ]
+        if len(matches) >= 2 and len(matching_sources) >= 2 and expected_source in matching_sources:
+            return True
+    return False
+
+
 class BenchmarkCorpusTests(unittest.TestCase):
     def test_routing_corpus_has_reviewed_category_floor(self) -> None:
         cases = json.loads(ROUTING_CORPUS.read_text(encoding="utf-8"))
@@ -65,21 +88,21 @@ class BenchmarkCorpusTests(unittest.TestCase):
             self.assertEqual(set(case["expected_sources"]), set(case["expected_top3"]))
         self.assertGreaterEqual(sum(5 <= len(case["capabilities"]) <= 8 for case in cases), 8)
         self.assertTrue(all(case["adversarial"] for case in cases if not case["applicable_specialist"]))
-        source_precedence_adversarial = [
-            case for case in cases
-            if case["adversarial"] and case["applicable_specialist"]
-            and len({item["name"].casefold() for item in case["capabilities"]}) < len(case["capabilities"])
-            and case["expected_sources"]
-        ]
+        source_precedence_adversarial = [case for case in cases if _is_source_precedence_adversarial_gold(case)]
         self.assertTrue(source_precedence_adversarial)
-        self.assertTrue(all(
-            any(
-                item["name"] == name and item["source"] == source
-                for item in case["capabilities"]
-            )
-            for case in source_precedence_adversarial
-            for name, source in case["expected_sources"].items()
-        ))
+
+    def test_source_precedence_gold_rejects_an_unrelated_duplicate(self) -> None:
+        case = {
+            "adversarial": True,
+            "applicable_specialist": True,
+            "expected_sources": {"expected": "project"},
+            "capabilities": [
+                {"name": "expected", "source": "project"},
+                {"name": "unrelated", "source": "project"},
+                {"name": "unrelated", "source": "plugin-cache"},
+            ],
+        }
+        self.assertFalse(_is_source_precedence_adversarial_gold(case))
 
 
 class BenchmarkBehaviorTests(unittest.TestCase):
