@@ -1,9 +1,10 @@
 """Read-only, truthful environment diagnostics and status summaries.
 
-Codex probing accepts only an owner- or root-owned non-writable executable.
-Cleanup is best effort within the launched process group; executable contents
-that deliberately escape that group under the same effective user are outside
-the local diagnostic threat boundary.
+Codex probing accepts only an owner- or root-owned non-writable executable
+reached through an inspected no-link parent chain. POSIX uid and mode evidence
+cannot reveal ACL-granted writers. Cleanup is best effort within the launched
+process group; same-euid, root, or ACL-capable writers and executable contents
+that deliberately escape that group remain outside the local diagnostic boundary.
 """
 
 from __future__ import annotations
@@ -53,6 +54,9 @@ _PROBE_POLICY_EVIDENCE = {
     "cleanup_scope": "launched_process_group_best_effort",
     "executable_trust": "owner_or_root_nonwritable",
 }
+_FIXED_SYSTEM_PROBE_PATHS = ("/usr/bin", "/bin", "/usr/sbin", "/sbin")
+_StatIdentity = Tuple[int, int, int, int, int, int]
+_PathSnapshot = Tuple[Tuple[str, _StatIdentity], ...]
 _ROLE_PROFILE = {
     "router": "laneorchestrator-router.toml",
     "small_task_executor": "laneorchestrator-luna-executor.toml",
@@ -302,44 +306,150 @@ def _executable_identity_supported() -> bool:
     return os.name == "posix" and callable(getattr(os, "geteuid", None))
 
 
+def _stat_identity(metadata: os.stat_result) -> _StatIdentity:
+    """Return the fields whose stability gates the bounded executable probe."""
+
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_uid,
+        metadata.st_mode,
+        metadata.st_nlink,
+        stat.S_IFMT(metadata.st_mode),
+    )
+
+
+def _codex_parent_chain_inspection(directory: Path) -> Tuple[str, _PathSnapshot]:
+    """Classify and snapshot every component of an executable directory."""
+
+    candidate = Path(directory)
+    if not candidate.is_absolute():
+        return "unsafe_executable_path", ()
+    if any(component in ("", ".", "..") for component in candidate.parts[1:]):
+        return "unsafe_executable_path", ()
+    current = Path(candidate.anchor)
+    components = [current]
+    for component in candidate.parts[1:]:
+        current = current / component
+        components.append(current)
+    metadata_items: List[os.stat_result] = []
+    for path in components:
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            return "missing", ()
+        except OSError:
+            return "unsafe_executable_path", ()
+        if _is_link_or_reparse(metadata) or not stat.S_ISDIR(metadata.st_mode):
+            return "unsafe_executable_path", ()
+        metadata_items.append(metadata)
+    if not _executable_identity_supported():
+        return "unverified_executable_trust", ()
+    final_index = len(metadata_items) - 1
+    for index, metadata in enumerate(metadata_items):
+        mode = stat.S_IMODE(metadata.st_mode)
+        writable = mode & (stat.S_IWGRP | stat.S_IWOTH)
+        if metadata.st_uid not in (0, os.geteuid()):
+            return "unsafe_executable_path", ()
+        if index == final_index:
+            if writable:
+                return "unsafe_executable_path", ()
+        elif writable and not mode & stat.S_ISVTX:
+            return "unverified_executable_path", ()
+    snapshot = tuple(
+        (os.fspath(path), _stat_identity(metadata))
+        for path, metadata in zip(components, metadata_items)
+    )
+    return "found", snapshot
+
+
+def _codex_parent_chain_state(directory: Path) -> str:
+    """Classify every component of one absolute executable directory."""
+
+    state, _snapshot = _codex_parent_chain_inspection(directory)
+    return state
+
+
+def _codex_executable_inspection(candidate: Path) -> Tuple[str, _PathSnapshot]:
+    """Classify and snapshot one candidate under the local executable policy."""
+
+    path = Path(candidate)
+    if not path.is_absolute():
+        return "unsafe_executable", ()
+    try:
+        preliminary = path.lstat()
+    except FileNotFoundError:
+        return "missing", ()
+    except OSError:
+        chain_state, _snapshot = _codex_parent_chain_inspection(path.parent)
+        if chain_state != "found":
+            return chain_state, ()
+        return "unsafe_executable", ()
+    chain_state, chain_snapshot = _codex_parent_chain_inspection(path.parent)
+    if chain_state != "found":
+        return chain_state, ()
+    try:
+        metadata = path.lstat()
+    except OSError:
+        return "unsafe_executable", ()
+    if _stat_identity(preliminary) != _stat_identity(metadata):
+        return "unsafe_executable", ()
+    if _is_link_or_reparse(metadata) or not stat.S_ISREG(metadata.st_mode):
+        return "unsafe_executable", ()
+    if metadata.st_nlink != 1:
+        return "unsafe_executable", ()
+    if metadata.st_mode & (stat.S_ISUID | stat.S_ISGID):
+        return "unsafe_executable", ()
+    if not os.access(path, os.X_OK):
+        return "unsafe_executable", ()
+    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return "unsafe_executable", ()
+    if metadata.st_uid not in (0, os.geteuid()):
+        return "unsafe_executable", ()
+    return "found", chain_snapshot + ((os.fspath(path), _stat_identity(metadata)),)
+
+
 def _codex_executable_state(candidate: Path) -> str:
     """Classify one absolute candidate under the local executable policy."""
 
-    if not Path(candidate).is_absolute():
-        return "unsafe_executable"
-    try:
-        metadata = Path(candidate).lstat()
-    except OSError:
-        return "missing"
-    if _is_link_or_reparse(metadata) or not stat.S_ISREG(metadata.st_mode):
-        return "unsafe_executable"
-    if not _executable_identity_supported():
-        return "unverified_executable_trust"
-    if not os.access(candidate, os.X_OK):
-        return "unsafe_executable"
-    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
-        return "unsafe_executable"
-    if hasattr(os, "geteuid") and metadata.st_uid not in (0, os.geteuid()):
-        return "unsafe_executable"
-    return "found"
+    state, _snapshot = _codex_executable_inspection(candidate)
+    return state
 
 
-def _codex_executable(environment: Mapping[str, str]) -> Tuple[Optional[Path], str]:
+def _codex_executable(
+    environment: Mapping[str, str],
+) -> Tuple[Optional[Path], str, _PathSnapshot]:
     path_value = environment.get("PATH", "")
     if not isinstance(path_value, str) or not path_value:
-        return None, "missing"
+        return None, "missing", ()
     entries = path_value.split(os.pathsep)
     if any(not entry or not Path(entry).is_absolute() for entry in entries):
-        return None, "unsafe_path"
+        return None, "unsafe_path", ()
     for entry in entries:
         candidate = Path(entry) / ("codex.exe" if os.name == "nt" else "codex")
-        state = _codex_executable_state(candidate)
+        state, snapshot = _codex_executable_inspection(candidate)
         if state == "missing":
             continue
         if state == "found":
-            return candidate, "found"
-        return None, state
-    return None, "missing"
+            return candidate, "found", snapshot
+        return None, state, ()
+    return None, "missing", ()
+
+
+def _codex_probe_environment(executable: Path) -> Dict[str, str]:
+    """Build a minimal child environment without caller-controlled loaders."""
+
+    paths = [os.fspath(Path(executable).parent)]
+    for item in _FIXED_SYSTEM_PROBE_PATHS:
+        system_path = Path(item)
+        state, _snapshot = _codex_parent_chain_inspection(system_path)
+        if state == "found" and item not in paths:
+            paths.append(item)
+    return {
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": os.pathsep.join(paths),
+    }
 
 
 def _kill_probe(process: subprocess.Popen[bytes]) -> None:
@@ -363,12 +473,25 @@ def _kill_probe(process: subprocess.Popen[bytes]) -> None:
         pass
 
 
-def _probe_codex(executable: Path, environment: Mapping[str, str]) -> Tuple[str, bytes, Optional[int]]:
+def _probe_codex(
+    executable: Path,
+    environment: Mapping[str, str],
+    expected_snapshot: Optional[_PathSnapshot] = None,
+) -> Tuple[str, bytes, Optional[int]]:
     """Run a bounded probe; cleanup cannot contain a deliberate new session."""
 
     started = time.monotonic()
     deadline = started + CODEX_TIMEOUT_SECONDS - 0.25
-    if _codex_executable_state(executable) != "found":
+    # Build the child environment before the final identity comparison so the
+    # revalidation remains immediately adjacent to process creation. Caller
+    # PATH and loader/language injection variables are intentionally omitted.
+    probe_environment = _codex_probe_environment(executable)
+    state, current_snapshot = _codex_executable_inspection(executable)
+    if state != "found":
+        return state, b"", None
+    if expected_snapshot is not None and current_snapshot != expected_snapshot:
+        if current_snapshot[:-1] != expected_snapshot[:-1]:
+            return "unsafe_executable_path", b"", None
         return "unsafe_executable", b"", None
     try:
         process = subprocess.Popen(
@@ -377,7 +500,7 @@ def _probe_codex(executable: Path, environment: Mapping[str, str]) -> Tuple[str,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             shell=False,
-            env=dict(environment),
+            env=probe_environment,
             start_new_session=os.name == "posix",
         )
     except OSError:
@@ -457,10 +580,23 @@ def check_codex_cli(env: Optional[Mapping[str, str]] = None) -> Diagnostic:
             dict(_PROBE_POLICY_EVIDENCE, probe="invalid_environment"),
         )
     environment = dict(supplied)
-    executable, state = _codex_executable(environment)
+    executable, state, snapshot = _codex_executable(environment)
     if executable is None:
+        if state == "unverified_executable_path":
+            return Diagnostic(
+                "CODEX_CLI",
+                Level.UNKNOWN,
+                "Codex CLI executable parent chain cannot be authoritatively verified",
+                dict(
+                    _PROBE_POLICY_EVIDENCE,
+                    probe="unverified_executable_path",
+                    executable_trust="unverified_parent_chain",
+                ),
+            )
         if state in ("unsafe_path", "unsafe_executable"):
             message = "Codex CLI search path or executable is unsafe"
+        elif state == "unsafe_executable_path":
+            message = "Codex CLI executable parent chain is unsafe"
         elif state == "unverified_executable_trust":
             message = "Codex CLI executable ownership and mode cannot be authoritatively verified"
         else:
@@ -471,7 +607,9 @@ def check_codex_cli(env: Optional[Mapping[str, str]] = None) -> Diagnostic:
             message,
             dict(_PROBE_POLICY_EVIDENCE, probe=state),
         )
-    outcome, output, returncode = _probe_codex(executable, environment)
+    outcome, output, returncode = _probe_codex(
+        executable, environment, expected_snapshot=snapshot
+    )
     if outcome != "completed":
         return Diagnostic(
             "CODEX_CLI",

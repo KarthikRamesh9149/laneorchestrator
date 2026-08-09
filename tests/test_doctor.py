@@ -16,6 +16,7 @@ from laneorchestrator.config import DEFAULT_ROLES, serialize_config
 from laneorchestrator.diagnostics import Level
 from laneorchestrator.doctor import (
     _codex_executable,
+    _probe_codex,
     check_codex_cli,
     inspect_role_evidence,
     run_doctor,
@@ -263,10 +264,14 @@ class DoctorContractTests(unittest.TestCase):
             binary = root / "bin" / "codex"
             _write(
                 binary,
-                b"#!/bin/sh\n( /bin/sleep 1; /usr/bin/touch \"$SENTINEL\" ) &\nexit 0\n",
+                (
+                    "#!/bin/sh\n"
+                    f"( /bin/sleep 1; /usr/bin/touch {str(sentinel)!r} ) &\n"
+                    "exit 0\n"
+                ).encode("utf-8"),
                 0o700,
             )
-            diagnostic = check_codex_cli({"PATH": str(binary.parent), "SENTINEL": str(sentinel)})
+            diagnostic = check_codex_cli({"PATH": str(binary.parent)})
             time.sleep(1.2)
             self.assertEqual(diagnostic.level, Level.FAIL)
             self.assertFalse(sentinel.exists())
@@ -278,25 +283,19 @@ class DoctorContractTests(unittest.TestCase):
             pid_file = root / "escaped-session.pid"
             binary = root / "bin" / "codex"
             child_code = (
-                "import os,time; time.sleep(0.5); "
-                "open(os.environ['ESCAPED_SENTINEL'],'w').close()"
+                "import time; time.sleep(0.5); "
+                f"open({str(sentinel)!r},'w').close()"
             )
             script = (
                 "#!{0}\n"
                 "import os, subprocess, sys\n"
                 "child = subprocess.Popen([sys.executable, '-c', {1!r}], "
                 "stdout=sys.stdout, stderr=sys.stderr, start_new_session=True)\n"
-                "open(os.environ['ESCAPED_PID_FILE'], 'w').write(str(child.pid))\n"
-            ).format(sys.executable, child_code)
+                "open({2!r}, 'w').write(str(child.pid))\n"
+            ).format(sys.executable, child_code, str(pid_file))
             _write(binary, script.encode("utf-8"), 0o700)
             started = time.monotonic()
-            diagnostic = check_codex_cli(
-                {
-                    "PATH": str(binary.parent),
-                    "ESCAPED_SENTINEL": str(sentinel),
-                    "ESCAPED_PID_FILE": str(pid_file),
-                }
-            )
+            diagnostic = check_codex_cli({"PATH": str(binary.parent)})
             elapsed = time.monotonic() - started
             deadline = time.monotonic() + 3.0
             while not sentinel.exists() and time.monotonic() < deadline:
@@ -329,10 +328,12 @@ class DoctorContractTests(unittest.TestCase):
             root = Path(temporary).resolve()
             sentinel = root / "executed"
             binary = root / "bin" / "codex"
-            _write(binary, b"#!/bin/sh\n/usr/bin/touch \"$SENTINEL\"\n", 0o777)
-            writable = check_codex_cli(
-                {"PATH": str(binary.parent), "SENTINEL": str(sentinel)}
+            _write(
+                binary,
+                f"#!/bin/sh\n/usr/bin/touch {str(sentinel)!r}\n".encode("utf-8"),
+                0o777,
             )
+            writable = check_codex_cli({"PATH": str(binary.parent)})
             self.assertEqual(writable.level, Level.FAIL)
             self.assertEqual(writable.evidence["probe"], "unsafe_executable")
             self.assertFalse(sentinel.exists())
@@ -340,8 +341,21 @@ class DoctorContractTests(unittest.TestCase):
             binary.chmod(0o700)
             owner = binary.lstat().st_uid
             if owner != 0 and hasattr(os, "geteuid"):
-                with mock.patch(
-                    "laneorchestrator.doctor.os.geteuid", return_value=owner + 1
+                real_lstat = Path.lstat
+
+                def lstat_with_wrong_leaf_owner(path: Path) -> os.stat_result:
+                    metadata = real_lstat(path)
+                    if Path(path) != binary:
+                        return metadata
+                    fields = list(metadata)
+                    fields[4] = owner + 1
+                    return os.stat_result(fields)
+
+                with mock.patch.object(
+                    Path,
+                    "lstat",
+                    autospec=True,
+                    side_effect=lstat_with_wrong_leaf_owner,
                 ):
                     wrong_owner = check_codex_cli({"PATH": str(binary.parent)})
                 self.assertEqual(wrong_owner.level, Level.FAIL)
@@ -349,19 +363,449 @@ class DoctorContractTests(unittest.TestCase):
                     wrong_owner.evidence["probe"], "unsafe_executable"
                 )
 
+    def test_codex_probe_rejects_multiply_linked_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            source = root / "source"
+            _write(
+                source,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            bin_root = root / "bin"
+            bin_root.mkdir()
+            os.link(source, bin_root / "codex")
+            diagnostic = check_codex_cli({"PATH": str(bin_root)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(diagnostic.evidence["probe"], "unsafe_executable")
+            self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_rejects_setid_executable_without_execution(self) -> None:
+        if os.name != "posix":
+            self.skipTest("POSIX executable mode policy")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700 | stat.S_ISUID | stat.S_ISGID,
+            )
+            diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(diagnostic.evidence["probe"], "unsafe_executable")
+            self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_rejects_dotdot_and_non_directory_components(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            safe = root / "safe"
+            safe.mkdir()
+            dotdot = check_codex_cli({"PATH": str(safe / ".." / "bin")})
+            self.assertEqual(dotdot.level, Level.FAIL)
+            self.assertEqual(
+                dotdot.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+            non_directory = root / "not-a-directory"
+            non_directory.write_text("not a directory", encoding="utf-8")
+            blocked = check_codex_cli({"PATH": str(non_directory / "bin")})
+            self.assertEqual(blocked.level, Level.FAIL)
+            self.assertEqual(
+                blocked.evidence["probe"], "unsafe_executable_path"
+            )
+
+    def test_first_existing_unsafe_candidate_shadows_later_safe_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            unsafe_sentinel = root / "unsafe-executed"
+            safe_sentinel = root / "safe-executed"
+            unsafe_bin = root / "unsafe-bin"
+            safe_bin = root / "safe-bin"
+            _write(
+                unsafe_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(unsafe_sentinel)!r}\n"
+                    "printf 'codex-cli 9.9.9\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            unsafe_bin.chmod(0o777)
+            _write(
+                safe_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(safe_sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            diagnostic = check_codex_cli(
+                {"PATH": os.pathsep.join((str(unsafe_bin), str(safe_bin)))}
+            )
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(unsafe_sentinel.exists())
+            self.assertFalse(safe_sentinel.exists())
+
+    def test_missing_candidate_in_unverified_entry_does_not_shadow_safe_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            unverified = root / "unverified"
+            unverified.mkdir(mode=0o775)
+            unverified.chmod(0o775)
+            safe_bin = root / "safe-bin"
+            _write(
+                safe_bin / "codex",
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            diagnostic = check_codex_cli(
+                {"PATH": os.pathsep.join((str(unverified), str(safe_bin)))}
+            )
+            self.assertEqual(diagnostic.level, Level.PASS)
+
+    def test_first_existing_unverified_candidate_shadows_later_safe_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            unverified_sentinel = root / "unverified-executed"
+            safe_sentinel = root / "safe-executed"
+            unverified = root / "unverified"
+            unverified_bin = unverified / "bin"
+            safe_bin = root / "safe-bin"
+            _write(
+                unverified_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(unverified_sentinel)!r}\n"
+                    "printf 'codex-cli 9.9.9\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            unverified.chmod(0o775)
+            _write(
+                safe_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(safe_sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            with mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+                diagnostic = check_codex_cli(
+                    {
+                        "PATH": os.pathsep.join(
+                            (str(unverified_bin), str(safe_bin))
+                        )
+                    }
+                )
+            launch.assert_not_called()
+            self.assertEqual(diagnostic.level, Level.UNKNOWN)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unverified_executable_path"
+            )
+            self.assertFalse(unverified_sentinel.exists())
+            self.assertFalse(safe_sentinel.exists())
+
+    def test_sticky_ancestor_is_allowed_but_sticky_path_directory_is_denied(self) -> None:
+        if os.name != "posix":
+            self.skipTest("POSIX sticky-bit policy")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sticky = root / "sticky"
+            sticky.mkdir(mode=0o700)
+            sticky.chmod(0o1777)
+            safe_bin = sticky / "safe-bin"
+            _write(
+                safe_bin / "codex",
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            allowed = check_codex_cli({"PATH": str(safe_bin)})
+            self.assertEqual(allowed.level, Level.PASS)
+
+            sentinel = root / "sticky-final-executed"
+            sticky_final = sticky / "sticky-final"
+            _write(
+                sticky_final / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            sticky_final.chmod(0o1777)
+            denied = check_codex_cli({"PATH": str(sticky_final)})
+            self.assertEqual(denied.level, Level.FAIL)
+            self.assertEqual(
+                denied.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+    def test_probe_revalidates_parent_chain_immediately_before_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            executable, state, _snapshot = _codex_executable(
+                {"PATH": str(binary.parent)}
+            )
+            self.assertEqual(state, "found")
+            assert executable is not None
+            binary.parent.chmod(0o777)
+            with mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+                outcome, _output, _returncode = _probe_codex(executable, {})
+            launch.assert_not_called()
+            self.assertEqual(outcome, "unsafe_executable_path")
+            self.assertFalse(sentinel.exists())
+
+    def test_probe_detects_leaf_identity_swap_between_selection_and_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "replacement-executed"
+            binary = root / "bin" / "codex"
+            replacement = binary.parent / "replacement"
+            _write(binary, b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n", 0o700)
+            _write(
+                replacement,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 9.9.9\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            real_select = _codex_executable
+
+            def select_then_swap(environment: dict[str, str]) -> object:
+                selected = real_select(environment)
+                replacement.replace(binary)
+                return selected
+
+            with mock.patch(
+                "laneorchestrator.doctor._codex_executable",
+                side_effect=select_then_swap,
+            ):
+                diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertIn(
+                diagnostic.evidence["probe"],
+                ("unsafe_executable", "unsafe_executable_path"),
+            )
+            self.assertFalse(sentinel.exists())
+
+    def test_probe_detects_parent_identity_swap_between_selection_and_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "replacement-executed"
+            bin_root = root / "bin"
+            replacement_bin = root / "replacement-bin"
+            _write(
+                bin_root / "codex",
+                b"#!/bin/sh\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            _write(
+                replacement_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 9.9.9\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            real_select = _codex_executable
+
+            def select_then_swap(environment: dict[str, str]) -> object:
+                selected = real_select(environment)
+                bin_root.rename(root / "original-bin")
+                replacement_bin.rename(bin_root)
+                return selected
+
+            with mock.patch(
+                "laneorchestrator.doctor._codex_executable",
+                side_effect=select_then_swap,
+            ):
+                diagnostic = check_codex_cli({"PATH": str(bin_root)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_rejects_different_owner_ancestor(self) -> None:
+        if not hasattr(os, "geteuid"):
+            self.skipTest("uid ownership policy")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            if root.lstat().st_uid == 0:
+                self.skipTest("requires a non-root fixture owner")
+            sentinel = root / "executed"
+            binary = root / "bin" / "codex"
+            _write(
+                binary,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            real_lstat = Path.lstat
+
+            def lstat_with_attacker_owned_root(path: Path) -> os.stat_result:
+                metadata = real_lstat(path)
+                if Path(path) != root:
+                    return metadata
+                fields = list(metadata)
+                fields[4] = os.geteuid() + 1
+                return os.stat_result(fields)
+
+            with mock.patch.object(
+                Path, "lstat", autospec=True, side_effect=lstat_with_attacker_owned_root
+            ):
+                diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+    def test_probe_child_environment_does_not_run_earlier_path_helper(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "hostile-helper-executed"
+            hostile_bin = root / "hostile-bin"
+            safe_bin = root / "safe-bin"
+            _write(
+                hostile_bin / "codex-helper",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            _write(
+                safe_bin / "codex",
+                b"#!/bin/sh\ncodex-helper 2>/dev/null || :\nprintf 'codex-cli 1.2.3\\n'\n",
+                0o700,
+            )
+            for _attempt in range(5):
+                diagnostic = check_codex_cli(
+                    {"PATH": os.pathsep.join((str(hostile_bin), str(safe_bin)))}
+                )
+                if diagnostic.level is Level.PASS:
+                    break
+            self.assertEqual(diagnostic.level, Level.PASS)
+            self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_rejects_writable_path_directory_without_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            bin_root = root / "bin"
+            binary = bin_root / "codex"
+            _write(
+                binary,
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            bin_root.chmod(0o777)
+            diagnostic = check_codex_cli({"PATH": str(bin_root)})
+            self.assertEqual(diagnostic.level, Level.FAIL)
+            self.assertEqual(
+                diagnostic.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+    def test_codex_probe_rejects_linked_path_directory_and_ancestor(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            sentinel = root / "executed"
+            real_bin = root / "real" / "bin"
+            _write(
+                real_bin / "codex",
+                (
+                    "#!/bin/sh\n"
+                    f"/usr/bin/touch {str(sentinel)!r}\n"
+                    "printf 'codex-cli 1.2.3\\n'\n"
+                ).encode("utf-8"),
+                0o700,
+            )
+            linked_bin = root / "linked-bin"
+            linked_bin.symlink_to(real_bin, target_is_directory=True)
+            linked_directory = check_codex_cli({"PATH": str(linked_bin)})
+            self.assertEqual(linked_directory.level, Level.FAIL)
+            self.assertEqual(
+                linked_directory.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
+            linked_parent = root / "linked-parent"
+            linked_parent.symlink_to(real_bin.parent, target_is_directory=True)
+            linked_ancestor = check_codex_cli({"PATH": str(linked_parent / "bin")})
+            self.assertEqual(linked_ancestor.level, Level.FAIL)
+            self.assertEqual(
+                linked_ancestor.evidence["probe"], "unsafe_executable_path"
+            )
+            self.assertFalse(sentinel.exists())
+
     def test_codex_probe_refuses_unverifiable_executable_trust(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()
             sentinel = root / "executed"
             binary = root / "bin" / "codex"
-            _write(binary, b"#!/bin/sh\n/usr/bin/touch \"$SENTINEL\"\n", 0o700)
+            _write(
+                binary,
+                f"#!/bin/sh\n/usr/bin/touch {str(sentinel)!r}\n".encode("utf-8"),
+                0o700,
+            )
             with mock.patch(
                 "laneorchestrator.doctor._executable_identity_supported",
                 return_value=False,
-            ):
-                diagnostic = check_codex_cli(
-                    {"PATH": str(binary.parent), "SENTINEL": str(sentinel)}
-                )
+            ), mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+                diagnostic = check_codex_cli({"PATH": str(binary.parent)})
+            launch.assert_not_called()
             self.assertEqual(diagnostic.level, Level.FAIL)
             self.assertEqual(
                 diagnostic.evidence["probe"], "unverified_executable_trust"
@@ -372,11 +816,19 @@ class DoctorContractTests(unittest.TestCase):
         Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
         "ChatGPT Codex binary is not installed",
     )
-    def test_chatgpt_codex_binary_remains_eligible(self) -> None:
+    def test_chatgpt_codex_path_is_unknown_and_not_executed(self) -> None:
         installed = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
-        executable, state = _codex_executable({"PATH": str(installed.parent)})
-        self.assertEqual(state, "found")
-        self.assertEqual(executable, installed)
+        with mock.patch("laneorchestrator.doctor.subprocess.Popen") as launch:
+            diagnostic = check_codex_cli({"PATH": str(installed.parent)})
+        launch.assert_not_called()
+        self.assertEqual(diagnostic.level, Level.UNKNOWN)
+        self.assertEqual(
+            diagnostic.evidence["probe"], "unverified_executable_path"
+        )
+        self.assertEqual(
+            diagnostic.evidence["executable_trust"],
+            "unverified_parent_chain",
+        )
 
     def test_codex_probe_platform_pipe_failure_is_a_diagnostic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
