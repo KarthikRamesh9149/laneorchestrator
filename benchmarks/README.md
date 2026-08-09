@@ -27,9 +27,11 @@ case supplies strict `expected_sources` alongside `expected_top3`, so a duplicat
 name has a stable source-aware gold result rather than a name-only claim.
 Top-1 and top-3 recall use only the 20 `applicable_specialist: true` cases;
 the five false cases have no expected specialist and are all adversarial: any
-ranked result is a failure. The 12 tagged capability adversarial cases include
-keyword stuffing, vendor mismatch, and source precedence; they are combined
-with high-risk-evasion route cases, and every tagged case must pass.
+ranked result is a failure. The 13 tagged capability adversarial cases comprise
+five non-applicable abstention cases, four keyword-stuffing or vendor-mismatch
+cases, three direct adversarial specialist cases, and the duplicate-name
+source-precedence case. They are combined with high-risk-evasion route cases,
+and every tagged case must pass.
 
 Run a fresh report with:
 

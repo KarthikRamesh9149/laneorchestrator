@@ -65,6 +65,21 @@ class BenchmarkCorpusTests(unittest.TestCase):
             self.assertEqual(set(case["expected_sources"]), set(case["expected_top3"]))
         self.assertGreaterEqual(sum(5 <= len(case["capabilities"]) <= 8 for case in cases), 8)
         self.assertTrue(all(case["adversarial"] for case in cases if not case["applicable_specialist"]))
+        source_precedence_adversarial = [
+            case for case in cases
+            if case["adversarial"] and case["applicable_specialist"]
+            and len({item["name"].casefold() for item in case["capabilities"]}) < len(case["capabilities"])
+            and case["expected_sources"]
+        ]
+        self.assertTrue(source_precedence_adversarial)
+        self.assertTrue(all(
+            any(
+                item["name"] == name and item["source"] == source
+                for item in case["capabilities"]
+            )
+            for case in source_precedence_adversarial
+            for name, source in case["expected_sources"].items()
+        ))
 
 
 class BenchmarkBehaviorTests(unittest.TestCase):

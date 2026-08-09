@@ -377,7 +377,7 @@
       "python-tests"
     ],
     "applicable_specialist": true,
-    "adversarial": false,
+    "adversarial": true,
     "expected_sources": {
       "python-tests": "project"
     }
