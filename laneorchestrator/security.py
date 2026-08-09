@@ -37,9 +37,10 @@ def read_regular_nofollow(path: Path, max_bytes: int) -> bytes:
     if not stat.S_ISREG(before.st_mode):
         raise SecurityError("path is not a regular file")
 
-    flags = os.O_RDONLY
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
-    flags |= nofollow
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW
+    except AttributeError as error:
+        raise SecurityError("platform does not support no-follow reads") from error
     try:
         descriptor = os.open(candidate, flags)
     except OSError as error:

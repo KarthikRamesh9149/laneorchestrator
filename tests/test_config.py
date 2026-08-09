@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from laneorchestrator.config import (
@@ -121,6 +122,19 @@ class ConfigTests(unittest.TestCase):
             read_regular_nofollow(self.state_root, MAX_CONFIG_BYTES)
         with self.assertRaises(SecurityError):
             read_regular_nofollow(content, 1)
+
+    @unittest.skipUnless(hasattr(os, "O_NOFOLLOW"), "O_NOFOLLOW unavailable")
+    def test_read_regular_nofollow_fails_closed_without_platform_support(self) -> None:
+        content = self.state_root / "content.json"
+        content.write_bytes(b"{}")
+        patcher = mock.patch.object(os, "O_NOFOLLOW", os.O_NOFOLLOW)
+        patcher.start()
+        try:
+            del os.O_NOFOLLOW
+            with self.assertRaises(SecurityError):
+                read_regular_nofollow(content, MAX_CONFIG_BYTES)
+        finally:
+            patcher.stop()
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ def codex_home(
     base_home = Path.home() if home is None else Path(home)
     configured = environment.get("CODEX_HOME")
     if configured:
-        candidate = Path(configured).expanduser()
+        candidate = Path(configured)
         if candidate.is_absolute():
             return candidate
     return base_home / ".codex"

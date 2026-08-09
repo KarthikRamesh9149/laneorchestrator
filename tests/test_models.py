@@ -40,6 +40,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(codex_home({}, home), home / ".codex")
         self.assertEqual(codex_home({"CODEX_HOME": "/private/codex"}, home), Path("/private/codex"))
         self.assertEqual(codex_home({"CODEX_HOME": "relative/codex"}, home), home / ".codex")
+        self.assertEqual(codex_home({"CODEX_HOME": "~/custom"}, home), home / ".codex")
 
     def test_model_and_effort_validation_are_strict(self) -> None:
         self.assertTrue(is_valid_model_id("gpt-5.6-terra"))
