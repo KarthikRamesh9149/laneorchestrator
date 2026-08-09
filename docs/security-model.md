@@ -24,6 +24,10 @@ These controls serialize cooperating LaneOrchestrator writers inside the documen
 
 Security regressions exercise dangling and live destination links, unsafe filesystem objects, bounded metadata reads, high-risk lexical evasions, malformed or replayed plans, and cooperating-writer races. Descriptor-relative POSIX controls protect against other users and unsafe filesystem objects; they do not provide hostile same-effective-user compare-and-swap semantics. Capability metadata remains untrusted index data: it is bounded and ranked as text, never executed as instructions. Diagnostic path and message output is bounded and redacted where it could otherwise expose mutation tokens.
 
+## Static-analysis evidence
+
+The Security workflow uses a bounded standard-library AST scanner for private repositories where GitHub Code Scanning is unavailable. It analyzes the committed `laneorchestrator` and `scripts` trees and saves deterministic SARIF as a workflow artifact. This narrow gate detects a small set of high-confidence Python risks; it is not equivalent to CodeQL. Public repositories run the pinned CodeQL actions and upload Code Scanning results and the analysis database.
+
 ## Known limitations
 
 - Lexical risk signals are not complete semantic classification; the trusted router must assess repository evidence.

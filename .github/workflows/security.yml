@@ -9,16 +9,49 @@ on:
     - cron: "17 4 * * 1"
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  codeql:
+  private-static-analysis:
+    if: ${{ github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run bounded private static analysis
+        run: >-
+          python scripts/private_static_analysis.py
+          --source laneorchestrator --source scripts
+          --output "${{ runner.temp }}/private-static-analysis.sarif"
+      - name: Require SARIF from successful private analysis
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "${RUNNER_TEMP}/private-static-analysis.sarif"
+      - name: Preserve private static-analysis SARIF evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: private-static-analysis-${{ github.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/private-static-analysis.sarif
+          if-no-files-found: warn
+          retention-days: 90
+          include-hidden-files: false
+
+  public-codeql:
+    if: ${{ !github.event.repository.private }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -31,30 +64,8 @@ jobs:
         with:
           languages: python
           build-mode: none
-      - name: Analyze
+      - name: Analyze and upload CodeQL results
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
-          output: ${{ runner.temp }}/codeql-sarif
-          upload: ${{ github.event.repository.private && 'never' || 'always' }}
-          # `upload: never` only suppresses SARIF upload. Keep the separate
-          # CodeQL database upload off for private repositories without Code
-          # Scanning, while preserving both uploads when the repository is public.
-          upload-database: ${{ github.event.repository.private && 'false' || 'true' }}
-      - name: Require SARIF from successful private analysis
-        if: ${{ success() && github.event.repository.private }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          sarif_dir="${RUNNER_TEMP}/codeql-sarif"
-          test -d "$sarif_dir"
-          find "$sarif_dir" -type f -name '*.sarif' -print -quit | grep -q .
-      - name: Preserve private CodeQL SARIF evidence
-        if: ${{ !cancelled() && github.event.repository.private }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: codeql-sarif-${{ github.sha }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/codeql-sarif
-          # Do not replace a failed CodeQL diagnostic when no partial SARIF exists.
-          if-no-files-found: warn
-          retention-days: 90
-          include-hidden-files: false
+          upload: always
+          upload-database: true
