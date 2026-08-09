@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "laneorchestrator",
+  "version": "0.2.0",
+  "description": "Secure, evidence-driven model and agent routing for Codex.",
+  "author": {
+    "name": "KarthikRamesh9149",
+    "url": "https://github.com/KarthikRamesh9149"
+  },
+  "homepage": "https://github.com/KarthikRamesh9149/laneorchestrator#readme",
+  "repository": "https://github.com/KarthikRamesh9149/laneorchestrator",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "agent-routing",
+    "developer-tools",
+    "security"
+  ]
+}

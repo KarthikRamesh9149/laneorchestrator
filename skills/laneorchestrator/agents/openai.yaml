@@ -2,3 +2,5 @@ interface:
   display_name: "LaneOrchestrator"
   short_description: "Route Codex work by capability and risk"
   default_prompt: "Use $laneorchestrator to route and implement my task safely."
+policy:
+  allow_implicit_invocation: true

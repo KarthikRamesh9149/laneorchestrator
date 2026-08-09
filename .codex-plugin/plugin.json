@@ -1,16 +1,16 @@
 {
   "name": "laneorchestrator",
-  "version": "0.1.0",
-  "description": "Adaptive GPT-5.6 routing for Codex skills and agents.",
+  "version": "0.2.0",
+  "description": "Secure, evidence-driven model and agent routing for Codex.",
   "author": {
-    "name": "Karthik Ramesh",
+    "name": "KarthikRamesh9149",
     "email": "180139999+KarthikRamesh9149@users.noreply.github.com",
     "url": "https://github.com/KarthikRamesh9149"
   },
-  "homepage": "https://github.com/KarthikRamesh9149/laneorchestrator",
+  "homepage": "https://github.com/KarthikRamesh9149/laneorchestrator#readme",
   "repository": "https://github.com/KarthikRamesh9149/laneorchestrator",
   "license": "MIT",
-  "keywords": ["codex", "skills", "agents", "routing", "gpt-5.6"],
+  "keywords": ["codex", "agent-routing", "developer-tools", "security"],
   "skills": "./skills/",
   "interface": {
     "displayName": "LaneOrchestrator",

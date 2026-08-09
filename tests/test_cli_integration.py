@@ -62,7 +62,7 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(
             self.payload(version)["data"],
             {
-                "manifest_version": "0.1.0",
+                "manifest_version": "0.2.0",
                 "package_version": "0.2.0",
                 "schema_version": 1,
                 "version": "0.2.0",

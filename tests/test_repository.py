@@ -14,8 +14,11 @@ ACTION_USE = re.compile(r"^\s*-?\s*uses:\s*([^\s]+)", re.MULTILINE)
 class RepositoryTests(unittest.TestCase):
     def test_manifest_has_release_metadata(self) -> None:
         manifest = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        public_manifest = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["name"], "laneorchestrator")
-        self.assertRegex(manifest["version"], r"^\d+\.\d+\.\d+$")
+        self.assertEqual(manifest["version"], "0.2.0")
+        self.assertEqual(public_manifest["name"], manifest["name"])
+        self.assertEqual(public_manifest["version"], manifest["version"])
         self.assertEqual(manifest["license"], "MIT")
         self.assertEqual(manifest["repository"], "https://github.com/KarthikRamesh9149/laneorchestrator")
         self.assertEqual(manifest["skills"], "./skills/")
