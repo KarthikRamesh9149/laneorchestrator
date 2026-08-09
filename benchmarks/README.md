@@ -34,7 +34,7 @@ and a corresponding `expected_sources` gold entry; the corpus test asserts that
 relationship. They are combined with high-risk-evasion route cases, and every
 tagged case must pass.
 
-Run a fresh report with:
+From a source checkout or resolved installed plugin root, run a fresh report with:
 
 ```sh
 python3 -m laneorchestrator benchmark --json

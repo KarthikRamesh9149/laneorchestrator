@@ -16,6 +16,10 @@ Luna may fall back to Terra. A missing or unknown Terra role pauses implementati
 
 That is expected in this release. Native Windows supports read-only control-plane commands only. Use WSL for mutation workflows, then review the preview and token boundary as usual. Details are in [compatibility](compatibility.md).
 
+## `CODEX_HOME` is rejected
+
+Use an absolute, resolved, user-owned, non-symlink directory. A relative value or a symbolic link is refused before configuration or profile state is written. Set a compliant directory, rerun the read-only `status --json` check, and request a new preview for any mutation; do not try to redirect the state through a link.
+
 ## Capability results are empty or incomplete
 
 Use clear objective terms and only verified stack context. Inspect warnings for skipped roots, symbolic links, and resource limits. Discovery is intentionally bounded and no result is installed automatically.

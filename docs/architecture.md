@@ -1,6 +1,6 @@
 # Architecture
 
-LaneOrchestrator separates routing authority from writable implementation. The canonical control plane is the dependency-free `laneorchestrator` package and its `python3 -m laneorchestrator` interface.
+LaneOrchestrator separates routing authority from writable implementation. The canonical control plane is the dependency-free `laneorchestrator` package and its `python3 -m laneorchestrator` interface from a source checkout or resolved installed plugin root. Marketplace users in an arbitrary workspace invoke `$laneorchestrator`, which resolves that root.
 
 ```text
 task + repository evidence

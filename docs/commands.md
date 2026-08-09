@@ -1,6 +1,6 @@
 # Command reference
 
-The canonical command is `python3 -m laneorchestrator`. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `doctor`, `status`, `version`, `configure`, `route`, `catalog`, `profiles`, and `benchmark`.
+The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `doctor`, `status`, `version`, `configure`, `route`, `catalog`, `profiles`, and `benchmark`.
 
 ## Read-only commands
 

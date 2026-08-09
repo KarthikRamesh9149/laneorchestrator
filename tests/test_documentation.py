@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as etree
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
@@ -15,6 +16,7 @@ from laneorchestrator import __version__
 ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK = re.compile(r"!?(?:\[[^]]*\])\(([^)]+)\)")
 SHELL_FENCE = re.compile(r"```(?:sh|bash|shell)\n(.*?)```", re.DOTALL)
+INLINE_CODE = re.compile(r"`([^`\n]+)`")
 LOCAL_PATH = re.compile(r"/(?:Users|home)/|[A-Z]:\\\\Users\\\\")
 SUPERLATIVE = re.compile(r"\b(?:best|fastest|world-class|unbeatable|guaranteed)\b", re.IGNORECASE)
 SECRET = re.compile(r"(?:Bearer\s+\S+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|AKIA[0-9A-Z]{16})")
@@ -53,6 +55,9 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator doctor --json",
     "python3 -m laneorchestrator status --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
+    "python3 -m laneorchestrator benchmark --json",
+    "python3 scripts/healthcheck.py",
+    "sh scripts/validate.sh",
 )
 
 
@@ -67,6 +72,32 @@ def public_text_files() -> Iterable[Path]:
     yield ROOT / "SECURITY.md"
     yield ROOT / "SUPPORT.md"
     yield from sorted((ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.yml"))
+
+
+def operational_markdown() -> Iterable[Path]:
+    yield ROOT / "README.md"
+    yield ROOT / "CONTRIBUTING.md"
+    yield ROOT / "SUPPORT.md"
+    yield ROOT / "RELEASING.md"
+    yield ROOT / "benchmarks" / "README.md"
+    yield from sorted(path for path in (ROOT / "docs").rglob("*.md") if "superpowers" not in path.parts)
+
+
+def documented_local_commands() -> Iterable[str]:
+    def command_lines(text: str) -> Iterable[str]:
+        for line in text.splitlines():
+            command = line.strip()
+            if command.startswith("python3 ") or command.startswith("sh "):
+                yield command
+
+    for document in operational_markdown():
+        text = document.read_text(encoding="utf-8")
+        for block in SHELL_FENCE.findall(text):
+            yield from command_lines(block)
+        for command in INLINE_CODE.findall(text):
+            if command == "python3 -m laneorchestrator":
+                continue
+            yield from command_lines(command)
 
 
 class DocumentationTests(unittest.TestCase):
@@ -100,13 +131,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual(failures, [])
 
     def test_documented_local_commands_are_allowlisted_and_exercised(self) -> None:
-        commands: List[str] = []
-        for document in [ROOT / "README.md"] + sorted(
-            path for path in (ROOT / "docs").rglob("*.md") if "superpowers" not in path.parts
-        ):
-            for block in SHELL_FENCE.findall(document.read_text(encoding="utf-8")):
-                commands.extend(line.strip() for line in block.splitlines() if line.strip().startswith("python3 "))
-        self.assertEqual(sorted(set(commands)), sorted(DOCUMENTED_LOCAL_COMMANDS))
+        self.assertEqual(sorted(set(documented_local_commands())), sorted(DOCUMENTED_LOCAL_COMMANDS))
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary).resolve()
             environment = dict(os.environ, CODEX_HOME=str(home))
@@ -122,10 +147,53 @@ class DocumentationTests(unittest.TestCase):
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)
             for command in DOCUMENTED_LOCAL_COMMANDS:
+                if command == "sh scripts/validate.sh":
+                    syntax = subprocess.run(
+                        ["sh", "-n", "scripts/validate.sh"], cwd=ROOT, text=True, capture_output=True, check=False
+                    )
+                    self.assertEqual(syntax.returncode, 0, syntax.stderr)
+                    self.assertIn("unittest discover", (ROOT / "scripts/validate.sh").read_text(encoding="utf-8"))
+                    continue
                 result = subprocess.run(
                     shlex.split(command), cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )
                 self.assertEqual(result.returncode, 0, "{0}\n{1}".format(command, result.stderr))
+
+    def test_installed_users_use_the_skill_from_an_arbitrary_workspace(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        getting_started = (ROOT / "docs/getting-started.md").read_text(encoding="utf-8")
+        commands = (ROOT / "docs/commands.md").read_text(encoding="utf-8")
+        compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
+        self.assertIn("arbitrary workspace", readme)
+        self.assertIn("$laneorchestrator", getting_started)
+        for text in (getting_started, commands, compatibility):
+            self.assertIn("source checkout", text)
+            self.assertIn("resolved installed plugin root", text)
+
+    @unittest.skipUnless(os.name == "posix", "symlink fixture requires POSIX")
+    def test_codex_home_docs_match_symlinked_absolute_failure(self) -> None:
+        documentation = "\n".join(
+            (ROOT / relative).read_text(encoding="utf-8")
+            for relative in ("docs/configuration.md", "docs/compatibility.md", "docs/troubleshooting.md")
+        ).lower()
+        for phrase in ("absolute", "resolved", "user-owned", "non-symlink"):
+            self.assertIn(phrase, documentation)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            outside = root / "outside"
+            outside.mkdir(mode=0o700)
+            linked = root / "linked"
+            linked.symlink_to(outside, target_is_directory=True)
+            result = subprocess.run(
+                [
+                    sys.executable, "-m", "laneorchestrator", "configure", "preview", "--set",
+                    "router.reasoning_effort=ultra", "--json",
+                ],
+                cwd=ROOT, env=dict(os.environ, CODEX_HOME=str(linked)), text=True, capture_output=True, check=False
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(json.loads(result.stdout)["errors"][0]["code"], "CONFIG_INVALID")
+            self.assertFalse((outside / "laneorchestrator").exists())
 
     def test_examples_are_current_route_decisions(self) -> None:
         cases: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
@@ -181,7 +249,19 @@ class DocumentationTests(unittest.TestCase):
     def test_assets_are_safe_and_transcripts_are_plain_text(self) -> None:
         svg = (ROOT / "docs/assets/social-preview.svg").read_text(encoding="utf-8")
         self.assertTrue(svg.lstrip().startswith("<?xml"))
+        root = etree.fromstring(svg)
+        self.assertEqual(root.tag, "{http://www.w3.org/2000/svg}svg")
         self.assertIsNone(UNSAFE_SVG.search(svg))
+        cast = (ROOT / "docs/assets/demo.cast").read_text(encoding="utf-8")
+        cast_lines = cast.splitlines()
+        self.assertEqual(json.loads(cast_lines[0])["version"], 2)
+        events = [json.loads(line) for line in cast_lines[1:]]
+        self.assertEqual(events[-1][0], 90.0)
+        cast_text = "\n".join(str(event[2]) for event in events)
+        transcript = (ROOT / "docs/transcripts/quickstart.txt").read_text(encoding="utf-8")
+        for marker in ("doctor", "preview", "Route card"):
+            self.assertIn(marker.lower(), cast_text.lower())
+            self.assertIn(marker.lower(), transcript.lower())
         for path in (ROOT / "docs/assets/demo.cast", ROOT / "docs/transcripts/quickstart.txt"):
             text = path.read_text(encoding="utf-8")
             self.assertNotIn("\x1b", text)

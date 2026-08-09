@@ -27,13 +27,13 @@ Safety: workspace execution only
 
 On first use, the skill runs `doctor` to check readiness. If the host does not expose required bundled profiles, it shows a preview and waits for explicit approval rather than applying a change automatically.
 
-See the deterministic [90-second terminal demonstration](docs/assets/demo.cast). It contains representative route-card text, not a record of a live installation.
+See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt). They illustrate the first-run readiness and route flow; neither is a live-install recording or an embedded player.
 
 `--ref main` follows a moving branch and is not content-pinned. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
 
 ## Start here
 
-[Getting started](docs/getting-started.md) covers the first route and readiness checks. Read [concepts](docs/concepts.md) for lanes and evidence, then use [commands](docs/commands.md) for the canonical CLI. The legacy helper scripts remain compatibility wrappers; new automation should use `python3 -m laneorchestrator`.
+[Getting started](docs/getting-started.md) covers the first route and readiness checks. From an arbitrary workspace after marketplace installation, use `$laneorchestrator`; it resolves the installed plugin root before invoking the module. Read [concepts](docs/concepts.md) for lanes and evidence, then use [commands](docs/commands.md). Direct `python3 -m laneorchestrator` commands are for a source checkout or a resolved installed plugin root, not an arbitrary workspace.
 
 The default path works without third-party agents. When available, optional specialists can be shortlisted from bounded metadata; the router must inspect selected candidates before use. Missing mandatory Terra or Sol roles pause the applicable route instead of weakening it.
 

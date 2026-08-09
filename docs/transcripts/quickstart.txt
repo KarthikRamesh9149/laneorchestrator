@@ -1,6 +1,12 @@
 $ $laneorchestrator route and implement this task safely
-Lane: Terra
+LaneOrchestrator: resolving installed plugin root
+Readiness: doctor checks configuration and required profiles
+Profiles: host does not expose bundled profiles
+Next step: profiles install preview; no target changes applied
+Human review: supply the exact unexpired <bound-token> only after approval
+Readiness: doctor is rechecked after an approved apply
+Route card: Lane Terra
 Why: multi-file work or uncertain scope uses the default implementation lane
 Safety: workspace execution only
 
-This is a deterministic illustrative route card. It contains no live profile state.
+This deterministic illustrative transcript matches the cast source. It contains no live profile state, token, or installation result.

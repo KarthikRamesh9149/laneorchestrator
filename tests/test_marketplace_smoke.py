@@ -90,6 +90,18 @@ class MarketplaceSmokeTests(unittest.TestCase):
             installed = run("plugin", "list", "--json")
             self.assertTrue(_contains_plugin(json.loads(installed.stdout)["installed"]))
             self.assertNotEqual(unrelated_workspace.resolve(), installed_path)
+            unrelated_module = subprocess.run(
+                ["python3", "-m", "laneorchestrator", "doctor", "--json"],
+                check=False,
+                cwd=unrelated_workspace,
+                env=environment,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30,
+            )
+            self.assertNotEqual(unrelated_module.returncode, 0)
+            self.assertIn("No module named laneorchestrator", unrelated_module.stderr)
             doctor = subprocess.run(
                 ["python3", "-m", "laneorchestrator", "doctor", "--json"],
                 check=False,

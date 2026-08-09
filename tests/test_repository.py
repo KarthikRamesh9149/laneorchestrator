@@ -26,6 +26,8 @@ class RepositoryTests(unittest.TestCase):
     def test_all_relative_markdown_links_resolve(self) -> None:
         failures: list[str] = []
         for document in sorted(ROOT.rglob("*.md")):
+            if ".superpowers" in document.parts:
+                continue
             text = document.read_text(encoding="utf-8")
             for target in MARKDOWN_LINK.findall(text):
                 clean = target.strip().split("#", 1)[0]

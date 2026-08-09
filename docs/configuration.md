@@ -1,6 +1,6 @@
 # Configuration
 
-LaneOrchestrator starts with built-in role defaults and does not require a configuration file. When configuration is present, it is a schema-versioned JSON document under the Codex state directory. `CODEX_HOME`, when set, must be an absolute path; otherwise Codex's normal home is used.
+LaneOrchestrator starts with built-in role defaults and does not require a configuration file. When configuration is present, it is a schema-versioned JSON document under the Codex state directory. `CODEX_HOME`, when set, must name an absolute, resolved, user-owned, non-symlink directory; otherwise Codex's normal home is used.
 
 The configurable logical roles are `router`, `small_task_executor`, `main_implementer`, and `independent_reviewer`. Each role has a model and reasoning effort. The defaults are Sol/High, Luna/High, Terra/High, and Sol/High respectively.
 
