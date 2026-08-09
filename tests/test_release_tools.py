@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 
 from scripts.build_release import (
     RELEASE_FILES,
+    RELEASE_EXECUTABLES,
     RELEASE_TREES,
     ReleaseError,
     archive_members,
@@ -30,6 +31,7 @@ from scripts.check_manifests import check_manifests
 from scripts.verify_release import (
     ReleaseVerificationError,
     _parse_sums,
+    _check_content,
     _validate_name,
     _zip_entry_count,
     main as verify_main,
@@ -72,7 +74,14 @@ class ReleaseToolTests(unittest.TestCase):
                 self.assertNotIn("..", PurePosixPath(member.name).parts)
                 self.assertFalse(member.issym() or member.islnk())
                 self.assertTrue(member.isfile())
-                self.assertEqual(member.mode, 0o644)
+                relative = member.name.split("/", 1)[1]
+                self.assertEqual(member.mode, 0o755 if relative in RELEASE_EXECUTABLES else 0o644)
+        with zipfile.ZipFile(first.zip_path) as archive:
+            for member in archive.infolist():
+                relative = member.filename.split("/", 1)[1]
+                mode = (member.external_attr >> 16) & 0o777777
+                expected = 0o100000 | (0o755 if relative in RELEASE_EXECUTABLES else 0o644)
+                self.assertEqual(mode, expected)
 
     def test_source_validation_rejects_links_duplicates_missing_and_escapes(self) -> None:
         valid = self.root / "README.md"
@@ -118,7 +127,7 @@ class ReleaseToolTests(unittest.TestCase):
 
     def test_windows_unsafe_names_and_canonical_collisions_are_rejected(self) -> None:
         prefix = "laneorchestrator-0.2.0"
-        for relative in ("docs/CON.txt", "docs/name.", "docs/name ", "docs/colon:name.md", "docs/LPT9.log"):
+        for relative in ("docs/CON.txt", "docs/name.", "docs/name ", "docs/colon:name.md", "docs/LPT9.log", "docs/COM¹.txt", "docs/LPT².txt"):
             with self.subTest(relative=relative):
                 with self.assertRaises(ReleaseError):
                     _validate_canonical_name(relative)
@@ -154,6 +163,40 @@ class ReleaseToolTests(unittest.TestCase):
         release = build_release(self.root, local_output)
         with self.assertRaisesRegex(ReleaseVerificationError, "local path"):
             verify_release(local_output, root=self.root)
+
+    def test_secret_scanner_has_bounded_high_confidence_patterns(self) -> None:
+        values = (
+            "github_pat_" + "a" * 24,
+            "sk-ant-" + "a" * 24,
+            "glpat-" + "a" * 24,
+            "sk_live_" + "a" * 24,
+            "xoxb-" + "a" * 24,
+        )
+        for value in values:
+            with self.subTest(value=value[:8]):
+                with self.assertRaisesRegex(ReleaseVerificationError, "credential-like"):
+                    _check_content("README.md", value.encode("ascii"))
+
+    def test_fresh_trusted_archive_extracts_and_runs_the_complete_validator(self) -> None:
+        if os.environ.get("LANEORCHESTRATOR_EXTRACTED_VALIDATION") == "1":
+            self.skipTest("nested extracted validation is intentionally single-depth")
+        release = build_release(self.root, self.output_one)
+        verify_release(self.output_one, root=self.root)
+        extracted = self.work / "extracted"
+        extracted.mkdir()
+        with tarfile.open(release.tar_path) as archive:
+            # The archive was freshly built and verified above; do not use this
+            # extraction pattern for an arbitrary user-supplied archive.
+            archive.extractall(extracted)
+        root = extracted / "laneorchestrator-0.2.0"
+        result = subprocess.run(
+            ["sh", "scripts/validate.sh"], cwd=root, text=True,
+            capture_output=True, check=False,
+            env=dict(os.environ, LANEORCHESTRATOR_EXTRACTED_VALIDATION="1"),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.assertIn("test_fresh_trusted_archive_extracts_and_runs_the_complete_validator", result.stdout)
+        self.assertIn("skipped", result.stdout)
 
     def test_zip_preflight_and_cli_errors_are_bounded_and_structured(self) -> None:
         eocd = b"PK\x05\x06" + b"\0\0\0\0" + (513).to_bytes(2, "little") * 2 + b"\0" * 10

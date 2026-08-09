@@ -30,6 +30,7 @@ RELEASE_FILES = (
     "CHANGELOG.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "LICENSE",
     "NOTICE", "README.md", "RELEASING.md", "SECURITY.md", "SUPPORT.md",
     "plugin.json", ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
+    ".github/pull_request_template.md",
 )
 # This is a source release archive: included contributor/release guides invoke
 # the validator and installer, so their scripts, tests, benchmark corpus and
@@ -41,6 +42,11 @@ RELEASE_TREES = (
 MAX_MEMBER_BYTES = 1024 * 1024
 MAX_MEMBERS = 512
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
+RELEASE_EXECUTABLES = frozenset((
+    "scripts/install-agents.sh",
+    "scripts/install_agents.py",
+    "scripts/validate.sh",
+))
 _VERSION = re.compile(r'^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', re.MULTILINE)
 _WINDOWS_RESERVED = frozenset(
     ("con", "prn", "aux", "nul", "clock$")
@@ -116,7 +122,7 @@ def _validate_canonical_name(name: str) -> None:
     if any(part in ("", ".", "..") for part in parts):
         raise ReleaseError("archive member name is unsafe")
     for part in parts:
-        stem = part.split(".", 1)[0].casefold()
+        stem = unicodedata.normalize("NFKC", part.split(".", 1)[0]).casefold()
         if part.endswith((".", " ")) or ":" in part or stem in _WINDOWS_RESERVED:
             raise ReleaseError("archive member name is unsafe on Windows")
 
@@ -244,6 +250,12 @@ def _archive_prefix(version: str) -> str:
     return "laneorchestrator-{0}".format(version)
 
 
+def archive_mode(relative_name: str) -> int:
+    """Return the sole executable-mode allowlist for source release members."""
+
+    return 0o755 if relative_name in RELEASE_EXECUTABLES else 0o644
+
+
 def _tar_bytes(prefix: str, members: Iterable[Tuple[str, bytes]]) -> bytes:
     output = io.BytesIO()
     with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0, compresslevel=9) as compressed:
@@ -252,7 +264,7 @@ def _tar_bytes(prefix: str, members: Iterable[Tuple[str, bytes]]) -> bytes:
                 info = tarfile.TarInfo("{0}/{1}".format(prefix, name))
                 info.size = len(content)
                 info.mtime = 0
-                info.mode = 0o644
+                info.mode = archive_mode(name)
                 info.uid = 0
                 info.gid = 0
                 info.uname = ""
@@ -268,7 +280,7 @@ def _zip_bytes(prefix: str, members: Iterable[Tuple[str, bytes]]) -> bytes:
         for name, content in members:
             info = zipfile.ZipInfo("{0}/{1}".format(prefix, name), date_time=(1980, 1, 1, 0, 0, 0))
             info.create_system = 3
-            info.external_attr = 0o100644 << 16
+            info.external_attr = (0o100000 | archive_mode(name)) << 16
             info.compress_type = zipfile.ZIP_DEFLATED
             info.extra = b""
             info.comment = b""

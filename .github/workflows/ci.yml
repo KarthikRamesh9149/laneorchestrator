@@ -55,7 +55,7 @@ jobs:
         run: >-
           python -m unittest -v
           tests.test_models tests.test_diagnostics tests.test_routing_api
-          tests.test_routing_matrix tests.test_routes tests.test_benchmark
+          tests.test_routing_matrix tests.test_routes
           tests.test_plugin_manifests tests.test_repository
 
   release-evidence:

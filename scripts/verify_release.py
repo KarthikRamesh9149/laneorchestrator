@@ -22,6 +22,7 @@ try:
         MAX_MEMBER_BYTES,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
+        RELEASE_EXECUTABLES,
         ReleaseError,
         _captured_members,
         release_version,
@@ -31,6 +32,7 @@ except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execu
         MAX_MEMBER_BYTES,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
+        RELEASE_EXECUTABLES,
         ReleaseError,
         _captured_members,
         release_version,
@@ -92,7 +94,7 @@ def _validate_name(name: str, prefix: str) -> str:
     if any(part in ("", ".", "..") for part in parts) or any(ord(character) < 32 or ord(character) == 127 for character in name):
         raise ReleaseVerificationError("archive member has unsafe name: {0!r}".format(name))
     for part in parts:
-        stem = part.split(".", 1)[0].casefold()
+        stem = unicodedata.normalize("NFKC", part.split(".", 1)[0]).casefold()
         if part.endswith((".", " ")) or ":" in part or stem in _WINDOWS_RESERVED:
             raise ReleaseVerificationError("archive member has unsafe Windows name: {0!r}".format(name))
     expected_prefix = prefix + "/"
@@ -127,7 +129,9 @@ def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
             for member in archive:
                 if not member.isfile() or member.issym() or member.islnk() or member.linkname:
                     raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
-                if member.mode != 0o644 or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
+                relative = _validate_name(member.name, prefix)
+                expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
+                if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
                     raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
                 if member.size < 0 or member.size > MAX_MEMBER_BYTES:
                     raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
@@ -155,7 +159,9 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
                 if info.extra or info.comment or info.date_time != (1980, 1, 1, 0, 0, 0):
                     raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
                 mode = (info.external_attr >> 16) & 0o777777
-                if info.create_system != 3 or mode != 0o100644 or info.compress_type != zipfile.ZIP_DEFLATED:
+                relative = _validate_name(info.filename, prefix)
+                expected_mode = 0o100000 | (0o755 if relative in RELEASE_EXECUTABLES else 0o644)
+                if info.create_system != 3 or mode != expected_mode or info.compress_type != zipfile.ZIP_DEFLATED:
                     raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
                 if info.file_size > MAX_MEMBER_BYTES or info.compress_size <= 0 or info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
                     raise ReleaseVerificationError("zip member exceeds resource limit: {0}".format(info.filename))
@@ -219,6 +225,9 @@ def _check_content(name: str, content: bytes) -> None:
         r"\bsk-[A-Za-z0-9]{20,}\b",
         r"\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b",
         r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b",
+        r"\bgithub_pat_[A-Za-z0-9_]{20,}\b",
+        r"\bsk-ant-[A-Za-z0-9_-]{20,}\b",
+        r"\bglpat-[A-Za-z0-9_-]{20,}\b",
     )
     if any(re.search(pattern, text) for pattern in secret_patterns):
         raise ReleaseVerificationError("release content contains credential-like data: {0}".format(name))
