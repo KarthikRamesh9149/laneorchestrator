@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "roles": {
+    "router": {"model": "gpt-5.6-sol", "reasoning_effort": "high"},
+    "small_task_executor": {"model": "gpt-5.6-luna", "reasoning_effort": "high"},
+    "main_implementer": {"model": "gpt-5.6-terra", "reasoning_effort": "high"},
+    "independent_reviewer": {"model": "gpt-5.6-sol", "reasoning_effort": "high"}
+  }
+}
