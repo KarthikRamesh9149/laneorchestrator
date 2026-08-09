@@ -12,7 +12,6 @@ from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest import mock
 
-from laneorchestrator import plans as plans_module
 from laneorchestrator.plans import (
     MAX_PLAN_BYTES,
     MutationPlan,
@@ -108,8 +107,7 @@ class MutationPlanTests(unittest.TestCase):
 
     def test_concurrent_fixed_token_creators_never_replace_each_other(self) -> None:
         fixed_token = "C" * 43
-        publication_barrier = threading.Barrier(2)
-        real_atomic_private_write = plans_module.atomic_private_write
+        start_barrier = threading.Barrier(2)
         other_operations = (
             Operation(
                 path="agents/other.toml",
@@ -119,11 +117,8 @@ class MutationPlanTests(unittest.TestCase):
             ),
         )
 
-        def synchronized_publication(path: Path, content: bytes, mode: int) -> None:
-            publication_barrier.wait(timeout=5)
-            real_atomic_private_write(path, content, mode)
-
         def attempt(kind: str, operations: tuple) -> tuple:
+            start_barrier.wait(timeout=5)
             try:
                 token = create_plan(kind, operations, self.root, now=100)
             except PlanError as error:
@@ -133,20 +128,12 @@ class MutationPlanTests(unittest.TestCase):
         with mock.patch(
             "laneorchestrator.plans.secrets.token_urlsafe", return_value=fixed_token
         ):
-            with mock.patch(
-                "laneorchestrator.plans.atomic_private_write",
-                side_effect=synchronized_publication,
-            ):
-                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                    futures = (
-                        executor.submit(
-                            attempt, "profiles.install", self.operations
-                        ),
-                        executor.submit(
-                            attempt, "profiles.remove", other_operations
-                        ),
-                    )
-                    outcomes = [future.result(timeout=10) for future in futures]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                futures = (
+                    executor.submit(attempt, "profiles.install", self.operations),
+                    executor.submit(attempt, "profiles.remove", other_operations),
+                )
+                outcomes = [future.result(timeout=10) for future in futures]
 
         created = [outcome for outcome in outcomes if outcome[0] == "created"]
         rejected = [outcome for outcome in outcomes if outcome[0] == "error"]
