@@ -7,9 +7,13 @@ description: Adaptively route a Codex task to the right installed skills, custom
 
 Use this as the single entry point for work that benefits from capability selection. It produces a visible route, then performs normal in-scope work without waiting for a second prompt.
 
+## Installed module root
+
+Before running a `python3 -m laneorchestrator` command, resolve the installed plugin root rather than relying on the user's current workspace. Start at the directory containing this `SKILL.md` and use the ancestor of this `SKILL.md` that contains `.codex-plugin/plugin.json`. Run every module command below with that plugin root as the working directory. This lets a clean marketplace installation run the bundled package from an unrelated workspace without requiring a global or pip installation.
+
 ## First invocation and safety boundary
 
-Start every invocation with this readiness check, before routing or considering any mutation:
+With the plugin root as the working directory, start every invocation with this readiness check, before routing or considering any mutation:
 
 ```sh
 python3 -m laneorchestrator doctor --json
@@ -23,7 +27,7 @@ If the doctor evidence shows that the host does not directly expose the bundled 
 python3 -m laneorchestrator profiles install preview --json
 ```
 
-Display the preview's exact destinations, proposed changes, and its returned one-time token to the user. Never apply that preview automatically or infer consent. Apply only after the user supplies that exact, still-valid bound token:
+Display the preview's exact destinations, proposed changes, and its returned one-time token to the user. The preview may create private local planning state and its private parent directories, but it does not apply profile or configuration changes at the target. Never apply that preview automatically or infer consent. Apply only after the user supplies that exact, still-valid bound token:
 
 ```sh
 python3 -m laneorchestrator profiles install apply --token <bound-token> --json

@@ -96,6 +96,20 @@ class PluginManifestTests(unittest.TestCase):
         self.assertIn("Third-party agent packs are optional", skill)
         self.assertIn("missing Terra", skill)
         self.assertIn("required Sol", skill)
+        self.assertIn("ancestor of this `SKILL.md`", skill)
+        self.assertIn("plugin root as the working directory", skill)
+        self.assertIn("private local planning state", skill)
+        self.assertIn("does not apply profile or configuration changes", skill)
+
+    def test_readme_uses_only_the_supported_marketplace_and_token_flow(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn(PUBLIC_COMMANDS[0], readme)
+        self.assertIn(PUBLIC_COMMANDS[1], readme)
+        self.assertNotIn("sh scripts/install-agents.sh", readme)
+        self.assertIn("doctor", readme)
+        self.assertIn("preview", readme)
+        self.assertIn("bound token", readme)
+        self.assertIn("Plugin removal", readme)
 
 
 if __name__ == "__main__":

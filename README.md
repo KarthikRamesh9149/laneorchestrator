@@ -23,7 +23,7 @@ Codex installations can accumulate many skills, agents, and model choices. LaneO
 
 ## Requirements
 
-- A Codex client that supports local plugins, skills, and custom agents
+- A Codex client with Plugin Marketplace support
 - Python 3.9 or newer
 - macOS or Linux with a POSIX shell
 - Access to the configured GPT-5.6 profiles; optional specialists and Luna may fall back to Terra / High
@@ -32,23 +32,28 @@ The runtime uses only the Python standard library.
 
 ## Install
 
-Clone the repository and register its root through the local-plugin flow supported by your Codex client. The plugin entry point is [.codex-plugin/plugin.json](.codex-plugin/plugin.json).
+Install the published marketplace and plugin:
 
 ```bash
-git clone https://github.com/KarthikRamesh9149/laneorchestrator.git
-cd laneorchestrator
-sh scripts/install-agents.sh
-sh scripts/install-agents.sh --check
-python3 scripts/healthcheck.py
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main
+codex plugin add laneorchestrator@laneorchestrator
 ```
 
-The agent installer writes only missing namespaced profiles under `~/.codex/agents`. It refuses collisions and symbolic-link destinations. Preview another target without changing it:
+`--ref main` follows the current published branch; it is not a content-pinned integrity guarantee. The marketplace command registers the plugin source and the second command installs the plugin. No clone, global Python installation, or direct profile-installer command is required.
 
-```bash
-sh scripts/install-agents.sh --check --target /path/to/agents
+## First invocation
+
+Invoke the installed skill from any workspace:
+
+```text
+$laneorchestrator route and implement this task safely
 ```
 
-LaneOrchestrator does not modify shell startup files, global Git settings, hooks, MCP configuration, Codex configuration, or existing agents.
+The skill resolves its installed plugin root before running `doctor`, so the bundled module runs even when the current directory is an unrelated project. It starts with `doctor --json`; if the host does not expose its bundled profiles, it displays a profile-install preview with exact destinations and a one-time bound token.
+
+A preview may create private local planning state and its private parent directories, but it does not apply profile or configuration changes at the target. Review the preview and provide the exact bound token only when you consent to the apply. The skill never infers consent or applies a mutation automatically, and runs `doctor` again after a successful apply.
+
+Plugin removal removes the plugin registration and cached plugin files only. It does not remove managed agent profiles; profile removal is a separate preview-and-bound-token lifecycle action. LaneOrchestrator does not modify shell startup files, global Git settings, hooks, MCP configuration, or existing agents without that approved apply flow.
 
 ## Use
 
@@ -120,9 +125,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [RELEASING
 
 ## Troubleshooting
 
-**A profile reports `conflict`.** The installer found an existing file or link and left it untouched. Compare it with the matching file under `agents/`, then move or reconcile it manually.
+**A profile reports `conflict`.** The profile preview found an existing file or link and left it untouched. Compare it with the matching bundled profile, then move or reconcile it manually before requesting a new preview.
 
-**A requested model or agent is unavailable.** The router reports the substitution. Luna and optional specialists may fall back to Terra / High. If Terra is unavailable, or Sol is unavailable for required high-risk planning or review, the route pauses instead of silently weakening the safety boundary. Re-run the profile installer if a bundled profile is missing.
+**A requested model or agent is unavailable.** The router reports the substitution. Luna and optional specialists may fall back to Terra / High. If Terra is unavailable, or Sol is unavailable for required high-risk planning or review, the route pauses instead of silently weakening the safety boundary. Follow the displayed profile preview and bound-token flow if a bundled profile is missing.
 
 **Capability results are empty.** Use direct objective terms, pass verified stack evidence with `--context`, and inspect `warnings` for skipped roots, symbolic links, or resource limits.
 
