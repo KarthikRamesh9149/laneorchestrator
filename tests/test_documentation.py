@@ -187,6 +187,10 @@ class DocumentationTests(unittest.TestCase):
     def test_missing_codex_produces_only_the_documented_doctor_degradation(self) -> None:
         getting_started = (ROOT / "docs/getting-started.md").read_text(encoding="utf-8")
         self.assertIn("CODEX_CLI", getting_started)
+        self.assertIn("installed `$laneorchestrator` workflow stops", getting_started)
+        self.assertIn("may still compute a local decision", getting_started)
+        self.assertIn("cannot prove host readiness", getting_started)
+        self.assertIn("cannot execute or authorize", getting_started)
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary).resolve()
             environment = dict(os.environ, CODEX_HOME=str(home), PATH="")
@@ -223,6 +227,7 @@ class DocumentationTests(unittest.TestCase):
             route_payload = json.loads(route.stdout)
             self.assertTrue(route_payload["ok"])
             self.assertEqual(route_payload["errors"], [])
+            self.assertEqual(route_payload["data"]["route"]["lane"], "luna")
 
     def test_installed_users_use_the_skill_from_an_arbitrary_workspace(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
