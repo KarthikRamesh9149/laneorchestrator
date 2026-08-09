@@ -74,3 +74,49 @@ OK
 No known blockers. The compatibility script intentionally no longer exposes
 its old implementation helpers as importable script globals; consumers should
 use the canonical `laneorchestrator.discovery` API.
+
+## Fix Round 1: direct `collect()` root bound
+
+### Changed files
+
+- Updated `laneorchestrator/discovery.py` with a shared root-count validator
+  used by both `validate_request()` and the direct public `collect()` API.
+- Updated `tests/test_discovery_api.py` with a direct-`collect()` regression
+  using 65 roots.
+
+### RED evidence
+
+Before the production fix:
+
+```text
+python3 -m unittest tests.test_discovery_api tests.test_catalog -v
+FAIL: test_collect_rejects_unbounded_roots_before_enumeration
+AssertionError: ValueError not raised
+Ran 26 tests in 0.618s
+FAILED (failures=1)
+```
+
+### GREEN evidence
+
+After adding the shared pre-enumeration check:
+
+```text
+python3 -m unittest tests.test_discovery_api tests.test_catalog -v
+Ran 26 tests in 0.611s
+OK
+```
+
+### Commit
+
+`869ddc5` — `fix: bound direct discovery roots`
+
+### Self-review
+
+`collect()` checks the root count before converting any root to a `Path` or
+iterating it. The same helper remains used by request validation, so direct and
+request-mediated discovery now share the exact 64-root limit and error text.
+
+### Concerns
+
+None. The guard rejects only root lists above the established bound and does
+not alter legacy CLI root handling.
