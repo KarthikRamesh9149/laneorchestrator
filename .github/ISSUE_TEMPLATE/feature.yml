@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a focused, evidence-backed improvement to LaneOrchestrator.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Do not report vulnerabilities here. Follow SECURITY.md for private vulnerability reporting. Do not include secrets, tokens, private paths, private repository content, or exploit details.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the workflow friction and the affected command or route behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe observable behavior and any compatibility or safety tradeoff.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include a current workaround when one exists.

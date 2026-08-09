@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">LaneOrchestrator</title>
+  <desc id="description">Evidence-driven model and agent routing for Codex</desc>
+  <rect width="1200" height="630" fill="#0b1020"/>
+  <rect x="70" y="80" width="1060" height="470" rx="24" fill="#141c35" stroke="#5eead4" stroke-width="3"/>
+  <circle cx="136" cy="142" r="13" fill="#5eead4"/>
+  <text x="175" y="162" fill="#f8fafc" font-family="Arial, sans-serif" font-size="58" font-weight="700">LaneOrchestrator</text>
+  <text x="136" y="260" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="32">Evidence-driven model and agent routing for Codex</text>
+  <path d="M150 365H385M475 365H710M800 365H1050" fill="none" stroke="#5eead4" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="430" cy="365" r="28" fill="#60a5fa"/><circle cx="755" cy="365" r="28" fill="#60a5fa"/>
+  <text x="136" y="455" fill="#94a3b8" font-family="Arial, sans-serif" font-size="25">evidence</text>
+  <text x="386" y="455" fill="#94a3b8" font-family="Arial, sans-serif" font-size="25">route card</text>
+  <text x="710" y="455" fill="#94a3b8" font-family="Arial, sans-serif" font-size="25">verification</text>
+</svg>

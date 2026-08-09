@@ -1,37 +1,34 @@
 # Architecture
 
-LaneOrchestrator separates decision-making from implementation so a writable model never selects its own authority.
+LaneOrchestrator separates routing authority from writable implementation. The canonical control plane is the dependency-free `laneorchestrator` package and its `python3 -m laneorchestrator` interface.
 
 ```text
 task + repository evidence
           |
           v
-read-only Sol router ----> bounded route card
-          |                       |
-          |                capability catalog
-          |                  (untrusted index)
+read-only Sol router ----> bounded route card ----> optional capability index
+          |                                            (untrusted metadata)
           v
- Luna executor or Terra executor
+Luna executor or Terra executor
           |
           v
- verification evidence
-          |
-          v
- read-only Sol reviewer for high-risk work
+verification evidence ----> fresh read-only Sol review for high-risk work
 ```
+
+Editable Mermaid source is available at [architecture.mmd](assets/architecture.mmd). The [social preview](assets/social-preview.svg) is a standalone XML asset with no script, external reference, or third-party logo.
 
 ## Components
 
-- `route.py` converts explicit scope and risk facts into a conservative model lane. Unknown risk and recognized high-risk signals select the Sol-controlled path.
-- `catalog.py` discovers local skills and agent profiles within file, byte, depth, and result limits. Ranking is lexical and transparent; matched terms and source are returned with each candidate.
-- `laneorchestrator-router` is the read-only control plane. It inspects repository evidence, chooses capabilities, and creates a bounded execution packet.
-- Luna handles only verified one-file, low-risk work. Terra is the default writable implementation lane. A fresh read-only Sol agent reviews high-risk work.
-- `install_agents.py` installs the four namespaced profiles with collision checks and descriptor-relative no-follow operations.
+- `laneorchestrator.routing` derives a conservative route from explicit facts. Unknown risk and recognized high-risk signals avoid Luna.
+- `laneorchestrator.discovery` produces a bounded capability index. It does not execute descriptions or turn them into instructions.
+- `laneorchestrator.config`, `plans`, and `profiles` own schema validation, preview tokens, and safe lifecycle operations.
+- `laneorchestrator.doctor` and `diagnostics` provide readiness and stable result envelopes.
+- `laneorchestrator.benchmark` evaluates committed policy corpora.
 
-## Data flow
+The legacy `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/scripts/catalog.py`, and `scripts/install_agents.py` remain compatibility wrappers through `0.2.0`; they do not own separate routing, discovery, or mutation policy.
 
-Capability descriptions never become instructions. The catalog returns JSON index records. The router may then read only selected capability files under the host's normal instruction hierarchy and approval boundaries.
+## Data flow and failure behavior
 
-## Fallbacks
+Capability descriptions and ranking results remain data. The read-only router may select a candidate for later inspection under the host's instruction hierarchy, but cannot delegate authority to metadata. Luna and optional specialists may fall back to Terra. Missing Terra pauses implementation; missing Sol pauses required high-risk planning or review.
 
-If Luna or an optional specialist is unavailable, the route falls back to Terra at high reasoning effort and reports the substitution. If Terra is unavailable, implementation pauses. If Sol is unavailable for required high-risk planning or review, the high-risk route pauses rather than dropping an independent control. Missing capabilities are named but never installed automatically.
+Profile and configuration changes are previewed against an exact state and only applied with a reviewed, unexpired bound token. Native Windows read-only commands are supported, while mutation is disabled; see [compatibility](compatibility.md) and [security model](security-model.md).

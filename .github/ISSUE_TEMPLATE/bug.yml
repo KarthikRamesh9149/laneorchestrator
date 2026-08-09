@@ -5,7 +5,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Do not report vulnerabilities here. Follow SECURITY.md for private reporting.
+      value: Do not report vulnerabilities here. Follow SECURITY.md for private vulnerability reporting. Remove secrets, access tokens, private paths, private repository content, and exploit details from this public form.
   - type: textarea
     id: behavior
     attributes:

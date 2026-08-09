@@ -4,7 +4,7 @@ Contributions should preserve LaneOrchestrator's conservative routing and explic
 
 ## Development setup
 
-Requirements are Python 3.9 or newer and a POSIX shell on macOS or Linux. The runtime has no third-party Python dependencies.
+The support target is Python 3.9-3.14. The runtime has no third-party Python dependencies. macOS and Linux support mutation controls; native Windows is read-only only, so use WSL for profile or configuration mutation.
 
 ```bash
 git clone https://github.com/KarthikRamesh9149/laneorchestrator.git
@@ -19,13 +19,14 @@ sh scripts/validate.sh
 3. Default unknown risk to the Sol control path. Luna requires verified low risk, one known area, explicit acceptance criteria, and one file.
 4. Preserve installer collision safety and descriptor-relative, no-follow file operations.
 5. Update documentation and `CHANGELOG.md` for user-visible behavior.
+6. Preserve the preview-and-bound-token workflow for configuration and managed-profile changes; never add a shortcut that weakens the required human review.
 
 Run `sh scripts/validate.sh` before opening a pull request. Explain risk, verification evidence, and rollback strategy in the pull-request description.
 
 ## Style
 
 - Prefer the Python standard library and small explicit functions.
-- Support Python 3.9 and current Python releases.
+- Support Python 3.9-3.14.
 - Keep shell scripts POSIX-compatible.
 - Use structured JSON for machine-consumed output.
 - Avoid broad exception suppression; return actionable warnings for skipped untrusted inputs.

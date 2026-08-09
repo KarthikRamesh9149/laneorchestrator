@@ -1,0 +1,6 @@
+{"version":2,"width":90,"height":24,"timestamp":0,"title":"LaneOrchestrator route card","env":{"SHELL":"sh","TERM":"xterm-256color"}}
+[0.0,"o","$ $laneorchestrator route and implement this task safely\r\n"]
+[1.0,"o","Lane: Terra\r\n"]
+[2.0,"o","Why: multi-file work or uncertain scope uses the default implementation lane\r\n"]
+[3.0,"o","Safety: workspace execution only\r\n"]
+[90.0,"o","Route card complete.\r\n"]

@@ -1,0 +1,6 @@
+$ $laneorchestrator route and implement this task safely
+Lane: Terra
+Why: multi-file work or uncertain scope uses the default implementation lane
+Safety: workspace execution only
+
+This is a deterministic illustrative route card. It contains no live profile state.

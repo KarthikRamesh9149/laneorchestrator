@@ -1,0 +1,11 @@
+flowchart TD
+    A[Task and repository evidence] --> B[Read-only Sol router]
+    B --> C[Bounded capability index]
+    B --> D{Risk and scope}
+    D -->|Verified one-file low risk| E[Luna executor]
+    D -->|Normal or uncertain work| F[Terra executor]
+    D -->|High-risk work| G[Sol plan]
+    G --> F
+    E --> H[Verification evidence]
+    F --> H
+    H --> I[Fresh Sol review for high-risk work]

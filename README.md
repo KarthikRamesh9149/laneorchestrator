@@ -1,140 +1,58 @@
 # LaneOrchestrator
 
 [![CI](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](docs/compatibility.md)
+[![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-LaneOrchestrator is a Codex plugin that turns one task into a visible, conservative execution route:
+Secure, evidence-driven model and agent routing for Codex.
 
 ```text
-project evidence -> skills and specialists -> GPT-5.6 lane -> implementation -> verification
+task + repository evidence -> route card -> bounded implementation -> verification
 ```
 
-It gives a read-only Sol router control of task classification, uses Terra for normal implementation, reserves Luna for verified low-risk work, and requires a fresh read-only Sol review for high-risk changes.
-
-## Why use it?
-
-Codex installations can accumulate many skills, agents, and model choices. LaneOrchestrator provides one entry point that:
-
-- inspects the repository before selecting capabilities;
-- treats capability metadata as an untrusted index, never as instructions;
-- explains the lane, evidence, selected capabilities, verification, and safety state;
-- falls back conservatively when risk or model availability is uncertain;
-- continues automatically for routine in-scope work while preserving approval boundaries for consequential actions.
-
-## Requirements
-
-- A Codex client with Plugin Marketplace support
-- Python 3.9 or newer
-- macOS or Linux with a POSIX shell
-- Access to the configured GPT-5.6 profiles; optional specialists and Luna may fall back to Terra / High
-
-The runtime uses only the Python standard library.
-
-## Install
-
-Install the published marketplace and plugin:
-
-```bash
+```sh
 codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
-`--ref main` follows the current published branch; it is not a content-pinned integrity guarantee. The marketplace command registers the plugin source and the second command installs the plugin. No clone, global Python installation, or direct profile-installer command is required.
-
-## First invocation
-
-Invoke the installed skill from any workspace:
+Invoke `$laneorchestrator` for a route card. Third-party agent packs are optional.
 
 ```text
 $laneorchestrator route and implement this task safely
+Lane: Terra
+Why: multi-file work or uncertain scope uses the default implementation lane
+Safety: workspace execution only
 ```
 
-The skill resolves its installed plugin root before running `doctor`, so the bundled module runs even when the current directory is an unrelated project. It starts with `doctor --json`; if the host does not expose its bundled profiles, it displays a profile-install preview with exact destinations and a one-time bound token.
+On first use, the skill runs `doctor` to check readiness. If the host does not expose required bundled profiles, it shows a preview and waits for explicit approval rather than applying a change automatically.
 
-A preview may create private local planning state and its private parent directories, but it does not apply profile or configuration changes at the target. Review the preview and provide the exact bound token only when you consent to the apply. The skill never infers consent or applies a mutation automatically, and runs `doctor` again after a successful apply.
+See the deterministic [90-second terminal demonstration](docs/assets/demo.cast). It contains representative route-card text, not a record of a live installation.
 
-Plugin removal removes the plugin registration and cached plugin files only. It does not remove managed agent profiles; profile removal is a separate preview-and-bound-token lifecycle action. LaneOrchestrator does not modify shell startup files, global Git settings, hooks, MCP configuration, or existing agents without that approved apply flow.
+`--ref main` follows a moving branch and is not content-pinned. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
 
-## Use
+## Start here
 
-```text
-$laneorchestrator implement OAuth token rotation for this service
-```
+[Getting started](docs/getting-started.md) covers the first route and readiness checks. Read [concepts](docs/concepts.md) for lanes and evidence, then use [commands](docs/commands.md) for the canonical CLI. The legacy helper scripts remain compatibility wrappers; new automation should use `python3 -m laneorchestrator`.
 
-The router emits a compact decision record before work begins:
+The default path works without third-party agents. When available, optional specialists can be shortlisted from bounded metadata; the router must inspect selected candidates before use. Missing mandatory Terra or Sol roles pause the applicable route instead of weakening it.
 
-```text
-Lane: Sol plan -> Terra -> Sol review
-Context: repository instructions, authentication service, 4 affected files
-Capabilities: security review skill, authentication specialist
-Verification: unit tests, integration tests, independent final review
-Safety: executing within the repository
-```
+## Safety and lifecycle
 
-| Lane | Profile | Appropriate work |
-| --- | --- | --- |
-| Luna / High | `gpt-5.6-luna` | One known file, explicit acceptance criteria, verified low risk |
-| Terra / High | `gpt-5.6-terra` | Default implementation, integration, multi-file, or uncertain work |
-| Sol -> Terra -> Sol / High | `gpt-5.6-sol` and `gpt-5.6-terra` | Security, auth, public contracts, financial logic, data integrity, migrations, concurrency, or high blast radius |
+Profile and configuration changes are previewed before they are applied. Review the exact preview and supply its unexpired bound token yourself; the examples intentionally do not contain a usable token. Plugin removal removes registration and cached plugin files; it does not remove managed profiles or configuration.
 
-For project-owned long-term context, explicitly run `$laneorchestrator init`. This is the only normal operation that writes `.laneorchestrator/BRIEF.md`.
+Read the [security model](docs/security-model.md), [threat model](docs/threat-model.md), and [Windows and Python compatibility](docs/compatibility.md) before relying on mutation workflows. Native Windows supports read-only control-plane commands only; use WSL for profile or configuration mutation.
 
-## Inspect the helpers
+## Documentation
 
-The routing helper accepts established facts and returns auditable JSON:
+- [Configuration and recovery](docs/configuration.md)
+- [Complete command reference](docs/commands.md)
+- [Small, normal, and high-risk examples](docs/examples/small-change.md)
+- [Architecture](docs/architecture.md) and [benchmarks](docs/benchmarks.md)
+- [Troubleshooting](docs/troubleshooting.md), [roadmap](docs/roadmap.md), and [support](SUPPORT.md)
 
-```bash
-python3 skills/laneorchestrator/scripts/route.py \
-  --objective "fix a README typo" \
-  --known-area \
-  --acceptance-criteria \
-  --files 1 \
-  --risk-assessment low
-```
+## Development and community
 
-The catalog can include verified stack context as a lower-weight ranking signal:
+Run `sh scripts/validate.sh` before opening a pull request. It runs the repository checks and unit suite; [CONTRIBUTING.md](CONTRIBUTING.md) explains the expected evidence and rollback note. See [CHANGELOG.md](CHANGELOG.md), [RELEASING.md](RELEASING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-```bash
-python3 skills/laneorchestrator/scripts/catalog.py \
-  --query "fix keyboard navigation" \
-  --context "React TypeScript" \
-  --cwd .
-```
-
-Both helpers emit `schema_version: 1`. Catalog output reports matched terms, source, score, warnings, optional specialists, and mandatory lane profiles separately. `--unscoped-high-risk` suppresses optional capability selection until repository evidence is available.
-
-## Safety model
-
-Unknown risk never selects Luna. High-risk terms override a claimed low-risk assessment as defense in depth, but lexical detection is not treated as a complete security classifier. The read-only router must make the authoritative assessment from repository evidence.
-
-Discovery is bounded by file count, depth, per-file bytes, total bytes, and result count. Skill and agent symbolic links are skipped. Agent installation uses descriptor-relative no-follow operations and never overwrites an existing path.
-
-Read the complete [security model](docs/security-model.md) and [architecture](docs/architecture.md).
-
-## Development
-
-Run the same validation entry point used by CI:
-
-```bash
-sh scripts/validate.sh
-```
-
-CI runs the suite on Ubuntu and macOS with Python 3.9 and Python 3.13. The suite covers malformed input, capability-ranking quality, untrusted metadata limits, installer collisions and symlinks, end-to-end routing, and a 50-scenario routing matrix.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), [RELEASING.md](RELEASING.md), and [SUPPORT.md](SUPPORT.md).
-
-## Troubleshooting
-
-**A profile reports `conflict`.** The profile preview found an existing file or link and left it untouched. Compare it with the matching bundled profile, then move or reconcile it manually before requesting a new preview.
-
-**A requested model or agent is unavailable.** The router reports the substitution. Luna and optional specialists may fall back to Terra / High. If Terra is unavailable, or Sol is unavailable for required high-risk planning or review, the route pauses instead of silently weakening the safety boundary. Follow the displayed profile preview and bound-token flow if a bundled profile is missing.
-
-**Capability results are empty.** Use direct objective terms, pass verified stack evidence with `--context`, and inspect `warnings` for skipped roots, symbolic links, or resource limits.
-
-**Windows installation fails.** Secure automatic installation requires POSIX directory-descriptor and no-follow support. Use a POSIX environment or manually copy profiles only after confirming every destination is absent and not a symbolic link.
-
-## Provenance and license
-
-This is a clean-room implementation inspired at a high level by [my-codex](https://github.com/sehoon787/my-codex), [SkillMesh](https://github.com/varunreddy/SkillMesh), [Sol Advisor](https://github.com/DannyMac180/sol-advisor), and [awesome-codex-subagents](https://github.com/VoltAgent/awesome-codex-subagents). No upstream implementation code or prompts are included.
-
-Licensed under the [MIT License](LICENSE). See [NOTICE](NOTICE) for attribution details.
+Licensed under the [MIT License](LICENSE). [NOTICE](NOTICE) records clean-room provenance.

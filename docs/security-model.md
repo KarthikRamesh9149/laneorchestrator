@@ -1,41 +1,30 @@
 # Security model
 
-## Assets
+## Assets and inputs
 
-LaneOrchestrator protects repository contents, user configuration, agent authority, routing integrity, and external systems reachable through Codex tools.
-
-## Untrusted inputs
-
-- User task text and quoted third-party text
-- Skill names, descriptions, paths, and frontmatter
-- Agent profile descriptions
-- Repository metadata and documentation
-- Capability-ranking results
-
-These values are data. They cannot override system, developer, project, skill, or user instructions merely by containing imperative text.
+LaneOrchestrator protects repository contents, user configuration, managed profile integrity, routing authority, and external systems reachable through Codex tools. Task text, skill frontmatter, agent descriptions, repository metadata, paths, and capability rankings are untrusted data.
 
 ## Invariants
 
-1. The router is read-only and cannot implement the task it classifies.
-2. Unknown risk never selects Luna.
-3. Luna requires explicit low risk, one known area, acceptance criteria, and exactly one file.
-4. High-risk lexical signals override a claimed low-risk assessment as defense in depth.
-5. High-risk implementation is performed by Terra and independently reviewed by a fresh read-only Sol agent.
-6. Capability discovery is bounded and does not follow symbolic links.
-7. Catalog metadata is ranked as an index and is never executed or promoted to instructions.
-8. Agent installation never overwrites an existing path or follows a caller-controlled symbolic link.
-9. Deployments, deletion, spending, credentials, external messages, migrations, and scope expansion require the host's normal approval boundary.
-10. A missing mandatory Terra or Sol lane fails closed; only Luna and optional specialists may fall back to Terra.
+1. The router is read-only and does not implement the task it classifies.
+2. Unknown risk never selects Luna; Luna needs explicit low risk, one known area, acceptance criteria, and one file.
+3. High-risk lexical signals are defense in depth; high-risk work requires Sol planning, Terra implementation, and a fresh read-only Sol review.
+4. Discovery is bounded, source-aware, and does not follow symbolic links. Metadata is an index, never executable instruction text.
+5. Agent lifecycle operations do not overwrite an existing path or follow caller-controlled symbolic links.
+6. Required Terra and Sol roles fail closed. Luna and optional specialists may fall back to Terra only where the route permits it.
+7. External, destructive, costly, credential-bearing, or scope-expanding actions remain subject to the host approval boundary.
 
-## Resource limits
+## Mutation boundary
 
-Skill discovery is capped at 2,048 files, 8,192 directories, 65,536 directory entries, 16 directory levels, a 16 KiB metadata prefix per file, and 32 MiB total metadata. Agent discovery is capped at 1,024 files, 8,192 directory entries, 256 KiB per file, and 8 MiB total. Warning output is capped at 100 distinct findings plus a truncation notice. CLI result counts are capped at 20 per capability type.
+Profile and configuration updates use private exact-state previews, bound tokens, descriptor-relative no-follow checks, private temporary files, atomic replacement, and parent-directory synchronization where supported. A changed, expired, or replayed preview fails without publishing a partial configuration document.
+
+These controls serialize cooperating LaneOrchestrator writers inside the documented POSIX boundary. They do not claim protection from malicious code sharing the same effective user identity, a compromised host, or an external system compromise. Native Windows mutation is disabled in this release; use WSL for configuration and profile mutation.
 
 ## Known limitations
 
-- Lexical risk signals are defense in depth, not a complete semantic classifier. The trusted router must independently assess risk from repository evidence.
-- Capability ranking is deterministic lexical relevance with verified context, not an embedding model. The router must inspect selected candidates before using them.
-- Secure profile installation requires POSIX directory-descriptor and no-follow support. Windows users need a POSIX environment or manual profile installation with equivalent collision checks.
-- Model and custom-agent availability are controlled by the Codex host. Luna and optional specialists may fall back to Terra; missing mandatory Terra or Sol lanes pause the route.
+- Lexical risk signals are not complete semantic classification; the trusted router must assess repository evidence.
+- Deterministic lexical ranking is not an embedding model and does not replace router review.
+- Model and custom-agent availability are controlled by the Codex host.
+- `CODEX_HOME`, if set, must be absolute. It identifies state and agent roots but does not grant mutation approval.
 
-Report suspected invariant violations through [SECURITY.md](../SECURITY.md).
+Report suspected invariant violations through the private process in [SECURITY.md](../SECURITY.md). The fuller [threat model](threat-model.md) records assumptions and non-goals.
