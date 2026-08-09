@@ -10,7 +10,7 @@
   "homepage": "https://github.com/KarthikRamesh9149/laneorchestrator#readme",
   "repository": "https://github.com/KarthikRamesh9149/laneorchestrator",
   "license": "MIT",
-  "keywords": ["codex", "agent-routing", "developer-tools", "security"],
+  "keywords": ["codex", "ai-agents", "agent-routing", "developer-tools", "python", "security", "open-source"],
   "skills": "./skills/",
   "interface": {
     "displayName": "LaneOrchestrator",

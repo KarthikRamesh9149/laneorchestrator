@@ -2,7 +2,9 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
-## 0.2.0 - Unreleased
+## [0.2.0] - Candidate
+
+This candidate is not a publication claim. The operational release runbook still requires fresh CI, benchmark, archive, security, independent-review, GitHub-settings, visibility, tag, asset, and unauthenticated verification evidence.
 
 ### Added
 
@@ -14,6 +16,7 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Progressive setup, configuration, compatibility, command, recovery, and benchmark documentation.
 - Deterministic route examples, terminal demonstration source, Mermaid architecture source, and self-contained social preview asset.
 - Public bug and feature forms with private security-report routing.
+- Isolated lifecycle journeys and direct regression replays for routing, discovery, plans, and managed profiles.
 
 ### Changed
 
@@ -21,6 +24,7 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Strengthened malformed-input validation and capability deduplication.
 - Upgraded CI actions to current Node.js 24 releases pinned by immutable commit SHA.
 - Documented the canonical module CLI while retaining legacy helper wrappers through 0.2.0.
+- Bounded metadata readers now reject non-regular files before reading them.
 
 ## 0.1.0 - 2026-08-07
 

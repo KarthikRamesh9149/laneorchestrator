@@ -30,7 +30,7 @@ RELEASE_FILES = (
     "CHANGELOG.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "LICENSE",
     "NOTICE", "README.md", "RELEASING.md", "SECURITY.md", "SUPPORT.md",
     "plugin.json", ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
-    ".github/pull_request_template.md",
+    ".github/CODEOWNERS", ".github/pull_request_template.md",
 )
 # This is a source release archive: included contributor/release guides invoke
 # the validator and installer, so their scripts, tests, benchmark corpus and
