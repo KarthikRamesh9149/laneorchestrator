@@ -16,6 +16,7 @@ from laneorchestrator.security import (
     SecurityError,
     atomic_private_write,
     close_private_lock,
+    create_private_file_at_locked,
     open_parent_directory_nofollow,
     open_private_lock_at,
     platform_mutation_supported,
@@ -396,6 +397,48 @@ print("done", flush=True)
         atomic_private_write(destination, b"replacement\n", mode=0o400)
         self.assertEqual(destination.read_bytes(), b"replacement\n")
         self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o400)
+
+    def test_locked_private_create_is_complete_and_never_replaces(self) -> None:
+        destination = self.private / "plan.json"
+        parent_fd = open_parent_directory_nofollow(self.private)
+        lock_fd = open_private_lock_at(parent_fd)
+        try:
+            create_private_file_at_locked(
+                parent_fd, destination.name, b"first complete plan\n", mode=0o600
+            )
+            with self.assertRaises(FileExistsError):
+                create_private_file_at_locked(
+                    parent_fd, destination.name, b"replacement\n", mode=0o600
+                )
+        finally:
+            close_private_lock(lock_fd)
+            os.close(parent_fd)
+
+        self.assertEqual(destination.read_bytes(), b"first complete plan\n")
+        metadata = destination.stat()
+        self.assertTrue(stat.S_ISREG(metadata.st_mode))
+        self.assertEqual(metadata.st_nlink, 1)
+        self.assertEqual(metadata.st_uid, os.geteuid())
+        self.assertEqual(stat.S_IMODE(metadata.st_mode), 0o600)
+
+    def test_locked_private_create_cleans_up_failed_write(self) -> None:
+        destination = self.private / "plan.json"
+        parent_fd = open_parent_directory_nofollow(self.private)
+        lock_fd = open_private_lock_at(parent_fd)
+        try:
+            with mock.patch(
+                "laneorchestrator.security.write_all",
+                side_effect=OSError("injected write failure"),
+            ):
+                with self.assertRaisesRegex(OSError, "injected"):
+                    create_private_file_at_locked(
+                        parent_fd, destination.name, b"partial", mode=0o600
+                    )
+        finally:
+            close_private_lock(lock_fd)
+            os.close(parent_fd)
+
+        self.assertFalse(destination.exists())
 
     def test_destination_and_temporary_name_helpers(self) -> None:
         parent_fd = open_parent_directory_nofollow(self.private)

@@ -310,6 +310,73 @@ def close_private_lock(descriptor: int) -> None:
         os.close(descriptor)
 
 
+def create_private_file_at_locked(
+    parent_fd: int, name: str, content: bytes, mode: int = 0o600
+) -> None:
+    """Create one complete private file without replacing an existing name.
+
+    The caller must hold the lock returned by :func:`open_private_lock_at` for
+    ``parent_fd``.  Cooperating readers take the same lock, so they cannot
+    observe the destination until its content and directory entry are durable.
+    ``FileExistsError`` is intentionally preserved so callers can select a new
+    unpredictable destination without weakening no-replace publication.
+    """
+
+    _require_mutation_support()
+    _validate_basename(name)
+    if name == PRIVATE_MUTATION_LOCK_NAME:
+        raise SecurityError("private mutation lock name is reserved")
+    if not isinstance(content, bytes):
+        raise SecurityError("content must be bytes")
+    if (
+        isinstance(mode, bool)
+        or not isinstance(mode, int)
+        or mode < 0
+        or mode > 0o777
+        or mode & 0o077
+    ):
+        raise SecurityError("mode must grant permissions only to the owner")
+    try:
+        _validate_private_leaf(os.fstat(parent_fd))
+    except OSError as error:
+        raise SecurityError("could not inspect private creation parent") from error
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    descriptor = -1
+    created = False
+    successful = False
+    try:
+        try:
+            descriptor = os.open(name, flags, mode, dir_fd=parent_fd)
+            created = True
+        except FileExistsError:
+            raise
+        except OSError as error:
+            raise SecurityError("could not create private file safely") from error
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise SecurityError("private created object is not a single regular file")
+        if opened.st_uid != os.geteuid():
+            raise SecurityError("private created file has the wrong owner")
+        os.fchmod(descriptor, mode)
+        write_all(descriptor, content)
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = -1
+        os.fsync(parent_fd)
+        successful = True
+    finally:
+        try:
+            if descriptor >= 0:
+                os.close(descriptor)
+        finally:
+            if created and not successful:
+                _unlink_regular_nofollow_at_if_present_locked(parent_fd, name)
+                os.fsync(parent_fd)
+
+
 def _unlink_regular_nofollow_at_if_present_locked(parent_fd: int, name: str) -> None:
     """Unlink an optional regular sibling while the private lock is held."""
 

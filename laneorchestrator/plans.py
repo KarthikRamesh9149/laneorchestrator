@@ -30,6 +30,7 @@ from laneorchestrator.security import (
     SecurityError,
     atomic_private_write,
     close_private_lock,
+    create_private_file_at_locked,
     open_parent_directory_nofollow,
     open_private_lock_at,
     read_regular_nofollow,
@@ -345,20 +346,22 @@ def _tombstone_exists(plan_path: Path) -> bool:
             os.close(consumed_fd)
 
 
-def _select_unique_token_locked(parent_fd: int, plans_root: Path) -> str:
+def _create_unique_plan_locked(
+    parent_fd: int, plans_root: Path, content: bytes
+) -> str:
     for _attempt in range(_TOKEN_GENERATION_ATTEMPTS):
         token = secrets.token_urlsafe(32)
         _validate_token(token)
         plan_path = _plan_path_for_token(token, plans_root)
+        if _tombstone_exists(plan_path):
+            continue
         try:
-            os.stat(plan_path.name, dir_fd=parent_fd, follow_symlinks=False)
-        except FileNotFoundError:
-            live_plan_exists = False
-        except OSError as error:
-            raise PlanError("could not inspect candidate plan path safely") from error
+            create_private_file_at_locked(
+                parent_fd, plan_path.name, content, mode=0o600
+            )
+        except FileExistsError:
+            continue
         else:
-            live_plan_exists = True
-        if not live_plan_exists and not _tombstone_exists(plan_path):
             return token
     raise PlanError("could not generate a unique plan token")
 
@@ -462,8 +465,7 @@ def create_plan(
     try:
         with _locked_plans_root(root) as (parent_fd, _lock_fd):
             _ensure_consumed_root_locked(parent_fd)
-            token = _select_unique_token_locked(parent_fd, root)
-        atomic_private_write(_plan_path_for_token(token, root), content, mode=0o600)
+            token = _create_unique_plan_locked(parent_fd, root, content)
     except PlanError:
         raise
     except SecurityError as error:
