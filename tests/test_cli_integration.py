@@ -444,6 +444,15 @@ class CliIntegrationTests(unittest.TestCase):
         unknown_luna = cli_module.resolve_route(
             luna_decision, config, evidence(small_task_executor=Availability.UNKNOWN)
         )
+        unknown_terra = cli_module.resolve_route(
+            luna_decision, config, evidence(main_implementer=Availability.UNKNOWN)
+        )
+        unknown_router = cli_module.resolve_route(
+            luna_decision, config, evidence(router=Availability.UNKNOWN)
+        )
+        unknown_reviewer = cli_module.resolve_route(
+            high_decision, config, evidence(independent_reviewer=Availability.UNKNOWN)
+        )
         missing_terra = cli_module.resolve_route(
             luna_decision, config, evidence(main_implementer=Availability.MISSING)
         )
@@ -458,11 +467,19 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(
             missing_luna.data["fallback"], "small_task_executor->main_implementer"
         )
-        self.assertEqual(unknown_luna.data["effective_lane"], "luna")
+        self.assertTrue(unknown_luna.ok)
+        self.assertEqual(unknown_luna.data["effective_lane"], "terra")
+        self.assertEqual(
+            unknown_luna.data["fallback"],
+            "small_task_executor->main_implementer",
+        )
         self.assertEqual(
             unknown_luna.data["role_evidence"]["small_task_executor"]["availability"],
             "UNKNOWN",
         )
+        self.assertEqual(unknown_terra.errors[0]["code"], "MAIN_IMPLEMENTER_UNKNOWN")
+        self.assertEqual(unknown_router.errors[0]["code"], "ROUTER_UNKNOWN")
+        self.assertEqual(unknown_reviewer.errors[0]["code"], "REVIEWER_UNKNOWN")
         self.assertEqual(missing_terra.errors[0]["code"], "MAIN_IMPLEMENTER_MISSING")
         self.assertEqual(missing_router.errors[0]["code"], "ROUTER_MISSING")
         self.assertEqual(missing_reviewer.errors[0]["code"], "REVIEWER_MISSING")

@@ -213,17 +213,32 @@ def resolve_route(
 
     if evidence["router"].availability is Availability.MISSING:
         return failed("ROUTER_MISSING", "required router profile is missing")
-    if lane == "luna" and evidence["small_task_executor"].availability is Availability.MISSING:
+    if evidence["router"].availability is Availability.UNKNOWN:
+        return failed("ROUTER_UNKNOWN", "required router profile availability is unknown")
+    if lane == "luna" and evidence["small_task_executor"].availability is not Availability.AVAILABLE:
         effective_lane = "terra"
         effective_role = "main_implementer"
         fallback = "small_task_executor->main_implementer"
     if evidence["main_implementer"].availability is Availability.MISSING:
         return failed("MAIN_IMPLEMENTER_MISSING", "required main implementer profile is missing")
+    if evidence["main_implementer"].availability is Availability.UNKNOWN:
+        return failed(
+            "MAIN_IMPLEMENTER_UNKNOWN",
+            "required main implementer profile availability is unknown",
+        )
     if (
         lane == "sol-plan-terra-sol-review"
         and evidence["independent_reviewer"].availability is Availability.MISSING
     ):
         return failed("REVIEWER_MISSING", "required high-risk reviewer profile is missing")
+    if (
+        lane == "sol-plan-terra-sol-review"
+        and evidence["independent_reviewer"].availability is Availability.UNKNOWN
+    ):
+        return failed(
+            "REVIEWER_UNKNOWN",
+            "required high-risk reviewer profile availability is unknown",
+        )
     data.update(
         {
             "effective_lane": effective_lane,
