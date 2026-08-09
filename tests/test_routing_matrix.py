@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -69,7 +70,7 @@ class RoutingMatrixTests(unittest.TestCase):
         self.assertEqual(len(CASES), 50)
         failures = []
         for name, objective, expected_lane, known_area, acceptance_criteria, files in CASES:
-            command = ["python3", str(SCRIPT), "--objective", objective, "--files", str(files)]
+            command = [sys.executable, str(SCRIPT), "--objective", objective, "--files", str(files)]
             if known_area:
                 command.append("--known-area")
             if acceptance_criteria:

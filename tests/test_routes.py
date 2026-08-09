@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -9,15 +10,20 @@ SCRIPT = Path(__file__).resolve().parents[1] / "skills" / "laneorchestrator" / "
 
 
 def route(*args: str) -> dict[str, object]:
-    result = subprocess.run(["python3", str(SCRIPT), *args], check=True, capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), *args], check=True, capture_output=True, text=True)
     return json.loads(result.stdout)
 
 
 def rejected_route(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["python3", str(SCRIPT), *args], capture_output=True, text=True)
+    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
 
 
 class RouteTests(unittest.TestCase):
+    def test_wrapper_has_no_routing_policy_constants(self) -> None:
+        wrapper = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in ("HIGH_RISK_TERMS", "HIGH_RISK_PHRASES", "recommend_route"):
+            self.assertNotIn(forbidden, wrapper)
+
     def test_luna_for_bounded_local_work(self) -> None:
         self.assertEqual(route("--objective", "fix a typo in the readme", "--known-area", "--acceptance-criteria", "--files", "1", "--risk-assessment", "low")["lane"], "luna")
 
