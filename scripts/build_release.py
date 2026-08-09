@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build deterministic, allowlisted LaneOrchestrator release archives."""
+"""Build deterministic, allowlisted LaneOrchestrator release archives.
+
+Static roots, trees, and leaves are rejected when linked or non-regular.  As
+with the repository's mutation primitives, hostile same-effective-UID races
+are outside this release-tool boundary; the builder does not claim a portable
+compare-and-replace guarantee for a hostile source checkout.
+"""
 
 from __future__ import annotations
 
@@ -36,6 +42,11 @@ MAX_MEMBER_BYTES = 1024 * 1024
 MAX_MEMBERS = 512
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
 _VERSION = re.compile(r'^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', re.MULTILINE)
+_WINDOWS_RESERVED = frozenset(
+    ("con", "prn", "aux", "nul", "clock$")
+    + tuple("com{0}".format(number) for number in range(1, 10))
+    + tuple("lpt{0}".format(number) for number in range(1, 10))
+)
 
 
 class ReleaseError(ValueError):
@@ -104,6 +115,10 @@ def _validate_canonical_name(name: str) -> None:
     parts = name.split("/")
     if any(part in ("", ".", "..") for part in parts):
         raise ReleaseError("archive member name is unsafe")
+    for part in parts:
+        stem = part.split(".", 1)[0].casefold()
+        if part.endswith((".", " ")) or ":" in part or stem in _WINDOWS_RESERVED:
+            raise ReleaseError("archive member name is unsafe on Windows")
 
 
 def _contains(root: Path, candidate: Path) -> bool:
@@ -331,6 +346,9 @@ def main(argv: Sequence[str] = None) -> int:
     except ReleaseError as error:
         print("build_release: {0}".format(error), file=sys.stderr)
         return 1
+    except OSError as error:
+        print("build_release: operational error: {0}".format(error), file=sys.stderr)
+        return 2
     print(release.sums_path)
     return 0
 

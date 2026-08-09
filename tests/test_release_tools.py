@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
+from unittest import mock
 from pathlib import Path, PurePosixPath
 
 from scripts.build_release import (
@@ -22,10 +23,18 @@ from scripts.build_release import (
     archive_members,
     build_release,
     validate_release_members,
+    _validate_canonical_name,
 )
 from scripts.check_docs import check_docs
 from scripts.check_manifests import check_manifests
-from scripts.verify_release import ReleaseVerificationError, _parse_sums, verify_release
+from scripts.verify_release import (
+    ReleaseVerificationError,
+    _parse_sums,
+    _validate_name,
+    _zip_entry_count,
+    main as verify_main,
+    verify_release,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,6 +115,61 @@ class ReleaseToolTests(unittest.TestCase):
                 self._write_hostile_dist(directory, name)
                 with self.assertRaises(ReleaseVerificationError):
                     verify_release(directory, root=self.root)
+
+    def test_windows_unsafe_names_and_canonical_collisions_are_rejected(self) -> None:
+        prefix = "laneorchestrator-0.2.0"
+        for relative in ("docs/CON.txt", "docs/name.", "docs/name ", "docs/colon:name.md", "docs/LPT9.log"):
+            with self.subTest(relative=relative):
+                with self.assertRaises(ReleaseError):
+                    _validate_canonical_name(relative)
+                with self.assertRaises(ReleaseVerificationError):
+                    _validate_name(prefix + "/" + relative, prefix)
+        first = self.root / "docs" / "case.txt"
+        second = self.root / "docs" / "CASE.txt"
+        first.write_text("a\n", encoding="utf-8")
+        second.write_text("b\n", encoding="utf-8")
+        with self.assertRaisesRegex(ReleaseError, "duplicate"):
+            validate_release_members(self.root, (first, second))
+
+    def test_verifier_requires_exact_gzip_header_and_rejects_runtime_secrets_paths(self) -> None:
+        release = build_release(self.root, self.output_one)
+        original = bytearray(release.tar_path.read_bytes())
+        self.assertEqual(bytes(original[:10]), b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff")
+        for position, value in ((8, 0), (9, 3)):
+            with self.subTest(position=position):
+                mutated = bytearray(original)
+                mutated[position] = value
+                release.tar_path.write_bytes(mutated)
+                self._rewrite_sums(self.output_one)
+                with self.assertRaisesRegex(ReleaseVerificationError, "gzip header"):
+                    verify_release(self.output_one, root=self.root)
+        secret = b"sk-proj-" + b"a" * 24
+        (self.root / "README.md").write_bytes(secret + b"\n")
+        release = build_release(self.root, self.output_two)
+        with self.assertRaisesRegex(ReleaseVerificationError, "credential-like"):
+            verify_release(self.output_two, root=self.root)
+        local_path = "/private" + "/var/folders/example-user/cache"
+        (self.root / "README.md").write_text(local_path + "\n", encoding="utf-8")
+        local_output = self.work / "local"
+        release = build_release(self.root, local_output)
+        with self.assertRaisesRegex(ReleaseVerificationError, "local path"):
+            verify_release(local_output, root=self.root)
+
+    def test_zip_preflight_and_cli_errors_are_bounded_and_structured(self) -> None:
+        eocd = b"PK\x05\x06" + b"\0\0\0\0" + (513).to_bytes(2, "little") * 2 + b"\0" * 10
+        with self.assertRaisesRegex(ReleaseVerificationError, "entry limit"):
+            _zip_entry_count(eocd)
+        with mock.patch("scripts.build_release.build_release", side_effect=OSError("read-only")):
+            from scripts.build_release import main as build_main
+            self.assertEqual(build_main(["--output", str(self.output_one)]), 2)
+        self.assertEqual(verify_main([str(self.work / "missing"), "--root", str(self.root)]), 1)
+
+    def test_distribution_entry_limit_is_enforced_without_archive_parsing(self) -> None:
+        release = build_release(self.root, self.output_one)
+        for index in range(3):
+            (self.output_one / "extra-{0}".format(index)).write_text("x", encoding="ascii")
+        with self.assertRaisesRegex(ReleaseVerificationError, "unexpected"):
+            verify_release(self.output_one, root=self.root)
 
     def test_verifier_inspects_zip_independently_and_requires_identical_content(self) -> None:
         release = build_release(self.root, self.output_one)

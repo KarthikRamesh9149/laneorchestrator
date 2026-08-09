@@ -53,9 +53,12 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("windows-latest", ci)
         self.assertIn('python: ["3.9", "3.14"]', ci)
         self.assertIn("windows-control-plane", ci)
-        self.assertIn("tests.test_release_tools", ci)
         windows_partition = ci.split("windows-control-plane:", 1)[1].split("release-evidence:", 1)[0]
         self.assertNotIn("sh scripts/validate.sh", windows_partition)
+        for posix_suite in ("tests.test_release_tools", "tests.test_security_primitives", "tests.test_profiles", "tests.test_installer"):
+            self.assertNotIn(posix_suite, windows_partition)
+        self.assertIn("steps.release-assets.outputs.tar", ci)
+        self.assertNotIn("laneorchestrator-0.2.0.tar.gz", ci)
         self.assertIn("permissions:\n  contents: read", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("timeout-minutes: 10", ci)

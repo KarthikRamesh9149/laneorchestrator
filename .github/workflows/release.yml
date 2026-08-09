@@ -35,17 +35,24 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}"
           test "$(git rev-list -n 1 "${GITHUB_REF_NAME}")" = "${GITHUB_SHA}"
       - name: Build and verify release assets
+        id: release-assets
         run: |
+          version="$(python -c 'from laneorchestrator import __version__; print(__version__)')"
+          tar="laneorchestrator-${version}.tar.gz"
+          zip="laneorchestrator-${version}.zip"
           python scripts/build_release.py --output "$RUNNER_TEMP/release"
           python scripts/verify_release.py "$RUNNER_TEMP/release"
+          test -f "$RUNNER_TEMP/release/$tar"
+          test -f "$RUNNER_TEMP/release/$zip"
+          printf 'tar=%s\nzip=%s\nsums=SHA256SUMS\n' "$tar" "$zip" >> "$GITHUB_OUTPUT"
       - name: Upload verified release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-assets-${{ github.ref_name }}-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/release/laneorchestrator-0.2.0.tar.gz
-            ${{ runner.temp }}/release/laneorchestrator-0.2.0.zip
-            ${{ runner.temp }}/release/SHA256SUMS
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.tar }}
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.zip }}
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.sums }}
           if-no-files-found: error
           retention-days: 90
           include-hidden-files: false

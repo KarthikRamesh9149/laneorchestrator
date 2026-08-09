@@ -56,7 +56,7 @@ jobs:
           python -m unittest -v
           tests.test_models tests.test_diagnostics tests.test_routing_api
           tests.test_routing_matrix tests.test_routes tests.test_benchmark
-          tests.test_plugin_manifests tests.test_repository tests.test_release_tools
+          tests.test_plugin_manifests tests.test_repository
 
   release-evidence:
     name: Verify release evidence
@@ -74,9 +74,16 @@ jobs:
       - name: Generate benchmark evidence
         run: python -m laneorchestrator benchmark --json > "$RUNNER_TEMP/benchmark.json"
       - name: Build and verify release assets
+        id: release-assets
         run: |
+          version="$(python -c 'from laneorchestrator import __version__; print(__version__)')"
+          tar="laneorchestrator-${version}.tar.gz"
+          zip="laneorchestrator-${version}.zip"
           python scripts/build_release.py --output "$RUNNER_TEMP/release"
           python scripts/verify_release.py "$RUNNER_TEMP/release"
+          test -f "$RUNNER_TEMP/release/$tar"
+          test -f "$RUNNER_TEMP/release/$zip"
+          printf 'tar=%s\nzip=%s\nsums=SHA256SUMS\n' "$tar" "$zip" >> "$GITHUB_OUTPUT"
       - name: Upload verified benchmark evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -90,9 +97,9 @@ jobs:
         with:
           name: release-assets-${{ github.sha }}-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/release/laneorchestrator-0.2.0.tar.gz
-            ${{ runner.temp }}/release/laneorchestrator-0.2.0.zip
-            ${{ runner.temp }}/release/SHA256SUMS
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.tar }}
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.zip }}
+            ${{ runner.temp }}/release/${{ steps.release-assets.outputs.sums }}
           if-no-files-found: error
           retention-days: 90
           include-hidden-files: false

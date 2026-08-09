@@ -9,6 +9,7 @@ import io
 import os
 import re
 import stat
+import struct
 import sys
 import tarfile
 import unicodedata
@@ -39,6 +40,11 @@ except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execu
 MAX_ASSET_BYTES = 24 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 100
 _DIGEST_LINE = re.compile(r"^([0-9a-f]{64})  (laneorchestrator-[0-9]+\.[0-9]+\.[0-9]+\.(?:tar\.gz|zip))$")
+_WINDOWS_RESERVED = frozenset(
+    ("con", "prn", "aux", "nul", "clock$")
+    + tuple("com{0}".format(number) for number in range(1, 10))
+    + tuple("lpt{0}".format(number) for number in range(1, 10))
+)
 
 
 class ReleaseVerificationError(ValueError):
@@ -85,6 +91,10 @@ def _validate_name(name: str, prefix: str) -> str:
     parts = name.split("/")
     if any(part in ("", ".", "..") for part in parts) or any(ord(character) < 32 or ord(character) == 127 for character in name):
         raise ReleaseVerificationError("archive member has unsafe name: {0!r}".format(name))
+    for part in parts:
+        stem = part.split(".", 1)[0].casefold()
+        if part.endswith((".", " ")) or ":" in part or stem in _WINDOWS_RESERVED:
+            raise ReleaseVerificationError("archive member has unsafe Windows name: {0!r}".format(name))
     expected_prefix = prefix + "/"
     if not name.startswith(expected_prefix):
         raise ReleaseVerificationError("archive member has wrong release prefix: {0!r}".format(name))
@@ -111,7 +121,7 @@ def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     records: List[Tuple[str, bytes]] = []
     seen = set()
     try:
-        if len(content) < 10 or content[4:8] != b"\0\0\0\0" or content[3] != 0:
+        if len(content) < 10 or content[:10] != b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff":
             raise ReleaseVerificationError("tar gzip header is not deterministic")
         with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as archive:
             for member in archive:
@@ -135,6 +145,7 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     records: List[Tuple[str, bytes]] = []
     seen = set()
     try:
+        _zip_entry_count(content)
         with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
             if archive.comment:
                 raise ReleaseVerificationError("zip archive has a comment")
@@ -153,6 +164,21 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     except (zipfile.BadZipFile, OSError, RuntimeError) as error:
         raise ReleaseVerificationError("invalid zip archive") from error
     return records
+
+
+def _zip_entry_count(content: bytes) -> None:
+    """Bound the central-directory count before constructing ``ZipFile``."""
+
+    start = max(0, len(content) - 65557)
+    offset = content.rfind(b"PK\x05\x06", start)
+    if offset < 0 or offset + 22 > len(content):
+        raise ReleaseVerificationError("zip archive has no valid EOCD")
+    fields = struct.unpack("<4s4H2LH", content[offset:offset + 22])
+    disk, directory_disk, disk_entries, total_entries, _, _, comment_size = fields[1:]
+    if offset + 22 + comment_size != len(content):
+        raise ReleaseVerificationError("zip archive EOCD is malformed")
+    if disk != 0 or directory_disk != 0 or disk_entries != total_entries or total_entries > MAX_MEMBERS:
+        raise ReleaseVerificationError("zip archive exceeds entry limit")
 
 
 def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]:
@@ -189,10 +215,15 @@ def _check_content(name: str, content: bytes) -> None:
         r"\bAKIA[0-9A-Z]{16}\b",
         r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b",
         r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b",
+        r"\bsk-proj-[A-Za-z0-9_-]{20,}\b",
+        r"\bsk-[A-Za-z0-9]{20,}\b",
+        r"\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b",
+        r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b",
     )
     if any(re.search(pattern, text) for pattern in secret_patterns):
         raise ReleaseVerificationError("release content contains credential-like data: {0}".format(name))
-    if re.search(r"/(?:Users|home)/[^\s`'\"]+|[A-Za-z]:\\Users\\", text):
+    local_path = r"/(?:Users|home)/[^\s`'\"]+|/private" + r"/var/folders/[^\s`'\"]+|[A-Za-z]:\\Users\\"
+    if re.search(local_path, text):
         raise ReleaseVerificationError("release content contains local path: {0}".format(name))
 
 
@@ -215,7 +246,16 @@ def verify_release(dist_dir: Path, root: Path = None) -> None:
         raise ReleaseVerificationError("distribution directory is missing") from error
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
         raise ReleaseVerificationError("distribution directory is unsafe")
-    actual = sorted(item.name for item in directory.iterdir())
+    actual = []
+    try:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                actual.append(entry.name)
+                if len(actual) > len(expected_assets) + 1:
+                    raise ReleaseVerificationError("distribution directory has missing or unexpected assets")
+    except OSError as error:
+        raise ReleaseVerificationError("could not inspect distribution directory") from error
+    actual.sort()
     if actual != sorted(expected_assets + ("SHA256SUMS",)):
         raise ReleaseVerificationError("distribution directory has missing or unexpected assets")
     assets = {name: _read_asset(directory / name) for name in expected_assets}
