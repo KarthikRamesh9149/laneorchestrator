@@ -29,6 +29,7 @@ jobs:
         run: >-
           python scripts/private_static_analysis.py
           --source laneorchestrator --source scripts
+          --source skills/laneorchestrator/scripts
           --output "${{ runner.temp }}/private-static-analysis.sarif"
       - name: Require SARIF from successful private analysis
         if: ${{ success() }}

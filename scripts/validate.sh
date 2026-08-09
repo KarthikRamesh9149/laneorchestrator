@@ -26,7 +26,9 @@ PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/healthcheck.py
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/check_docs.py
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/check_manifests.py
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/private_static_analysis.py \
-  --source laneorchestrator --source scripts --output "$cache_dir/private-static-analysis.sarif"
+  --source laneorchestrator --source scripts \
+  --source skills/laneorchestrator/scripts \
+  --output "$cache_dir/private-static-analysis.sarif"
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" -m laneorchestrator benchmark --json > "$cache_dir/benchmark.json"
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/build_release.py --output "$cache_dir/release"
 PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" scripts/verify_release.py "$cache_dir/release"

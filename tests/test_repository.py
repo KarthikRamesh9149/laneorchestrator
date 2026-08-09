@@ -9,6 +9,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK = re.compile(r"!?\[[^]]*\]\(([^)]+)\)")
 ACTION_USE = re.compile(r"^\s*-?\s*uses:\s*([^\s]+)", re.MULTILINE)
+PRIVATE_ANALYSIS_ROOTS = (
+    "laneorchestrator",
+    "scripts",
+    "skills/laneorchestrator/scripts",
+)
+
+
+def _analysis_sources(command: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"--source\s+([^\s\\]+)", command))
 
 
 class RepositoryTests(unittest.TestCase):
@@ -69,7 +78,8 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("if: ${{ github.event.repository.private }}", private_job)
         self.assertIn("timeout-minutes: 5", private_job)
         self.assertIn("python scripts/private_static_analysis.py", private_job)
-        self.assertIn("--source laneorchestrator --source scripts", private_job)
+        private_command = private_job.split("python scripts/private_static_analysis.py", 1)[1].split("--output", 1)[0]
+        self.assertEqual(_analysis_sources(private_command), PRIVATE_ANALYSIS_ROOTS)
         self.assertIn("private-static-analysis.sarif", private_job)
         self.assertIn("test -s", private_job)
         self.assertIn("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1", private_job)
@@ -82,6 +92,12 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6", public_job)
         self.assertIn("upload: always", public_job)
         self.assertIn("upload-database: true", public_job)
+
+        validation = (ROOT / "scripts" / "validate.sh").read_text(encoding="utf-8")
+        validation_command = validation.split("scripts/private_static_analysis.py", 1)[1].split(
+            '"$cache_dir/private-static-analysis.sarif"', 1
+        )[0]
+        self.assertEqual(_analysis_sources(validation_command), PRIVATE_ANALYSIS_ROOTS)
 
     def test_validation_entry_points_are_executable(self) -> None:
         for relative in ("scripts/install-agents.sh", "scripts/install_agents.py", "scripts/validate.sh"):

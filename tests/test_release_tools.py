@@ -258,6 +258,9 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("laneorchestrator-0.2.0/docs/benchmarks.md", names)
             self.assertIn("laneorchestrator-0.2.0/scripts/validate.sh", names)
             self.assertIn("laneorchestrator-0.2.0/scripts/private_static_analysis.py", names)
+            self.assertIn("laneorchestrator-0.2.0/skills/laneorchestrator/scripts/catalog.py", names)
+            self.assertIn("laneorchestrator-0.2.0/skills/laneorchestrator/scripts/route.py", names)
+            self.assertIn("laneorchestrator-0.2.0/.github/workflows/security.yml", names)
             self.assertIn("laneorchestrator-0.2.0/tests/test_release_tools.py", names)
             self.assertIn("laneorchestrator-0.2.0/.github/workflows/ci.yml", names)
             prefix = "laneorchestrator-0.2.0/"
