@@ -134,15 +134,15 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual(sorted(set(documented_local_commands())), sorted(DOCUMENTED_LOCAL_COMMANDS))
         with tempfile.TemporaryDirectory() as temporary:
             home = Path(temporary).resolve()
-            environment = dict(os.environ, CODEX_HOME=str(home))
+            environment = dict(os.environ, CODEX_HOME=str(home), PATH="")
             preview = subprocess.run(
-                ["python3", "-m", "laneorchestrator", "profiles", "install", "preview", "--json"],
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "preview", "--json"],
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(preview.returncode, 0, preview.stderr)
             token = json.loads(preview.stdout)["data"]["token"]
             apply = subprocess.run(
-                ["python3", "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)
@@ -154,10 +154,75 @@ class DocumentationTests(unittest.TestCase):
                     self.assertEqual(syntax.returncode, 0, syntax.stderr)
                     self.assertIn("unittest discover", (ROOT / "scripts/validate.sh").read_text(encoding="utf-8"))
                     continue
+                arguments = shlex.split(command)
+                if arguments[0] == "python3":
+                    arguments[0] = sys.executable
                 result = subprocess.run(
-                    shlex.split(command), cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+                    arguments, cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )
-                self.assertEqual(result.returncode, 0, "{0}\n{1}".format(command, result.stderr))
+                self.assertNotIn("Traceback", result.stderr, command)
+                if command == "python3 -m laneorchestrator --help":
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("usage: laneorchestrator", result.stdout)
+                    continue
+                if command == "python3 scripts/healthcheck.py":
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("health check passed", result.stdout.lower())
+                    continue
+                payload = json.loads(result.stdout)
+                self.assertEqual(payload["schema_version"], 1, command)
+                self.assertEqual(payload["command"], command.split()[3] if " -m " in command else "", command)
+                if command == "python3 -m laneorchestrator doctor --json":
+                    self.assertEqual(result.returncode, 1)
+                    self.assertFalse(payload["ok"])
+                    self.assertEqual(payload["errors"], [])
+                    failed = [item for item in payload["diagnostics"] if item["level"] == "FAIL"]
+                    self.assertEqual(len(failed), 1)
+                    self.assertEqual(failed[0]["code"], "CODEX_CLI")
+                    self.assertEqual(failed[0]["evidence"].get("probe"), "missing")
+                else:
+                    self.assertEqual(result.returncode, 0, "{0}\n{1}".format(command, result.stderr))
+                    self.assertTrue(payload["ok"], command)
+
+    def test_missing_codex_produces_only_the_documented_doctor_degradation(self) -> None:
+        getting_started = (ROOT / "docs/getting-started.md").read_text(encoding="utf-8")
+        self.assertIn("CODEX_CLI", getting_started)
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary).resolve()
+            environment = dict(os.environ, CODEX_HOME=str(home), PATH="")
+            preview = subprocess.run(
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "preview", "--json"],
+                cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+            )
+            self.assertEqual(preview.returncode, 0, preview.stderr)
+            token = json.loads(preview.stdout)["data"]["token"]
+            apply = subprocess.run(
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
+                cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+            )
+            self.assertEqual(apply.returncode, 0, apply.stderr)
+            doctor = subprocess.run(
+                [sys.executable, "-m", "laneorchestrator", "doctor", "--json"],
+                cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+            )
+            self.assertEqual(doctor.returncode, 1)
+            payload = json.loads(doctor.stdout)
+            self.assertEqual(payload["command"], "doctor")
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertEqual(payload["errors"], [])
+            failed = [item for item in payload["diagnostics"] if item["level"] == "FAIL"]
+            self.assertEqual([(item["code"], item["evidence"].get("probe")) for item in failed], [("CODEX_CLI", "missing")])
+            route = subprocess.run(
+                [
+                    sys.executable, "-m", "laneorchestrator", "route", "--json", "--objective", "Fix a README typo",
+                    "--known-area", "--acceptance-criteria", "--files", "1", "--risk-assessment", "low",
+                ],
+                cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+            )
+            self.assertEqual(route.returncode, 0, route.stderr)
+            route_payload = json.loads(route.stdout)
+            self.assertTrue(route_payload["ok"])
+            self.assertEqual(route_payload["errors"], [])
 
     def test_installed_users_use_the_skill_from_an_arbitrary_workspace(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
