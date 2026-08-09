@@ -11,6 +11,22 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if os.fspath(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, os.fspath(REPOSITORY_ROOT))
+
+from laneorchestrator.config import ConfigError, load_config
+from laneorchestrator.profiles import (
+    PROFILE_NAMES,
+    ProfileConflict,
+    apply_profiles,
+    inspect_profiles,
+    is_adoptable_profile,
+    preview_profiles,
+    render_profiles,
+)
+from laneorchestrator.security import SecurityError, read_regular_nofollow
+
 PROFILE_FIELDS = (
     "name",
     "description",
@@ -23,7 +39,6 @@ FIELD_RE = re.compile(
     re.MULTILINE,
 )
 MAX_SYSTEM_LINKS = 32
-FILE_MODE = 0o600
 DIRECTORY_MODE = 0o700
 
 
@@ -34,26 +49,45 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--target",
         type=Path,
         default=Path.home() / ".codex" / "agents",
-        help="Agent profile directory (default: ~/.codex/agents).",
+        help=(
+            "Agent profile directory (default: ~/.codex/agents). Canonical receipts "
+            "use ~/.codex/laneorchestrator for the default target or a private "
+            "state directory inside a custom target."
+        ),
     )
     return parser.parse_args(argv)
 
 
 def load_templates(templates_dir: Path) -> list[Path]:
-    templates = sorted(templates_dir.glob("*.toml"))
-    if not templates:
-        raise SystemExit(f"No agent templates found in {templates_dir}")
+    templates = [templates_dir / name for name in PROFILE_NAMES]
     for path in templates:
-        if path.is_symlink() or not path.is_file():
+        try:
+            details = path.lstat()
+        except FileNotFoundError as error:
+            raise SystemExit(f"Missing required managed agent template {path.name}") from error
+        except OSError as error:
+            raise SystemExit(f"Could not inspect {path.name}: {error}") from error
+        if stat.S_ISLNK(details.st_mode) or not stat.S_ISREG(details.st_mode):
             raise SystemExit(f"Unsafe agent template {path.name}: expected a regular file")
         try:
-            fields = dict(FIELD_RE.findall(path.read_text(encoding="utf-8")))
-        except OSError as error:
+            content = read_regular_nofollow(path, 256 * 1024).decode("utf-8")
+            fields = dict(FIELD_RE.findall(content))
+        except (OSError, SecurityError, UnicodeDecodeError) as error:
             raise SystemExit(f"Could not read {path.name}: {error}") from error
         missing = [field for field in PROFILE_FIELDS if not fields.get(field)]
         if missing:
             raise SystemExit(f"Invalid {path.name}: missing {', '.join(missing)}")
     return templates
+
+
+def state_root_for_target(target: Path) -> Path:
+    """Return the isolated canonical state root used by the legacy adapter."""
+
+    candidate = Path(os.path.abspath(os.fspath(target)))
+    default = Path(os.path.abspath(os.fspath(Path.home() / ".codex" / "agents")))
+    if candidate == default:
+        return default.parent / "laneorchestrator"
+    return candidate / ".laneorchestrator-state"
 
 
 def canonical_system_path(path: Path) -> str:
@@ -117,67 +151,155 @@ def open_target_directory(path: Path, *, create: bool) -> Optional[int]:
         raise SystemExit(f"Unsafe target directory {path}: {error.strerror or error}") from error
 
 
-def files_match(template: Path, target_fd: int, name: str) -> bool:
+def _ensure_private_root(path: Path, *, create: bool = True) -> Path:
+    canonical = Path(canonical_system_path(path))
+    descriptor = open_target_directory(canonical, create=create)
+    if descriptor is None:
+        raise SystemExit(f"Unsafe target directory {path}: directory disappeared")
     try:
-        destination_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=target_fd)
-    except OSError:
+        metadata = os.fstat(descriptor)
+        if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != DIRECTORY_MODE:
+            raise SystemExit(
+                f"Unsafe target directory {path}: managed roots must be owned by the current user with mode 0700"
+            )
+    finally:
+        os.close(descriptor)
+    return canonical
+
+
+def _read_compatibility_status(
+    target: Path, config, *, state_exists: bool
+) -> dict[str, str]:
+    if state_exists:
+        return dict(inspect_profiles(config, target, state_root_for_target(target)))
+    rendered = render_profiles(config)
+    statuses = {}
+    for name in PROFILE_NAMES:
+        path = target / name
+        try:
+            content = read_regular_nofollow(path, 256 * 1024)
+        except FileNotFoundError:
+            statuses[name] = "missing"
+        except (OSError, SecurityError):
+            statuses[name] = "conflict"
+        else:
+            statuses[name] = (
+                "unchanged"
+                if content == rendered[name] or is_adoptable_profile(name, content)
+                else "conflict"
+            )
+    return statuses
+
+
+def _print_statuses(target: Path, statuses: dict[str, str]) -> int:
+    conflict = False
+    for name in PROFILE_NAMES:
+        status = statuses[name]
+        if status == "conflict":
+            print(f"conflict {target / name} (left untouched)", file=sys.stderr)
+            conflict = True
+        else:
+            print(f"{status} {target / name if status == 'missing' else name}")
+    return 2 if conflict else 0
+
+
+def _all_adoptable(target: Path) -> bool:
+    for name in PROFILE_NAMES:
+        try:
+            content = read_regular_nofollow(target / name, 256 * 1024)
+        except (FileNotFoundError, OSError, SecurityError):
+            return False
+        if not is_adoptable_profile(name, content):
+            return False
+    return True
+
+
+def _collision_statuses(target: Path) -> dict[str, str]:
+    statuses = {}
+    for name in PROFILE_NAMES:
+        try:
+            (target / name).lstat()
+        except FileNotFoundError:
+            statuses[name] = "missing"
+        except OSError:
+            statuses[name] = "conflict"
+        else:
+            statuses[name] = "conflict"
+    return statuses
+
+
+def _exists_nofollow(path: Path) -> bool:
+    try:
+        path.lstat()
+    except FileNotFoundError:
         return False
-    with os.fdopen(destination_fd, "rb") as destination:
-        return destination.read() == template.read_bytes()
+    except OSError as error:
+        raise SystemExit(f"Could not inspect {path}: {error}") from error
+    return True
 
 
 def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> int:
-    templates = load_templates(templates_dir)
-    target_fd = open_target_directory(target, create=not check_only)
-    if target_fd is None:
-        for template in templates:
-            print(f"missing {target / template.name}")
+    load_templates(templates_dir)
+    canonical_target = Path(canonical_system_path(target))
+    target_fd = open_target_directory(canonical_target, create=False)
+    if target_fd is None and check_only:
+        for name in PROFILE_NAMES:
+            print(f"missing {target / name}")
         return 0
-
-    conflict = False
-    try:
-        for template in templates:
-            name = template.name
-            try:
-                details = os.stat(name, dir_fd=target_fd, follow_symlinks=False)
-            except FileNotFoundError:
-                if check_only:
-                    print(f"missing {target / name}")
-                    continue
-                try:
-                    destination_fd = os.open(
-                        name,
-                        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                        FILE_MODE,
-                        dir_fd=target_fd,
-                    )
-                except FileExistsError:
-                    print(f"conflict {target / name} (left untouched)", file=sys.stderr)
-                    conflict = True
-                    continue
-                with template.open("rb") as source, os.fdopen(destination_fd, "wb") as destination:
-                    while True:
-                        chunk = source.read(64 * 1024)
-                        if not chunk:
-                            break
-                        destination.write(chunk)
-                print(f"installed {name}")
-                continue
-
-            if not stat.S_ISREG(details.st_mode) or not files_match(template, target_fd, name):
-                print(f"conflict {target / name} (left untouched)", file=sys.stderr)
-                conflict = True
-            else:
-                print(f"unchanged {name}")
-    finally:
+    if target_fd is not None:
         os.close(target_fd)
-    return 2 if conflict else 0
+
+    if check_only:
+        canonical_target = _ensure_private_root(canonical_target, create=False)
+        state = state_root_for_target(canonical_target)
+        state_exists = _exists_nofollow(state)
+        config = load_config(state) if state_exists else load_config(state)
+        statuses = _read_compatibility_status(
+            canonical_target, config, state_exists=state_exists
+        )
+        return _print_statuses(target, statuses)
+
+    canonical_target = _ensure_private_root(canonical_target)
+    state = _ensure_private_root(state_root_for_target(canonical_target))
+    config = load_config(state)
+    try:
+        statuses = _read_compatibility_status(
+            canonical_target, config, state_exists=True
+        )
+    except ProfileConflict:
+        return _print_statuses(target, _collision_statuses(canonical_target))
+    if all(status == "missing" for status in statuses.values()):
+        action = "install"
+    elif _all_adoptable(canonical_target) and not _exists_nofollow(
+        state / "receipts.json"
+    ):
+        action = "adopt"
+    else:
+        action = "install"
+    try:
+        token, preview = preview_profiles(action, config, canonical_target, state)
+        result = apply_profiles(action, token, canonical_target, state)
+    except ProfileConflict:
+        return _print_statuses(target, statuses)
+    if not preview.ok or not result.ok:
+        return 1
+    label = "installed" if result.data["change_count"] else "unchanged"
+    for name in PROFILE_NAMES:
+        print(f"{label} {name}")
+    return 0
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
-    templates_dir = Path(__file__).resolve().parents[1] / "agents"
-    return install_profiles(templates_dir, args.target, check_only=args.check)
+    templates_dir = REPOSITORY_ROOT / "agents"
+    try:
+        return install_profiles(templates_dir, args.target, check_only=args.check)
+    except ConfigError as error:
+        print(f"Invalid LaneOrchestrator configuration: {error}", file=sys.stderr)
+        return 1
+    except ProfileConflict as error:
+        print(f"Profile lifecycle refused the operation: {error}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
