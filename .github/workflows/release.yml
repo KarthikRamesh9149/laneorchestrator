@@ -46,7 +46,7 @@ jobs:
           test -f "$RUNNER_TEMP/release/$zip"
           printf 'tar=%s\nzip=%s\nsums=SHA256SUMS\n' "$tar" "$zip" >> "$GITHUB_OUTPUT"
       - name: Upload verified release evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-assets-${{ github.ref_name }}-${{ github.sha }}
           path: |

@@ -36,9 +36,10 @@ class ModelTests(unittest.TestCase):
         )
 
     def test_codex_home_honors_only_absolute_environment_override(self) -> None:
-        home = Path("/private/home")
+        home = (Path.cwd() / "model-home").resolve()
+        absolute_override = (home / "codex").resolve()
         self.assertEqual(codex_home({}, home), home / ".codex")
-        self.assertEqual(codex_home({"CODEX_HOME": "/private/codex"}, home), Path("/private/codex"))
+        self.assertEqual(codex_home({"CODEX_HOME": str(absolute_override)}, home), absolute_override)
         self.assertEqual(codex_home({"CODEX_HOME": "relative/codex"}, home), home / ".codex")
         self.assertEqual(codex_home({"CODEX_HOME": "~/custom"}, home), home / ".codex")
 

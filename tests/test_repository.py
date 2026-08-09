@@ -63,6 +63,10 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("timeout-minutes: 10", ci)
+        security = (ROOT / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
+        self.assertIn("actions: read", security)
+        self.assertIn("contents: read", security)
+        self.assertIn("security-events: write", security)
 
     def test_validation_entry_points_are_executable(self) -> None:
         for relative in ("scripts/install-agents.sh", "scripts/install_agents.py", "scripts/validate.sh"):
