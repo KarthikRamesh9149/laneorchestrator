@@ -117,6 +117,36 @@ class ProfileConflict(SecurityError):
     """Raised when profile state cannot be mutated without losing user data."""
 
 
+def ensure_agents_root(agents_root: Path) -> Path:
+    """Create the managed agents leaf or validate an existing safe owned root."""
+
+    candidate = Path(agents_root)
+    if not candidate.is_absolute() or candidate.name in ("", ".", ".."):
+        raise ProfileConflict("agents root must be an absolute safe path")
+    parent_fd = -1
+    try:
+        parent_fd = open_owned_directory_nofollow(candidate.parent)
+        try:
+            os.mkdir(candidate.name, mode=0o700, dir_fd=parent_fd)
+            os.fsync(parent_fd)
+        except FileExistsError:
+            pass
+        except OSError as error:
+            raise ProfileConflict("could not create managed agents root") from error
+    except SecurityError as error:
+        raise ProfileConflict("agents root parent is unsafe: {0}".format(error)) from error
+    finally:
+        if parent_fd >= 0:
+            os.close(parent_fd)
+    try:
+        descriptor = open_owned_directory_nofollow(candidate)
+    except SecurityError as error:
+        raise ProfileConflict("agents root is unsafe: {0}".format(error)) from error
+    else:
+        os.close(descriptor)
+    return candidate
+
+
 def _validate_config(config: EffectiveConfig) -> None:
     if not isinstance(config, EffectiveConfig):
         raise ValueError("config must be an EffectiveConfig")

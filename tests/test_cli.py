@@ -50,13 +50,13 @@ class CliTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["schema_version"], 1)
         self.assertFalse(payload["ok"])
-        self.assertEqual(payload["errors"][0]["code"], "invalid_arguments")
+        self.assertEqual(payload["errors"][0]["code"], "INVALID_ARGUMENTS")
 
     def test_malformed_json_arguments_return_structured_error(self) -> None:
         result = self.run_module("version", "--unexpected", "--json")
         self.assertEqual(result.returncode, 2)
         payload = json.loads(result.stdout)
-        self.assertEqual(payload["errors"][0]["code"], "invalid_arguments")
+        self.assertEqual(payload["errors"][0]["code"], "INVALID_ARGUMENTS")
 
     def test_doctor_and_status_dispatch_to_canonical_read_only_results(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
