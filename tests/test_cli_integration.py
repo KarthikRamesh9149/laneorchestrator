@@ -54,7 +54,7 @@ class CliIntegrationTests(unittest.TestCase):
     def payload(self, result: subprocess.CompletedProcess[str]) -> Dict[str, object]:
         return json.loads(result.stdout)
 
-    def test_command_allowlist_is_exact_and_benchmark_is_still_a_usage_error(self) -> None:
+    def test_command_allowlist_includes_generated_benchmark_report(self) -> None:
         version = self.run_cli("version", "--json")
         benchmark = self.run_cli("benchmark", "--json")
 
@@ -68,8 +68,9 @@ class CliIntegrationTests(unittest.TestCase):
                 "version": "0.2.0",
             },
         )
-        self.assertEqual(benchmark.returncode, 2)
-        self.assertEqual(self.payload(benchmark)["errors"][0]["code"], "INVALID_ARGUMENTS")
+        self.assertEqual(benchmark.returncode, 0, benchmark.stderr)
+        self.assertEqual(self.payload(benchmark)["command"], "benchmark")
+        self.assertTrue(self.payload(benchmark)["ok"])
         self.assertNotIn("Traceback", benchmark.stderr + benchmark.stdout)
 
     def test_every_parser_help_surface_documents_json_mode(self) -> None:
@@ -83,6 +84,7 @@ class CliIntegrationTests(unittest.TestCase):
             ("configure", "apply", "--help"),
             ("route", "--help"),
             ("catalog", "--help"),
+            ("benchmark", "--help"),
             ("profiles", "--help"),
             ("profiles", "install", "--help"),
             ("profiles", "install", "preview", "--help"),

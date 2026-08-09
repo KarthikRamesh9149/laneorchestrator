@@ -1,0 +1,2002 @@
+[
+  {
+    "id": "readme-title-typo",
+    "category": "bounded-low",
+    "objective": "Correct one typo in the README title",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "css-color-token",
+    "category": "bounded-low",
+    "objective": "Change one documented CSS color token",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "test-description",
+    "category": "bounded-low",
+    "objective": "Correct a misleading unit-test description",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "log-label",
+    "category": "bounded-low",
+    "objective": "Fix one log message label",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "doc-link",
+    "category": "bounded-low",
+    "objective": "Update one broken documentation link",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "comment-typo",
+    "category": "bounded-low",
+    "objective": "Correct a typo in one source-code comment",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "sample-text",
+    "category": "bounded-low",
+    "objective": "Adjust one example response string",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "changelog-date",
+    "category": "bounded-low",
+    "objective": "Correct one changelog date",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "button-copy",
+    "category": "bounded-low",
+    "objective": "Correct one button label in a known component",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "readme-heading",
+    "category": "bounded-low",
+    "objective": "Rename one README heading to the approved wording",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "dashboard-filter",
+    "category": "normal",
+    "objective": "Add a dashboard date filter across three components",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "csv-export",
+    "category": "normal",
+    "objective": "Add CSV export to the existing report page",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "parser-refactor",
+    "category": "normal",
+    "objective": "Refactor the import parser into smaller modules",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "empty-state",
+    "category": "normal",
+    "objective": "Add an empty state to the search results flow",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "metrics-chart",
+    "category": "normal",
+    "objective": "Add a usage chart to the internal dashboard",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "pagination",
+    "category": "normal",
+    "objective": "Implement pagination for the activity feed",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "theme-toggle",
+    "category": "normal",
+    "objective": "Add a dark mode toggle to the settings screen",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "markdown-preview",
+    "category": "normal",
+    "objective": "Add markdown preview to the editor",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "search-sorting",
+    "category": "normal",
+    "objective": "Add client-side sorting to the catalog search",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "error-boundary",
+    "category": "normal",
+    "objective": "Add an error boundary around the analytics panel",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "i18n-copy",
+    "category": "normal",
+    "objective": "Add French translations for the onboarding flow",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "component-library",
+    "category": "normal",
+    "objective": "Extract shared button variants into the component library",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "report-layout",
+    "category": "normal",
+    "objective": "Rearrange the report layout for smaller screens",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "file-upload-ui",
+    "category": "normal",
+    "objective": "Add a drag-and-drop file upload interface",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "webhook-docs",
+    "category": "normal",
+    "objective": "Write integration documentation for existing webhooks",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "oauth-storage",
+    "category": "high-risk",
+    "objective": "Migrate OAuth token storage for production",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "sso",
+    "category": "high-risk",
+    "objective": "Enable SSO login for enterprise users",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "rbac",
+    "category": "high-risk",
+    "objective": "Change role-based access permissions for administrators",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "password-reset",
+    "category": "high-risk",
+    "objective": "Redesign the password reset session flow",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "secret-rotation",
+    "category": "high-risk",
+    "objective": "Rotate API secrets without downtime",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "encryption",
+    "category": "high-risk",
+    "objective": "Encrypt customer records at rest",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 6,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "pii",
+    "category": "high-risk",
+    "objective": "Add PII redaction to audit logs",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "payment",
+    "category": "high-risk",
+    "objective": "Add card payment checkout",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 6,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "refund",
+    "category": "high-risk",
+    "objective": "Automate customer refunds",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "billing",
+    "category": "high-risk",
+    "objective": "Change recurring billing proration",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "ledger",
+    "category": "high-risk",
+    "objective": "Correct ledger reconciliation logic",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "invoice",
+    "category": "high-risk",
+    "objective": "Generate tax invoices for completed orders",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "schema",
+    "category": "high-risk",
+    "objective": "Rename a production database column",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "backfill",
+    "category": "high-risk",
+    "objective": "Backfill missing customer identifiers",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "retention",
+    "category": "high-risk",
+    "objective": "Purge records under the data retention policy",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "public-api",
+    "category": "high-risk",
+    "objective": "Change the public REST endpoint response contract",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "webhook-contract",
+    "category": "high-risk",
+    "objective": "Version outbound webhook payloads",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "race-condition",
+    "category": "high-risk",
+    "objective": "Fix a race condition in order processing",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "idempotency",
+    "category": "high-risk",
+    "objective": "Add idempotency to order submission",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "production-deploy",
+    "category": "high-risk",
+    "objective": "Deploy the new service to production",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "gdpr-export",
+    "category": "high-risk",
+    "objective": "Build a GDPR customer-data export",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "deletion",
+    "category": "high-risk",
+    "objective": "Delete inactive customer data from production",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "bank-transfer",
+    "category": "high-risk",
+    "objective": "Add bank transfer settlement handling",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "queue-replay",
+    "category": "high-risk",
+    "objective": "Replay messages from the production order queue",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "signature-verification",
+    "category": "high-risk",
+    "objective": "Verify signed webhook requests",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "bounded-low-1",
+    "category": "bounded-low",
+    "objective": "Correct the punctuation in one established contributor guide heading",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-2",
+    "category": "bounded-low",
+    "objective": "Replace one stale screenshot alt text in the setup guide",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-3",
+    "category": "bounded-low",
+    "objective": "Update one example command flag in a known tutorial",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-4",
+    "category": "bounded-low",
+    "objective": "Fix one misspelled enum description in a model docstring",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-5",
+    "category": "bounded-low",
+    "objective": "Correct one label in the existing preferences panel",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-6",
+    "category": "bounded-low",
+    "objective": "Amend one broken anchor link in the architecture notes",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-7",
+    "category": "bounded-low",
+    "objective": "Update the capitalization of one release-note heading",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-8",
+    "category": "bounded-low",
+    "objective": "Correct one sample payload field description",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-9",
+    "category": "bounded-low",
+    "objective": "Fix one typo in a migration comment",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-10",
+    "category": "bounded-low",
+    "objective": "Rename one test fixture label to approved wording",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-11",
+    "category": "bounded-low",
+    "objective": "Correct one product-name spelling in the FAQ",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-12",
+    "category": "bounded-low",
+    "objective": "Update one diagram caption in the operations guide",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-13",
+    "category": "bounded-low",
+    "objective": "Fix one punctuation mark in a known error-message test",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-14",
+    "category": "bounded-low",
+    "objective": "Correct one example URL in the local development guide",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-15",
+    "category": "bounded-low",
+    "objective": "Change one documented keyboard shortcut label",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-16",
+    "category": "bounded-low",
+    "objective": "Fix one grammar error in a component story",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-17",
+    "category": "bounded-low",
+    "objective": "Correct a stale date in a policy template",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-18",
+    "category": "bounded-low",
+    "objective": "Update one breadcrumb label in an existing page",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-19",
+    "category": "bounded-low",
+    "objective": "Fix one README table heading typo",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-20",
+    "category": "bounded-low",
+    "objective": "Correct a typo in a mock response comment",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-21",
+    "category": "bounded-low",
+    "objective": "Replace one outdated terminology example in the glossary",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-22",
+    "category": "bounded-low",
+    "objective": "Correct one section title in a troubleshooting guide",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-23",
+    "category": "bounded-low",
+    "objective": "Fix one spacing issue in a static help-text file",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-24",
+    "category": "bounded-low",
+    "objective": "Update one known form-field placeholder",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-25",
+    "category": "bounded-low",
+    "objective": "Correct one typo in an API client example",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-26",
+    "category": "bounded-low",
+    "objective": "Fix one test snapshot description",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-27",
+    "category": "bounded-low",
+    "objective": "Correct one release checklist bullet",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-28",
+    "category": "bounded-low",
+    "objective": "Update one code sample comment",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-29",
+    "category": "bounded-low",
+    "objective": "Fix one accessibility hint label",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "bounded-low-30",
+    "category": "bounded-low",
+    "objective": "Correct one team ownership label in the repository map",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "luna"
+  },
+  {
+    "id": "normal-1",
+    "category": "normal",
+    "objective": "Add a saved view selector to the internal report screen",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-2",
+    "category": "normal",
+    "objective": "Implement a compact mobile layout for the notification center",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-3",
+    "category": "normal",
+    "objective": "Refactor the audit feed renderer into presentational components",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-4",
+    "category": "normal",
+    "objective": "Add bulk selection controls to the catalog table",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-5",
+    "category": "normal",
+    "objective": "Create a print stylesheet for the usage summary",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-6",
+    "category": "normal",
+    "objective": "Add keyboard navigation to the command palette",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-7",
+    "category": "normal",
+    "objective": "Implement loading placeholders for the activity timeline",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-8",
+    "category": "normal",
+    "objective": "Add a sortable column to the project list",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-9",
+    "category": "normal",
+    "objective": "Create an import preview screen for CSV uploads",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-10",
+    "category": "normal",
+    "objective": "Add inline validation messages to the profile editor",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-11",
+    "category": "normal",
+    "objective": "Refactor chart color configuration into a shared module",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-12",
+    "category": "normal",
+    "objective": "Implement collapsible sections in the settings form",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-13",
+    "category": "normal",
+    "objective": "Add a timezone display preference to the dashboard",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-14",
+    "category": "normal",
+    "objective": "Create an onboarding checklist component",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-15",
+    "category": "normal",
+    "objective": "Add a search-empty illustration to the knowledge base",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-16",
+    "category": "normal",
+    "objective": "Implement client-side filtering for release notes",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-17",
+    "category": "normal",
+    "objective": "Add a compare view for two report snapshots",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-18",
+    "category": "normal",
+    "objective": "Refactor the markdown toolbar into smaller components",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-19",
+    "category": "normal",
+    "objective": "Create a responsive navigation drawer",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-20",
+    "category": "normal",
+    "objective": "Add an export button to the analytics panel",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-21",
+    "category": "normal",
+    "objective": "Implement skeleton rows for the billing history UI",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-22",
+    "category": "normal",
+    "objective": "Add a sortable list for integration events",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-23",
+    "category": "normal",
+    "objective": "Create a reusable status badge component",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-24",
+    "category": "normal",
+    "objective": "Add localization strings for the account overview",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-25",
+    "category": "normal",
+    "objective": "Implement a keyboard shortcut reference modal",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-26",
+    "category": "normal",
+    "objective": "Refactor the notifications menu state management",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-27",
+    "category": "normal",
+    "objective": "Add a download link to generated report pages",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-28",
+    "category": "normal",
+    "objective": "Create a paginated changelog viewer",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-29",
+    "category": "normal",
+    "objective": "Add a table density preference to the user interface",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-30",
+    "category": "normal",
+    "objective": "Implement a tag picker in the issue form",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-31",
+    "category": "normal",
+    "objective": "Add a copy-to-clipboard control for code examples",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-32",
+    "category": "normal",
+    "objective": "Refactor the timeline date formatter module",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-33",
+    "category": "normal",
+    "objective": "Create a color-contrast preview in the theme editor",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-34",
+    "category": "normal",
+    "objective": "Add recent-search suggestions to the catalog interface",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-35",
+    "category": "normal",
+    "objective": "Implement a feedback form success screen",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-36",
+    "category": "normal",
+    "objective": "Create a compact card layout for small dashboards",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-37",
+    "category": "normal",
+    "objective": "Add empty-state actions to the project archive",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-38",
+    "category": "normal",
+    "objective": "Refactor the navigation test helpers",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-39",
+    "category": "normal",
+    "objective": "Implement row reordering in a planning board",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-40",
+    "category": "normal",
+    "objective": "Add a side-by-side markdown diff preview",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-41",
+    "category": "normal",
+    "objective": "Create a reusable confirmation dialog component",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-42",
+    "category": "normal",
+    "objective": "Add a progress indicator to file uploads",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-43",
+    "category": "normal",
+    "objective": "Implement a responsive data-grid toolbar",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-44",
+    "category": "normal",
+    "objective": "Refactor the chart legend rendering",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "normal-45",
+    "category": "normal",
+    "objective": "Add an archived-item filter to the activity view",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "normal",
+    "expected_lane": "terra"
+  },
+  {
+    "id": "high-risk-1",
+    "category": "high-risk",
+    "objective": "Plan a production credential vault migration",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-2",
+    "category": "high-risk",
+    "objective": "Redesign enterprise authorization policy evaluation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-3",
+    "category": "high-risk",
+    "objective": "Implement encrypted backup restoration workflows",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-4",
+    "category": "high-risk",
+    "objective": "Change payment settlement reconciliation rules",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-5",
+    "category": "high-risk",
+    "objective": "Migrate customer database partitions without downtime",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-6",
+    "category": "high-risk",
+    "objective": "Add tenant isolation checks to shared storage",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-7",
+    "category": "high-risk",
+    "objective": "Update production deployment rollback automation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-8",
+    "category": "high-risk",
+    "objective": "Implement signed audit-log export verification",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-9",
+    "category": "high-risk",
+    "objective": "Redesign account recovery verification steps",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-10",
+    "category": "high-risk",
+    "objective": "Change API key issuance and revocation behavior",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-11",
+    "category": "high-risk",
+    "objective": "Add multi-factor enrollment recovery handling",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-12",
+    "category": "high-risk",
+    "objective": "Migrate public endpoint pagination contracts",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-13",
+    "category": "high-risk",
+    "objective": "Implement tax invoice calculation adjustments",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-14",
+    "category": "high-risk",
+    "objective": "Change subscription billing retry schedules",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-15",
+    "category": "high-risk",
+    "objective": "Add payment webhook signature validation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-16",
+    "category": "high-risk",
+    "objective": "Plan a production data retention purge",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-17",
+    "category": "high-risk",
+    "objective": "Implement database schema partitioning changes",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-18",
+    "category": "high-risk",
+    "objective": "Add GDPR erasure workflow reporting",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-19",
+    "category": "high-risk",
+    "objective": "Redesign role based administration controls",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-20",
+    "category": "high-risk",
+    "objective": "Migrate OAuth client registration metadata",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-21",
+    "category": "high-risk",
+    "objective": "Implement private key rotation procedures",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-22",
+    "category": "high-risk",
+    "objective": "Change production firewall rule automation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-23",
+    "category": "high-risk",
+    "objective": "Add session cookie renewal protections",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-24",
+    "category": "high-risk",
+    "objective": "Implement access control review reports",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-25",
+    "category": "high-risk",
+    "objective": "Migrate secrets distribution to a managed service",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-26",
+    "category": "high-risk",
+    "objective": "Add financial ledger correction workflows",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-27",
+    "category": "high-risk",
+    "objective": "Change webhook retry delivery contracts",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-28",
+    "category": "high-risk",
+    "objective": "Implement disaster recovery backup testing",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-29",
+    "category": "high-risk",
+    "objective": "Plan a production certificate renewal process",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-30",
+    "category": "high-risk",
+    "objective": "Migrate identity provider SSO mappings",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-31",
+    "category": "high-risk",
+    "objective": "Add encryption key lifecycle auditing",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-32",
+    "category": "high-risk",
+    "objective": "Change public API error response contracts",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-33",
+    "category": "high-risk",
+    "objective": "Implement permission inheritance evaluation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-34",
+    "category": "high-risk",
+    "objective": "Plan a database backfill recovery procedure",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-35",
+    "category": "high-risk",
+    "objective": "Add compliance evidence retention controls",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-36",
+    "category": "high-risk",
+    "objective": "Migrate production queue replay safeguards",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-37",
+    "category": "high-risk",
+    "objective": "Implement signed webhook request processing",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-38",
+    "category": "high-risk",
+    "objective": "Change customer deletion retention handling",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-39",
+    "category": "high-risk",
+    "objective": "Add IAM role provisioning automation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-40",
+    "category": "high-risk",
+    "objective": "Plan payment refund approval workflows",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-41",
+    "category": "high-risk",
+    "objective": "Migrate tenant data export processing",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-42",
+    "category": "high-risk",
+    "objective": "Implement audit trail immutability checks",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-43",
+    "category": "high-risk",
+    "objective": "Change authentication session expiration rules",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 3,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-44",
+    "category": "high-risk",
+    "objective": "Add database restore validation automation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 4,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-45",
+    "category": "high-risk",
+    "objective": "Plan production infrastructure certificate rotation",
+    "known_area": false,
+    "acceptance_criteria": false,
+    "files": 5,
+    "risk": "high",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-1",
+    "category": "high-risk-evasion",
+    "objective": "Update OAuth2 client configuration in one known file",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-2",
+    "category": "high-risk-evasion",
+    "objective": "Correct the trusted_issuer validation setting",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-3",
+    "category": "high-risk-evasion",
+    "objective": "Adjust role-based access mapping for one administrator",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-4",
+    "category": "high-risk-evasion",
+    "objective": "Fix the sign-in session-cookie handling path",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-5",
+    "category": "high-risk-evasion",
+    "objective": "Update the api-key header parsing rule",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-6",
+    "category": "high-risk-evasion",
+    "objective": "Correct the signed-webhook verification configuration",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-7",
+    "category": "high-risk-evasion",
+    "objective": "Rename the access-token claim mapping",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-8",
+    "category": "high-risk-evasion",
+    "objective": "Adjust account-recovery verification metadata",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-9",
+    "category": "high-risk-evasion",
+    "objective": "Fix the browser-origin allowlist check",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-10",
+    "category": "high-risk-evasion",
+    "objective": "Update private-key loading behavior",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-11",
+    "category": "high-risk-evasion",
+    "objective": "Correct multi-factor enrollment state handling",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-12",
+    "category": "high-risk-evasion",
+    "objective": "Adjust tenant-isolation scope resolution",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-13",
+    "category": "high-risk-evasion",
+    "objective": "Fix public-api response contract serialization",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-14",
+    "category": "high-risk-evasion",
+    "objective": "Update data-retention deletion scheduling",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "high-risk-evasion-15",
+    "category": "high-risk-evasion",
+    "objective": "Correct race-condition retry ordering",
+    "known_area": true,
+    "acceptance_criteria": true,
+    "files": 1,
+    "risk": "low",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-1",
+    "category": "conservative-unknown",
+    "objective": "Clarify the visual hierarchy of the welcome screen",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-2",
+    "category": "conservative-unknown",
+    "objective": "Add a compact layout to the project overview",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-3",
+    "category": "conservative-unknown",
+    "objective": "Refactor the local date display utility",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-4",
+    "category": "conservative-unknown",
+    "objective": "Create a new empty-state illustration component",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-5",
+    "category": "conservative-unknown",
+    "objective": "Improve keyboard focus styling in the settings page",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-6",
+    "category": "conservative-unknown",
+    "objective": "Add a filter chip to the activity feed",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-7",
+    "category": "conservative-unknown",
+    "objective": "Rearrange dashboard cards for narrow screens",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-8",
+    "category": "conservative-unknown",
+    "objective": "Implement a small help tooltip in the editor",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-9",
+    "category": "conservative-unknown",
+    "objective": "Add a client-side sort option to the catalog",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-10",
+    "category": "conservative-unknown",
+    "objective": "Refactor component preview fixtures",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-11",
+    "category": "conservative-unknown",
+    "objective": "Create a responsive table header",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-12",
+    "category": "conservative-unknown",
+    "objective": "Add a loading indicator to the search page",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-13",
+    "category": "conservative-unknown",
+    "objective": "Improve the wording of the onboarding checklist",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 2,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-14",
+    "category": "conservative-unknown",
+    "objective": "Implement a collapsible FAQ section",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 3,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  },
+  {
+    "id": "conservative-unknown-15",
+    "category": "conservative-unknown",
+    "objective": "Add a status legend to the report screen",
+    "known_area": false,
+    "acceptance_criteria": true,
+    "files": 4,
+    "risk": "unknown",
+    "expected_lane": "sol-plan-terra-sol-review"
+  }
+]

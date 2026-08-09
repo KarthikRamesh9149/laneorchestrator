@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Mapping, Optional, Sequence, Tuple
 
 from . import __version__
+from .benchmark import run_benchmark
 from .config import (
     ConfigError,
     apply_config,
@@ -40,7 +41,7 @@ from .routing import RouteFacts, VALID_RISKS, positive_file_count, recommend_rou
 from .security import SecurityError
 
 
-COMMANDS = ("doctor", "status", "configure", "route", "catalog", "profiles", "version")
+COMMANDS = ("doctor", "status", "configure", "route", "catalog", "profiles", "benchmark", "version")
 PROFILE_ACTIONS = ("install", "update", "adopt", "uninstall")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -110,6 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     catalog.add_argument("--top-skills", type=result_limit, default=6)
     catalog.add_argument("--top-agents", type=result_limit, default=6)
     catalog.add_argument("--unscoped-high-risk", action="store_true")
+
+    benchmark = _subparser(commands, "benchmark")
+    benchmark.add_argument("--repeat", type=positive_file_count, default=3)
 
     profiles = _subparser(commands, "profiles")
     profile_actions = profiles.add_subparsers(dest="action", required=True, parser_class=_Parser)
@@ -306,6 +310,10 @@ def handle_catalog(args: argparse.Namespace) -> CommandResult:
     return command_result("catalog", data={"catalog": payload})
 
 
+def handle_benchmark(args: argparse.Namespace) -> CommandResult:
+    return run_benchmark(Path(__file__).absolute().parents[1], args.repeat)
+
+
 def handle_profiles(args: argparse.Namespace) -> CommandResult:
     _home, state, agents = _runtime_paths()
     if args.phase == "preview":
@@ -361,6 +369,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         "configure": handle_configure,
         "route": handle_route,
         "catalog": handle_catalog,
+        "benchmark": handle_benchmark,
         "profiles": handle_profiles,
         "version": handle_version,
     }
