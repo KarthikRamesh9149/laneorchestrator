@@ -2,6 +2,17 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-08-11
+
+### Security
+
+- Remove local root, directory, and file paths from discovery warnings before they reach JSON output.
+- Preserve credential-detection regression coverage without storing a secret-named synthetic value that creates misleading CodeQL evidence.
+
+### Changed
+
+- Advance the protected public installation reference and managed-profile template identity to `v0.2.1`.
+
 ## [0.2.0] - 2026-08-11
 
 ### Added

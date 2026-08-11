@@ -110,7 +110,7 @@ class DocumentationTests(unittest.TestCase):
         first_screen = "\n".join(readme.splitlines()[:80])
         self.assertIn("Secure, evidence-driven model and agent routing for Codex.", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)

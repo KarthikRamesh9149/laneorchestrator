@@ -163,6 +163,41 @@ class DiscoveryApiTests(unittest.TestCase):
         self.assertTrue(any("non-UTF-8 skill metadata" in warning for warning in warnings))
         self.assertTrue(any("symbolic-link skill file" in warning for warning in warnings))
 
+    def test_legacy_warning_payloads_do_not_disclose_root_or_file_paths(self) -> None:
+        private_root_marker = "private-root-token-marker"
+        private_file_marker = "private-file-token-marker"
+        private_skill_root = self.fixture / private_root_marker
+        private_skill_root.symlink_to(self.fixture / "missing-skills")
+        private_agent_root = self.fixture / "agents"
+        private_agent_root.mkdir()
+        (private_agent_root / (private_file_marker + ".toml")).symlink_to(self.fixture / "missing-agent.toml")
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--query",
+                "discover bounded capabilities",
+                "--cwd",
+                str(self.fixture),
+                "--no-default-roots",
+                "--skills-root",
+                str(private_skill_root),
+                "--agents-root",
+                str(private_agent_root),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        warnings = json.loads(completed.stdout)["warnings"]
+        warning_payload = json.dumps(warnings)
+        self.assertIn("skipped symbolic-link skill root", warnings)
+        self.assertIn("skipped symbolic-link agent file", warnings)
+        self.assertNotIn(private_root_marker, warning_payload)
+        self.assertNotIn(private_file_marker, warning_payload)
+
     def test_warning_cap_and_immutable_validated_request(self) -> None:
         for name in ("one", "two", "three"):
             path = self.skills / name / "SKILL.md"

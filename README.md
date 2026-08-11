@@ -12,7 +12,7 @@ task + repository evidence -> route card -> bounded implementation -> verificati
 ```
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -29,7 +29,7 @@ On first use, the skill runs `doctor` to check readiness. If the host does not e
 
 See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt). They illustrate the first-run readiness and route flow; neither is a live-install recording or an embedded player.
 
-The protected annotated `v0.2.0` release tag pins the reviewed source snapshot; the release ruleset blocks moving or deleting it. To upgrade, review and select a new protected release tag. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
+The protected annotated `v0.2.1` release tag pins the reviewed source snapshot; the release ruleset blocks moving or deleting it. To upgrade, review and select a new protected release tag. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
 
 ## Start here
 
