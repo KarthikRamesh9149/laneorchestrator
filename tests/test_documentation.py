@@ -55,6 +55,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator doctor --json",
     "python3 -m laneorchestrator status --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
+    "python3 -m laneorchestrator voltagent inventory --json",
     "python3 -m laneorchestrator voltagent install preview --json",
     "python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json",
     "python3 -m laneorchestrator benchmark --json",
@@ -110,7 +111,7 @@ class DocumentationTests(unittest.TestCase):
     def test_readme_first_screen_has_a_clear_install_and_standalone_message(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         first_screen = "\n".join(readme.splitlines()[:100])
-        self.assertIn("Route Codex work with evidence, not guesswork.", first_screen)
+        self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
         self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
         self.assertIn(
             "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
@@ -121,6 +122,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("$laneorchestrator", first_screen)
         self.assertIn("No separate Volt download is required.", first_screen)
         self.assertIn("172 namespaced profiles", first_screen)
+        self.assertIn("Activate the bundled specialists", first_screen)
+        self.assertIn("voltagent inventory --json", first_screen)
         self.assertIn("Luna / Terra / Sol → Terra → Sol", first_screen)
         self.assertIn("preview and waits for your explicit approval", first_screen)
         self.assertIn("docs/assets/demo.cast", first_screen)
