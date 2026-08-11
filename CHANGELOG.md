@@ -2,6 +2,18 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-08-11
+
+### Added
+
+- Bundle the pinned, MIT-licensed VoltAgent Codex specialist pack (172 profiles) with exact content verification and attribution.
+- Add reviewed `voltagent` inventory, status, preview, and approval-bound installation commands.
+
+### Security
+
+- Refuse unsafe plan state, symbolic links, partial installs, profile drift, and collisions before specialist-pack publication.
+- Keep the bundled specialists namespaced and Terra/High so they cannot change LaneOrchestrator's Luna/Terra/Sol routing authority.
+
 ## [0.2.1] - 2026-08-11
 
 ### Security

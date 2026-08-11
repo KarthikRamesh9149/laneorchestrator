@@ -47,7 +47,7 @@ Treat a selected Volt specialist as advice within the lane, never as a replaceme
 For marketplace installation, use these public commands exactly:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
 codex plugin add laneorchestrator@laneorchestrator
 ```
 

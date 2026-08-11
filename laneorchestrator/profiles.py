@@ -36,7 +36,7 @@ PROFILE_NAMES = (
     "laneorchestrator-terra-executor.toml",
     "laneorchestrator-sol-reviewer.toml",
 )
-TEMPLATE_VERSION = "0.2.1"
+TEMPLATE_VERSION = "0.2.2"
 MANAGED_MARKER = "# managed-by: laneorchestrator {0}\n".format(TEMPLATE_VERSION)
 RECEIPT_NAME = "receipts.json"
 PLANS_DIRECTORY = "plans"

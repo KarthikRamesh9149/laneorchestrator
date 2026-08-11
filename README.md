@@ -23,10 +23,10 @@ It is a control plane, not an autopilot: task text, metadata, paths, and ranking
 
 ## Install and try it
 
-Install the reviewed `v0.2.1` release, then ask Codex to use the skill from any workspace:
+Install the reviewed `v0.2.2` release, then ask Codex to use the skill from any workspace:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -86,7 +86,7 @@ The default path is intentionally simple: install the plugin, invoke `$laneorche
 
 ## Trust, safety, and release evidence
 
-- The protected annotated [`v0.2.1` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.1) includes deterministic archives and `SHA256SUMS`.
+- The protected annotated [`v0.2.2` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.2) includes deterministic archives and `SHA256SUMS`.
 - The tag-triggered [release workflow](.github/workflows/release.yml) validates the repository, verifies generated assets, and emits GitHub artifact attestations.
 - Read the [security model](docs/security-model.md) and [threat model](docs/threat-model.md) for boundaries and known limitations.
 - Use the [security policy](SECURITY.md) to report a vulnerability privately; do not put sensitive reproduction details in an issue.

@@ -113,7 +113,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("Route Codex work with evidence, not guesswork.", first_screen)
         self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)

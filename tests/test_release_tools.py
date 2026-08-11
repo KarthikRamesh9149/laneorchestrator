@@ -116,7 +116,7 @@ class ReleaseToolTests(unittest.TestCase):
         (self.output_two / "extra.txt").unlink()
 
         credential = b"Bearer " + b"abcdefghijklmnopqrstuvwxyz"
-        self._replace_tar_member(release.tar_path, "laneorchestrator-0.2.1/README.md", credential + b"\n")
+        self._replace_tar_member(release.tar_path, "laneorchestrator-0.2.2/README.md", credential + b"\n")
         self._rewrite_sums(self.output_two)
         with self.assertRaisesRegex(ReleaseVerificationError, "content"):
             verify_release(self.output_two, root=self.root)
@@ -131,7 +131,7 @@ class ReleaseToolTests(unittest.TestCase):
                     verify_release(directory, root=self.root)
 
     def test_windows_unsafe_names_and_canonical_collisions_are_rejected(self) -> None:
-        prefix = "laneorchestrator-0.2.1"
+        prefix = "laneorchestrator-0.2.2"
         for relative in ("docs/CON.txt", "docs/name.", "docs/name ", "docs/colon:name.md", "docs/LPT9.log", "docs/COM¹.txt", "docs/LPT².txt"):
             with self.subTest(relative=relative):
                 with self.assertRaises(ReleaseError):
@@ -193,7 +193,7 @@ class ReleaseToolTests(unittest.TestCase):
             # The archive was freshly built and verified above; do not use this
             # extraction pattern for an arbitrary user-supplied archive.
             archive.extractall(extracted)
-        root = extracted / "laneorchestrator-0.2.1"
+        root = extracted / "laneorchestrator-0.2.2"
         result = subprocess.run(
             ["sh", "scripts/validate.sh"], cwd=root, text=True,
             capture_output=True, check=False,
@@ -224,13 +224,13 @@ class ReleaseToolTests(unittest.TestCase):
         payload = io.BytesIO()
         with tarfile.open(fileobj=payload, mode="w") as archive:
             for index in range(13):
-                info = tarfile.TarInfo("laneorchestrator-0.2.1/file-{0}".format(index))
+                info = tarfile.TarInfo("laneorchestrator-0.2.2/file-{0}".format(index))
                 info.size = 1024 * 1024
                 info.mode = 0o644
                 archive.addfile(info, io.BytesIO(b"\0" * info.size))
         compressed = gzip.compress(payload.getvalue(), mtime=0)
         with self.assertRaisesRegex(ReleaseVerificationError, "decompression"):
-            _tar_members(compressed, "laneorchestrator-0.2.1")
+            _tar_members(compressed, "laneorchestrator-0.2.2")
 
         central_directory = b"x" * (MAX_ZIP_CENTRAL_DIRECTORY_BYTES + 1)
         eocd = (
@@ -249,13 +249,13 @@ class ReleaseToolTests(unittest.TestCase):
 
     def test_verifier_inspects_zip_independently_and_requires_identical_content(self) -> None:
         release = build_release(self.root, self.output_one)
-        self._replace_zip_member(release.zip_path, "laneorchestrator-0.2.1/README.md", b"changed zip only\n")
+        self._replace_zip_member(release.zip_path, "laneorchestrator-0.2.2/README.md", b"changed zip only\n")
         self._rewrite_sums(self.output_one)
         with self.assertRaisesRegex(ReleaseVerificationError, "differs"):
             verify_release(self.output_one, root=self.root)
 
     def test_checksum_parser_rejects_order_duplicates_and_garbage(self) -> None:
-        names = ("laneorchestrator-0.2.1.tar.gz", "laneorchestrator-0.2.1.zip")
+        names = ("laneorchestrator-0.2.2.tar.gz", "laneorchestrator-0.2.2.zip")
         digest = "a" * 64
         for content in (
             "{0}  {2}\n{0}  {1}\n".format(digest, names[0], names[1]),
@@ -285,17 +285,17 @@ class ReleaseToolTests(unittest.TestCase):
                 for member in archive.getmembers()
             }
             names = set(payloads)
-            benchmark = "laneorchestrator-0.2.1/benchmarks/README.md"
+            benchmark = "laneorchestrator-0.2.2/benchmarks/README.md"
             self.assertIn(benchmark, names)
-            self.assertIn("laneorchestrator-0.2.1/docs/benchmarks.md", names)
-            self.assertIn("laneorchestrator-0.2.1/scripts/validate.sh", names)
-            self.assertIn("laneorchestrator-0.2.1/scripts/private_static_analysis.py", names)
-            self.assertIn("laneorchestrator-0.2.1/skills/laneorchestrator/scripts/catalog.py", names)
-            self.assertIn("laneorchestrator-0.2.1/skills/laneorchestrator/scripts/route.py", names)
-            self.assertIn("laneorchestrator-0.2.1/.github/workflows/security.yml", names)
-            self.assertIn("laneorchestrator-0.2.1/tests/test_release_tools.py", names)
-            self.assertIn("laneorchestrator-0.2.1/.github/workflows/ci.yml", names)
-            prefix = "laneorchestrator-0.2.1/"
+            self.assertIn("laneorchestrator-0.2.2/docs/benchmarks.md", names)
+            self.assertIn("laneorchestrator-0.2.2/scripts/validate.sh", names)
+            self.assertIn("laneorchestrator-0.2.2/scripts/private_static_analysis.py", names)
+            self.assertIn("laneorchestrator-0.2.2/skills/laneorchestrator/scripts/catalog.py", names)
+            self.assertIn("laneorchestrator-0.2.2/skills/laneorchestrator/scripts/route.py", names)
+            self.assertIn("laneorchestrator-0.2.2/.github/workflows/security.yml", names)
+            self.assertIn("laneorchestrator-0.2.2/tests/test_release_tools.py", names)
+            self.assertIn("laneorchestrator-0.2.2/.github/workflows/ci.yml", names)
+            prefix = "laneorchestrator-0.2.2/"
             for name, content in payloads.items():
                 if not name.endswith(".md"):
                     continue
@@ -322,7 +322,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_manifest_and_release_identity_reject_duplicate_json_keys(self) -> None:
         manifest = self.root / "plugin.json"
         original = manifest.read_text(encoding="utf-8")
-        manifest.write_text(original.replace('"version": "0.2.1",', '"version": "0.0.1",\n  "version": "0.2.1",', 1), encoding="utf-8")
+        manifest.write_text(original.replace('"version": "0.2.2",', '"version": "0.0.1",\n  "version": "0.2.2",', 1), encoding="utf-8")
         self.assertEqual(check_manifests(self.root), ["plugin.json: duplicate JSON key (version)"])
         with self.assertRaisesRegex(ReleaseError, "duplicate JSON key"):
             build_release(self.root, self.output_one)
@@ -330,7 +330,7 @@ class ReleaseToolTests(unittest.TestCase):
     def test_healthcheck_rejects_duplicate_json_keys(self) -> None:
         manifest = self.root / ".codex-plugin" / "plugin.json"
         original = manifest.read_text(encoding="utf-8")
-        manifest.write_text(original.replace('"version": "0.2.1",', '"version": "0.0.1",\n  "version": "0.2.1",', 1), encoding="utf-8")
+        manifest.write_text(original.replace('"version": "0.2.2",', '"version": "0.0.1",\n  "version": "0.2.2",', 1), encoding="utf-8")
         output = io.StringIO()
         with mock.patch.object(healthcheck, "ROOT", self.root), \
                 mock.patch.object(healthcheck, "REQUIRED", (manifest,)), \
@@ -358,7 +358,7 @@ class ReleaseToolTests(unittest.TestCase):
 
     def test_verifier_rejects_duplicate_link_and_extra_archive_members(self) -> None:
         release = build_release(self.root, self.output_one)
-        self._append_tar_member(release.tar_path, "laneorchestrator-0.2.1/README.md", b"duplicate")
+        self._append_tar_member(release.tar_path, "laneorchestrator-0.2.2/README.md", b"duplicate")
         self._rewrite_sums(self.output_one)
         with self.assertRaisesRegex(ReleaseVerificationError, "duplicate"):
             verify_release(self.output_one, root=self.root)
@@ -372,7 +372,7 @@ class ReleaseToolTests(unittest.TestCase):
 
     def _rewrite_sums(self, directory: Path) -> None:
         rows = []
-        for name in ("laneorchestrator-0.2.1.tar.gz", "laneorchestrator-0.2.1.zip"):
+        for name in ("laneorchestrator-0.2.2.tar.gz", "laneorchestrator-0.2.2.zip"):
             rows.append("{0}  {1}".format(hashlib.sha256((directory / name).read_bytes()).hexdigest(), name))
         (directory / "SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="ascii")
 
@@ -421,7 +421,7 @@ class ReleaseToolTests(unittest.TestCase):
         return 0o755 if relative in RELEASE_EXECUTABLES else 0o644
 
     def _write_hostile_dist(self, directory: Path, name: str) -> None:
-        version = "0.2.1"
+        version = "0.2.2"
         tar_path = directory / "laneorchestrator-{0}.tar.gz".format(version)
         zip_path = directory / "laneorchestrator-{0}.zip".format(version)
         with tar_path.open("wb") as output:
