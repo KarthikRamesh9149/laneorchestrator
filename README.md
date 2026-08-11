@@ -57,6 +57,8 @@ Activation creates only `laneorchestrator-voltagent-*` profiles. It refuses prof
 
 On first use, the skill runs `doctor` to check readiness. If the host does not expose the required control profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
+![LaneOrchestrator walkthrough: task evidence, route card, bundled specialists, and high-risk verification](docs/assets/laneorchestrator-demo.gif)
+
 ## What it does—and how the agents work together
 
 ```text

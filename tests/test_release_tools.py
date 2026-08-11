@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 
 from scripts.build_release import (
     MAX_MEMBERS,
+    RELEASE_BINARY_FILES,
     RELEASE_FILES,
     RELEASE_EXECUTABLES,
     RELEASE_TREES,
@@ -181,6 +182,22 @@ class ReleaseToolTests(unittest.TestCase):
             with self.subTest(value=value[:8]):
                 with self.assertRaisesRegex(ReleaseVerificationError, "credential-like"):
                     _check_content("README.md", value.encode("ascii"))
+
+    def test_verifier_accepts_only_the_declared_bounded_demo_gif(self) -> None:
+        name = next(iter(RELEASE_BINARY_FILES))
+        content = (ROOT / name).read_bytes()
+        _check_content(name, content)
+        with self.assertRaisesRegex(ReleaseVerificationError, "not UTF-8"):
+            _check_content("docs/assets/undeclared.gif", content)
+        mutations = (
+            b"BAD89a" + content[6:],
+            content[:6] + (1).to_bytes(2, "little") + content[8:],
+            content.replace(b"NETSCAPE2.0", b"NOT-A-LOOP!", 1),
+        )
+        for mutation in mutations:
+            with self.subTest(prefix=mutation[:12]):
+                with self.assertRaisesRegex(ReleaseVerificationError, "GIF"):
+                    _check_content(name, mutation)
 
     def test_fresh_trusted_archive_extracts_and_runs_the_complete_validator(self) -> None:
         if os.environ.get("LANEORCHESTRATOR_EXTRACTED_VALIDATION") == "1":

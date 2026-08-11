@@ -23,6 +23,7 @@ try:
         MAX_MEMBER_BYTES,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
+        RELEASE_BINARY_FILES,
         RELEASE_EXECUTABLES,
         ReleaseError,
         _captured_members,
@@ -33,6 +34,7 @@ except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execu
         MAX_MEMBER_BYTES,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
+        RELEASE_BINARY_FILES,
         RELEASE_EXECUTABLES,
         ReleaseError,
         _captured_members,
@@ -243,10 +245,14 @@ def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]
 
 
 def _check_content(name: str, content: bytes) -> None:
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError as error:
-        raise ReleaseVerificationError("release content is not UTF-8: {0}".format(name)) from error
+    if name in RELEASE_BINARY_FILES:
+        _check_demo_gif(name, content)
+        text = content.decode("latin-1")
+    else:
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ReleaseVerificationError("release content is not UTF-8: {0}".format(name)) from error
     secret_patterns = (
         r"-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----",
         r"\bAKIA[0-9A-Z]{16}\b",
@@ -265,6 +271,19 @@ def _check_content(name: str, content: bytes) -> None:
     local_path = r"/(?:Users|home)/[^\s`'\"]+|/private" + r"/var/folders/[^\s`'\"]+|[A-Za-z]:\\Users\\"
     if re.search(local_path, text):
         raise ReleaseVerificationError("release content contains local path: {0}".format(name))
+
+
+def _check_demo_gif(name: str, content: bytes) -> None:
+    if len(content) > 1_000_000 or content[:6] != b"GIF89a" or content[-1:] != b"\x3b":
+        raise ReleaseVerificationError("release GIF is malformed: {0}".format(name))
+    if int.from_bytes(content[6:8], "little") != 1200 or int.from_bytes(content[8:10], "little") != 675:
+        raise ReleaseVerificationError("release GIF has unexpected dimensions: {0}".format(name))
+    controls = [index for index in range(len(content)) if content.startswith(b"\x21\xf9\x04", index)]
+    if len(controls) < 20:
+        raise ReleaseVerificationError("release GIF is not sufficiently animated: {0}".format(name))
+    duration = sum(int.from_bytes(content[index + 4:index + 6], "little") for index in controls)
+    if duration != 2_000 or b"NETSCAPE2.0" not in content:
+        raise ReleaseVerificationError("release GIF has unexpected playback metadata: {0}".format(name))
 
 
 def verify_release(dist_dir: Path, root: Path = None) -> None:
