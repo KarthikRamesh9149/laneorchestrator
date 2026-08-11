@@ -1,53 +1,42 @@
 # LaneOrchestrator
 
+> **Route Codex work with evidence, not guesswork.**
+
 [![CI](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml)
 [![Python 3.9–3.14](https://img.shields.io/badge/Python-3.9--3.14-blue.svg)](docs/compatibility.md)
 [![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Route Codex work with evidence, not guesswork.
-
-LaneOrchestrator is the safety-aware task router for Codex. It turns a task and its repository context into an auditable execution path: simple, well-bounded work stays fast; normal implementation goes to the right lane; elevated-risk work stops for independent planning and review.
+LaneOrchestrator is an open-source control plane for Codex. It turns a task and its repository context into an auditable execution path before implementation begins: small, well-bounded work stays quick; normal changes use the default engineering lane; elevated-risk work earns independent planning and review.
 
 ```text
-Without LaneOrchestrator                  With LaneOrchestrator
-────────────────────────                  ────────────────────
-"Fix the billing screen"                  "Fix the billing screen"
-        ↓                                          ↓
-One opaque agent choice                   Scope + risk + repository evidence
-        ↓                                          ↓
-Hope the task was interpreted well        A route card, safety boundary, and
-                                           the right execution lane
+Your task → repository evidence → route card → execution lane → verification
+                                      │
+                         Luna / Terra / Sol → Terra → Sol
 ```
 
-```text
-task + repository evidence
-          ↓
-      route card
-          ↓
-Luna / Terra / Sol → Terra → Sol
-          ↓
-    verification and handoff
-```
+| Instead of… | You get… |
+| --- | --- |
+| An agent making an opaque choice after “fix the billing screen” | A route card that names the lane, reason, safety boundary, and available roles. |
+| A large agent pack deciding how risky a task is | A read-only control plane that keeps routing authority separate from execution. |
+| Silent fallback when an important model is missing | A clear pause for required roles, or an explicit permitted fallback for small work. |
 
-It is a control plane, not an autopilot: task text, metadata, paths, and rankings are treated as untrusted input; the router stays read-only; and profile or configuration changes require an explicit preview and approval.
+It is a control plane, not an autopilot. Task text, metadata, paths, and rankings are untrusted input; the router stays read-only; and profile or configuration changes require a preview and explicit approval.
 
-## Install and try it
+## Start here
 
-Install the reviewed `v0.2.2` release, then ask Codex to use the skill from any workspace:
+Install the reviewed `v0.2.2` release, then invoke the skill from any workspace:
 
 ```sh
 codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
-```text
-$laneorchestrator route and implement this task safely
+Then give Codex a normal request:
 
-Lane: Terra
-Why: multi-file work or uncertain scope uses the default implementation lane
-Safety: workspace execution only
-```
+> `$laneorchestrator route and implement this task safely`
+
+LaneOrchestrator returns the route before execution. For example, a multi-file change with uncertain scope enters Terra; a credential or authentication change requires **Sol → Terra → Sol**.
 
 **No separate Volt download is required.** The plugin includes the pinned, MIT-licensed VoltAgent Codex specialist pack: 172 namespaced profiles, ready for LaneOrchestrator to select after activation. Plugin installation never silently writes to your global Codex profile directory, so activate the bundled pack through one reviewed preview and approval:
 
@@ -60,7 +49,7 @@ This installs `laneorchestrator-voltagent-*` profiles without replacing any of y
 
 On first use, the skill runs `doctor` to check readiness. If the host does not expose the required bundled profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
-## What it does
+## What it does—and what you get
 
 - **Route with context.** It evaluates scope, risk, acceptance criteria, and role availability instead of trusting a task label.
 - **Keep authority separate.** The control plane is read-only; a writable executor never grants itself more authority or quietly broadens your task.
