@@ -1,5 +1,9 @@
 LaneOrchestrator is a clean-room implementation.
 
-It acknowledges high-level design inspiration from my-codex, SkillMesh, Sol Advisor,
-and awesome-codex-subagents. No code, prompt text, or packaged assets from those
-projects are distributed in this repository.
+It acknowledges high-level design inspiration from my-codex, SkillMesh, and Sol Advisor.
+
+This repository redistributes the VoltAgent Awesome Codex Subagents profile collection
+from https://github.com/VoltAgent/awesome-codex-subagents at commit
+5605c9c18b3687993919d6cc467af4a34898fee2. The 172 upstream TOML profiles are kept
+under agents/voltagent-upstream/profiles with their MIT License. LaneOrchestrator adds only a
+namespaced identity and its pinned Terra/High runtime fields when it installs them.

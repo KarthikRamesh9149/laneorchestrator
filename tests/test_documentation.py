@@ -55,6 +55,8 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator doctor --json",
     "python3 -m laneorchestrator status --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
+    "python3 -m laneorchestrator voltagent install preview --json",
+    "python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json",
     "python3 -m laneorchestrator benchmark --json",
     "python3 -m unittest tests.test_acceptance_100 -v",
     "python3 scripts/healthcheck.py",
@@ -111,14 +113,14 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("Route Codex work with evidence, not guesswork.", first_screen)
         self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)
         self.assertIn("codex plugin add laneorchestrator@laneorchestrator", first_screen)
         self.assertIn("$laneorchestrator", first_screen)
-        self.assertIn("No Volt installation is required.", first_screen)
-        self.assertIn("third-party agent packs are optional", first_screen)
+        self.assertIn("No separate Volt download is required.", first_screen)
+        self.assertIn("172 namespaced profiles", first_screen)
         self.assertIn("Luna / Terra / Sol → Terra → Sol", first_screen)
         self.assertIn("preview and waits for your explicit approval", first_screen)
         self.assertIn("docs/assets/demo.cast", first_screen)
@@ -168,6 +170,14 @@ class DocumentationTests(unittest.TestCase):
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)
+            volt_preview = subprocess.run(
+                [sys.executable, "-m", "laneorchestrator", "voltagent", "install", "preview", "--json"],
+                cwd=ROOT, env=environment, text=True, capture_output=True, check=False
+            )
+            self.assertEqual(volt_preview.returncode, 0, volt_preview.stderr)
+            volt_preview_data = json.loads(volt_preview.stdout)["data"]
+            volt_token = volt_preview_data["token"]
+            volt_approval = "approve:" + str(volt_preview_data["approval_digest"])
             for command in DOCUMENTED_LOCAL_COMMANDS:
                 if command == "sh scripts/validate.sh":
                     syntax = subprocess.run(
@@ -179,6 +189,11 @@ class DocumentationTests(unittest.TestCase):
                 arguments = shlex.split(command)
                 if arguments[0] == "python3":
                     arguments[0] = sys.executable
+                if command.startswith("python3 -m laneorchestrator voltagent install apply"):
+                    arguments = [
+                        sys.executable, "-m", "laneorchestrator", "voltagent", "install", "apply",
+                        "--token", volt_token, "--approval", volt_approval, "--json",
+                    ]
                 result = subprocess.run(
                     arguments, cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )

@@ -7,7 +7,18 @@
 
 ## Route Codex work with evidence, not guesswork.
 
-LaneOrchestrator is a Codex plugin that turns a task and its repository context into an auditable execution path. It keeps simple, well-bounded work fast, sends normal implementation to the right lane, and makes elevated-risk work stop for independent planning and review.
+LaneOrchestrator is the safety-aware task router for Codex. It turns a task and its repository context into an auditable execution path: simple, well-bounded work stays fast; normal implementation goes to the right lane; elevated-risk work stops for independent planning and review.
+
+```text
+Without LaneOrchestrator                  With LaneOrchestrator
+────────────────────────                  ────────────────────
+"Fix the billing screen"                  "Fix the billing screen"
+        ↓                                          ↓
+One opaque agent choice                   Scope + risk + repository evidence
+        ↓                                          ↓
+Hope the task was interpreted well        A route card, safety boundary, and
+                                           the right execution lane
+```
 
 ```text
 task + repository evidence
@@ -19,14 +30,14 @@ Luna / Terra / Sol → Terra → Sol
     verification and handoff
 ```
 
-It is a control plane, not an autopilot: task text, metadata, paths, and rankings are treated as untrusted input; the router stays read-only; and changes to profiles or configuration require an explicit preview and approval.
+It is a control plane, not an autopilot: task text, metadata, paths, and rankings are treated as untrusted input; the router stays read-only; and profile or configuration changes require an explicit preview and approval.
 
 ## Install and try it
 
-Install the reviewed `v0.2.1` release, then ask Codex to use the skill from any workspace:
+Install the reviewed `v0.2.2` release, then ask Codex to use the skill from any workspace:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -38,18 +49,25 @@ Why: multi-file work or uncertain scope uses the default implementation lane
 Safety: workspace execution only
 ```
 
-**No Volt installation is required.** LaneOrchestrator works with its bundled Codex profiles; third-party agent packs are optional and are never installed automatically.
+**No separate Volt download is required.** The plugin includes the pinned, MIT-licensed VoltAgent Codex specialist pack: 172 namespaced profiles, ready for LaneOrchestrator to select after activation. Plugin installation never silently writes to your global Codex profile directory, so activate the bundled pack through one reviewed preview and approval:
+
+```sh
+python3 -m laneorchestrator voltagent install preview --json
+python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
+```
+
+This installs `laneorchestrator-voltagent-*` profiles without replacing any of your own agents. The four LaneOrchestrator control profiles still provide safe routing even when you choose not to activate the specialist pack.
 
 On first use, the skill runs `doctor` to check readiness. If the host does not expose the required bundled profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
 ## What it does
 
-- **Chooses an execution lane from evidence.** It evaluates scope, risk, acceptance criteria, and role availability rather than trusting a single task label.
-- **Keeps the control plane read-only.** A writable executor never grants itself authority or silently broadens the task.
-- **Finds optional capability help safely.** It reads bounded skill and agent metadata, rejects unsafe filesystem objects, and treats metadata as data—not instructions.
-- **Makes changes reviewable.** Profile and configuration operations use preview, a short-lived bound token, and a separate explicit approval value.
-- **Fails safely.** Missing required models or profiles pause the applicable route; unknown risk does not select the smallest writable lane.
-- **Fits people and automation.** Use `$laneorchestrator` for normal Codex work or stable JSON CLI results from a source checkout or resolved installed plugin root.
+- **Route with context.** It evaluates scope, risk, acceptance criteria, and role availability instead of trusting a task label.
+- **Keep authority separate.** The control plane is read-only; a writable executor never grants itself more authority or quietly broadens your task.
+- **Use specialists without surrendering control.** It discovers skills and agents through bounded metadata. The bundled VoltAgent pack adds 172 optional specialists, but none can override the lane decision.
+- **Make mutations deliberate.** Profile and configuration changes are previews first, then require a short-lived bound token and a matching approval.
+- **Fail in the safe direction.** Unknown risk does not select the smallest writable lane. Missing required roles pause the relevant work instead of quietly downgrading it.
+- **Work from chat or automation.** Use `$laneorchestrator` in Codex, or emit stable JSON from the canonical module command in a source checkout or resolved plugin root.
 
 ## The three lanes
 
@@ -79,7 +97,7 @@ The default path is intentionally simple: install the plugin, invoke `$laneorche
 
 ## Trust, safety, and release evidence
 
-- The protected annotated [`v0.2.1` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.1) includes deterministic archives and `SHA256SUMS`.
+- The protected annotated [`v0.2.2` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.2) includes deterministic archives and `SHA256SUMS`.
 - The tag-triggered [release workflow](.github/workflows/release.yml) validates the repository, verifies generated assets, and emits GitHub artifact attestations.
 - Read the [security model](docs/security-model.md) and [threat model](docs/threat-model.md) for boundaries and known limitations.
 - Use the [security policy](SECURITY.md) to report a vulnerability privately; do not put sensitive reproduction details in an issue.
@@ -88,9 +106,9 @@ Security evidence is layered and bounded. It supports careful use and review; it
 
 ## FAQ
 
-### Do I need Volt or a large agent pack?
+### Do I need Volt or a separate agent-pack download?
 
-No. The bundled Codex profiles are sufficient. Optional specialists can be discovered when they are already available, but they are not a dependency and are never installed automatically.
+No. LaneOrchestrator ships the 172-profile VoltAgent specialist pack inside the plugin, with its pinned source and MIT attribution. Activate it once through the explicit preview and approval flow above; it never overwrites an existing user profile. The core routing profiles remain sufficient if you do not activate it.
 
 ### Can it change my files or configuration without asking?
 

@@ -8,13 +8,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_NAME = "laneorchestrator"
-PLUGIN_VERSION = "0.2.1"
+PLUGIN_VERSION = "0.2.2"
 SKILL_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 README_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 
@@ -97,7 +97,9 @@ class PluginManifestTests(unittest.TestCase):
         self.assertLess(skill.index("python3 -m laneorchestrator doctor --json"), skill.index("python3 -m laneorchestrator profiles install preview --json"))
         self.assertIn("profiles install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
         self.assertIn("never apply", skill.lower())
-        self.assertIn("Third-party agent packs are optional", skill)
+        self.assertIn("pinned MIT-licensed VoltAgent specialist pack", skill)
+        self.assertIn("voltagent install preview --json", skill)
+        self.assertIn("voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
         self.assertIn("missing Terra", skill)
         self.assertIn("required Sol", skill)
         self.assertIn("ancestor of this `SKILL.md`", skill)
@@ -114,6 +116,7 @@ class PluginManifestTests(unittest.TestCase):
         self.assertIn("doctor", readme)
         self.assertIn("preview", readme)
         self.assertIn("bound token", readme)
+        self.assertIn("172 namespaced profiles", readme)
         self.assertIn("Plugin removal", readme)
 
 

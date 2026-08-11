@@ -39,9 +39,10 @@ from .plans import PlanError
 from .profiles import ProfileConflict, apply_profiles, ensure_agents_root, preview_profiles
 from .routing import RouteFacts, VALID_RISKS, positive_file_count, recommend_route
 from .security import SecurityError
+from .voltagent import PackError, apply_install as apply_voltagent_install, pack_inventory, pack_status, preview_install as preview_voltagent_install
 
 
-COMMANDS = ("doctor", "status", "configure", "route", "catalog", "profiles", "benchmark", "version")
+COMMANDS = ("doctor", "status", "configure", "route", "catalog", "profiles", "voltagent", "benchmark", "version")
 PROFILE_ACTIONS = ("install", "update", "adopt", "uninstall")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -138,6 +139,17 @@ def build_parser() -> argparse.ArgumentParser:
         apply_parser = _subparser(phases, "apply")
         apply_parser.add_argument("--token", required=True)
         apply_parser.add_argument("--approval", required=True)
+
+    voltagent = _subparser(commands, "voltagent")
+    volt_actions = voltagent.add_subparsers(dest="voltagent_action", required=True, parser_class=_Parser)
+    _subparser(volt_actions, "inventory")
+    _subparser(volt_actions, "status")
+    install = _subparser(volt_actions, "install")
+    install_phases = install.add_subparsers(dest="phase", required=True, parser_class=_Parser)
+    _subparser(install_phases, "preview")
+    install_apply = _subparser(install_phases, "apply")
+    install_apply.add_argument("--token", required=True)
+    install_apply.add_argument("--approval", required=True)
     return parser
 
 
@@ -342,6 +354,22 @@ def handle_profiles(args: argparse.Namespace) -> CommandResult:
     return apply_profiles(args.action, args.token, agents, state, approval=args.approval)
 
 
+def handle_voltagent(args: argparse.Namespace) -> CommandResult:
+    _home, state, agents = _runtime_paths()
+    if args.voltagent_action == "inventory":
+        return pack_inventory()
+    if args.voltagent_action == "status":
+        return pack_status(agents)
+    if args.phase == "preview":
+        ensure_private_directory(state)
+        ensure_agents_root(agents)
+        _token, result = preview_voltagent_install(agents, state)
+        return result
+    if _TOKEN_RE.fullmatch(args.token) is None:
+        raise DomainError("PLAN_INVALID", "plan token has invalid syntax")
+    return apply_voltagent_install(args.token, agents, state, approval=args.approval)
+
+
 def _manifest_version() -> str:
     path = Path(__file__).absolute().parents[1] / ".codex-plugin" / "plugin.json"
     try:
@@ -386,6 +414,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         "catalog": handle_catalog,
         "benchmark": handle_benchmark,
         "profiles": handle_profiles,
+        "voltagent": handle_voltagent,
         "version": handle_version,
     }
     try:
@@ -400,6 +429,11 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         if mapped.code != "PLAN_INVALID" or "plan" in str(error).casefold():
             return error_result(args.command, mapped.code, str(mapped))
         return error_result(args.command, "PROFILE_CONFLICT", str(error))
+    except PackError as error:
+        mapped = _plan_error(error)
+        if mapped.code != "PLAN_INVALID" or "plan" in str(error).casefold():
+            return error_result(args.command, mapped.code, str(mapped))
+        return error_result(args.command, "VOLT_PACK_CONFLICT", str(error))
     except ConfigError as error:
         return error_result(args.command, "CONFIG_INVALID", str(error))
     except SecurityError as error:

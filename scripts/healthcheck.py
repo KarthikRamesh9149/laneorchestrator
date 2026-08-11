@@ -18,6 +18,7 @@ from laneorchestrator.security import (
     parse_json_object,
     read_regular_nofollow,
 )
+from laneorchestrator.voltagent import PackError, pack_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = [
@@ -78,6 +79,12 @@ def main() -> int:
             fields = {}
         if fields.get("model") != model or fields.get("model_reasoning_effort") != "high" or fields.get("sandbox_mode") != sandbox:
             errors.append(f"invalid agent profile: agents/{filename}")
+    try:
+        inventory = pack_inventory()
+        if not inventory.ok or inventory.data.get("agent_count") != 172:
+            errors.append("invalid bundled VoltAgent pack")
+    except PackError:
+        errors.append("invalid bundled VoltAgent pack")
     if errors:
         print("LaneOrchestrator health check failed:", *errors, sep="\n- ")
         return 1

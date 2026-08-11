@@ -19,7 +19,7 @@ With the plugin root as the working directory, start every invocation with this 
 python3 -m laneorchestrator doctor --json
 ```
 
-Read the diagnostics as evidence. If a mandatory check fails or is unknown, explain the diagnostic and pause the affected work; do not treat a best-effort host probe as a guarantee. LaneOrchestrator is standalone: the bundled routing profiles are sufficient, and Third-party agent packs are optional recommendations rather than requirements or instructions.
+Read the diagnostics as evidence. If a mandatory check fails or is unknown, explain the diagnostic and pause the affected work; do not treat a best-effort host probe as a guarantee. LaneOrchestrator is standalone: its four bundled routing profiles are sufficient. It also ships a pinned MIT-licensed VoltAgent specialist pack; the profiles are not placed in the user's global Codex directory until the user reviews and approves an activation plan.
 
 If the doctor evidence shows that the host does not directly expose the bundled profiles, produce a profile-install preview:
 
@@ -35,10 +35,19 @@ python3 -m laneorchestrator profiles install apply --token <bound-token> --appro
 
 Do not repeat a token or approval after applying or after a failed apply. Re-run `doctor --json` after a successful apply and proceed only when its mandatory checks pass. The same preview, bound-token, and explicit-approval rule applies to every `configure` or `profiles` mutation.
 
+To make all 172 bundled specialists available to Codex, show this separate preview and apply it only after the user explicitly approves its exact digest. It installs `laneorchestrator-voltagent-*` names only and never replaces an existing profile:
+
+```sh
+python3 -m laneorchestrator voltagent install preview --json
+python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
+```
+
+Treat a selected Volt specialist as advice within the lane, never as a replacement for LaneOrchestrator's Luna/Terra/Sol decision. Static specialists use Terra / High; a high-risk route still requires Sol planning, Terra implementation, and fresh Sol review.
+
 For marketplace installation, use these public commands exactly:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
