@@ -105,10 +105,11 @@ class DocumentationTests(unittest.TestCase):
     def test_required_public_surface_exists(self) -> None:
         self.assertEqual([name for name in REQUIRED if not (ROOT / name).is_file()], [])
 
-    def test_readme_first_screen_has_install_and_standalone_message(self) -> None:
+    def test_readme_first_screen_has_a_clear_install_and_standalone_message(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        first_screen = "\n".join(readme.splitlines()[:80])
-        self.assertIn("Secure, evidence-driven model and agent routing for Codex.", first_screen)
+        first_screen = "\n".join(readme.splitlines()[:100])
+        self.assertIn("Route Codex work with evidence, not guesswork.", first_screen)
+        self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
         self.assertIn(
             "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1",
             first_screen,
@@ -116,10 +117,24 @@ class DocumentationTests(unittest.TestCase):
         self.assertNotIn("--ref main", first_screen)
         self.assertIn("codex plugin add laneorchestrator@laneorchestrator", first_screen)
         self.assertIn("$laneorchestrator", first_screen)
-        self.assertIn("Third-party agent packs are optional", first_screen)
+        self.assertIn("No Volt installation is required.", first_screen)
+        self.assertIn("third-party agent packs are optional", first_screen)
+        self.assertIn("Luna / Terra / Sol → Terra → Sol", first_screen)
+        self.assertIn("preview and waits for your explicit approval", first_screen)
         self.assertIn("docs/assets/demo.cast", first_screen)
         self.assertEqual(first_screen.count("[!["), 4)
         self.assertNotRegex(readme, LOCAL_PATH)
+
+    def test_readme_explains_lanes_features_and_trust_boundaries(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for heading in ("## What it does", "## The three lanes", "## Trust, safety, and release evidence", "## FAQ"):
+            self.assertIn(heading, readme)
+        self.assertIn("One known, low-risk file", readme)
+        self.assertIn("Normal features, integrations, multi-file work, or uncertainty", readme)
+        self.assertIn("Security, credentials, migrations, persistent data, public contracts", readme)
+        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs" / "concepts.md").read_text(encoding="utf-8"))
+        self.assertIn("artifact attestations", readme)
+        self.assertIn("not a promise that every environment or future change is risk-free", readme)
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []
