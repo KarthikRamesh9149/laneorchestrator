@@ -23,6 +23,7 @@ MAX_FILE_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
 MAX_TREE_ENTRIES = 4096
 MAX_DIRECTORY_DEPTH = 32
+MAX_AST_NODES = 100000
 TOOL_NAME = "laneorchestrator-private-static-analysis"
 
 RULES = {
@@ -274,6 +275,14 @@ def _read_source(path: Path, workspace: Path) -> str:
         raise ScannerError("source file is not UTF-8: {0}".format(path.relative_to(workspace))) from error
 
 
+def _validate_ast_work(tree: ast.AST, relative: str) -> None:
+    """Bound AST traversal before the recursive security visitor runs."""
+
+    for count, _node in enumerate(ast.walk(tree), start=1):
+        if count > MAX_AST_NODES:
+            raise ScannerError("source AST analysis exceeds configured AST node limit: {0}".format(relative))
+
+
 def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[Tuple[Finding, ...], Tuple[str, ...]]:
     workspace = (workspace or _workspace_root()).resolve()
     roots = _source_roots(sources, workspace)
@@ -284,6 +293,7 @@ def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[T
         try:
             source = _read_source(path, workspace)
             tree = ast.parse(source, filename=relative)
+            _validate_ast_work(tree, relative)
         except SyntaxError as error:
             line = getattr(error, "lineno", 1) or 1
             column = getattr(error, "offset", 1) or 1
@@ -292,7 +302,7 @@ def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[T
             ))
             scanned.append(relative)
             continue
-        except (RecursionError, SystemError, OverflowError) as error:
+        except (MemoryError, RecursionError, SystemError, OverflowError) as error:
             raise ScannerError(
                 "source AST analysis exceeded interpreter resource limits ({0}): {1}".format(
                     type(error).__name__, relative,
@@ -301,7 +311,7 @@ def analyze(sources: Sequence[str], workspace: Optional[Path] = None) -> Tuple[T
         visitor = SecurityVisitor(relative)
         try:
             visitor.visit(tree)
-        except (RecursionError, SystemError, OverflowError) as error:
+        except (MemoryError, RecursionError, SystemError, OverflowError) as error:
             raise ScannerError(
                 "source AST analysis exceeded interpreter resource limits ({0}): {1}".format(
                     type(error).__name__, relative,
@@ -361,7 +371,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         findings, scanned = analyze(args.source)
         write_sarif(output, findings, scanned)
-    except (OSError, ScannerError) as error:
+    except (MemoryError, OSError, ScannerError) as error:
         failure = Finding(
             "python/analysis-failure",
             "Private static analysis could not complete safely: {0}".format(error),

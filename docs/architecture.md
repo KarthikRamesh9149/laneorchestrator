@@ -31,4 +31,4 @@ The legacy `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/
 
 Capability descriptions and ranking results remain data. The read-only router may select a candidate for later inspection under the host's instruction hierarchy, but cannot delegate authority to metadata. Luna and optional specialists may fall back to Terra. Missing Terra pauses implementation; missing Sol pauses required high-risk planning or review.
 
-Profile and configuration changes are previewed against an exact state and only applied with a reviewed, unexpired bound token. Native Windows read-only commands are supported, while mutation is disabled; see [compatibility](compatibility.md) and [security model](security-model.md).
+Profile and configuration changes are previewed against an exact state and only applied with a reviewed, unexpired bound token and matching explicit `approve:<approval_digest>` value. Native Windows read-only commands are supported, while mutation is disabled; see [compatibility](compatibility.md) and [security model](security-model.md).

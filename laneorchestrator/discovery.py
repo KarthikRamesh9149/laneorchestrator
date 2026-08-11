@@ -12,11 +12,12 @@ import math
 import os
 import re
 import stat
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .diagnostics import CommandResult, command_result
+from .models import codex_home
 
 
 STOP_WORDS = {"a", "an", "and", "are", "for", "from", "how", "i", "in", "is", "it", "my", "of", "on", "or", "please", "the", "this", "to", "use", "with", "write"}
@@ -24,6 +25,16 @@ VENDOR_TOKENS = {"airtable", "aws", "azure", "cloudflare", "datadog", "figma", "
 GENERIC_TASK_TOKENS = {"add", "bug", "change", "check", "code", "create", "feature", "fix", "help", "implement", "issue", "make", "review", "task", "test", "update", "work"}
 GENERIC_CAPABILITY_TOKENS = {"agent", "assistant", "expert", "generic", "helper", "plan", "planning", "pro", "review", "specialist", "strategy", "test", "testing", "tool", "workflow"}
 LANE_AGENT_NAMES = {"laneorchestrator-router", "laneorchestrator-luna-executor", "laneorchestrator-terra-executor", "laneorchestrator-sol-reviewer"}
+TRUSTED_SOURCES = {"system", "plugin-cache", "user"}
+ROOT_SHARED_LIMITS = {
+    "max_skill_files",
+    "max_skill_directories",
+    "max_skill_entries",
+    "max_total_skill_bytes",
+    "max_agent_files",
+    "max_agent_entries",
+    "max_total_agent_bytes",
+}
 WORD_RE = re.compile(r"[a-z0-9]+(?:[+#]+)?")
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 TOML_FIELD_RE = re.compile(r'^\s*(name|description|model)\s*=\s*"(.*)"\s*$', re.MULTILINE)
@@ -45,6 +56,7 @@ MAX_QUERY_CHARS = 16 * 1024
 MAX_CONTEXT_ITEMS = 16
 MAX_CONTEXT_CHARS = 32 * 1024
 MAX_EXPLICIT_ROOTS = 64
+MAX_DEFAULT_ANCESTOR_ROOTS = 8
 MAX_CAPABILITY_NAME_CHARS = 128
 MAX_CAPABILITY_DESCRIPTION_CHARS = 2 * 1024
 MAX_WARNINGS = 100
@@ -126,18 +138,30 @@ def tokens(value: str) -> set:
 
 
 def source_for(root: Path) -> str:
-    value = root.expanduser().as_posix()
-    if "/.codex/skills/.system" in value:
+    root_path = Path(os.path.abspath(os.fspath(root.expanduser())))
+    home = Path(os.path.abspath(os.fspath(Path.home())))
+    configured_home = Path(os.path.abspath(os.fspath(codex_home())))
+    if _is_within(root_path, configured_home / "skills" / ".system"):
         return "system"
-    if "/.codex/plugins/cache" in value:
+    if _is_within(root_path, configured_home / "plugins" / "cache"):
         return "plugin-cache"
-    if "/.codex/skills" in value:
+    if _is_within(root_path, configured_home / "skills"):
         return "user"
-    if "/.codex/agents" in value:
+    if _is_within(root_path, configured_home / "agents"):
         return "user"
-    if "/.agents/skills" in value:
-        return "user-or-project"
+    if _is_within(root_path, home / ".agents" / "skills"):
+        return "user"
     return "project"
+
+
+def _is_within(path: Path, parent: Path) -> bool:
+    """Return whether a lexical absolute path is rooted under *parent*."""
+
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
 
 
 def _read_bounded_regular(path: Path, max_bytes: int, kind: str) -> Tuple[Optional[bytes], int, Optional[str]]:
@@ -222,11 +246,13 @@ def roots_for(cwd: Path, extra: Sequence[str], no_default_roots: bool) -> List[P
     if no_default_roots:
         roots = [Path(item).expanduser() for item in extra]
         return list(dict.fromkeys(roots))
-    roots = [directory / ".agents" / "skills" for directory in [cwd, *cwd.parents]]
+    ancestors = [cwd, *cwd.parents][:MAX_DEFAULT_ANCESTOR_ROOTS]
+    roots = [directory / ".agents" / "skills" for directory in ancestors]
     home = Path.home()
-    roots.extend([home / ".agents" / "skills", home / ".codex" / "skills", home / ".codex" / "skills" / ".system", home / ".codex" / "plugins" / "cache"])
+    configured_home = codex_home()
+    roots.extend([home / ".agents" / "skills", configured_home / "skills", configured_home / "skills" / ".system", configured_home / "plugins" / "cache"])
     roots.extend(Path(item).expanduser() for item in extra)
-    return list(dict.fromkeys(roots))
+    return list(dict.fromkeys(roots))[:MAX_EXPLICIT_ROOTS]
 
 
 def add_warning(warnings: List[str], message: str, max_warnings: int) -> None:
@@ -240,44 +266,66 @@ def _collect_skills(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
     found: Dict[str, Capability] = {}
     warnings: List[str] = []
     files_seen = total_bytes = directories_seen = entries_seen = 0
-    for root in roots:
+    prioritized_roots = _prioritized_roots(roots)
+    trusted_roots = tuple(root for root in prioritized_roots if source_for(root) in TRUSTED_SOURCES)
+    ordered_roots = trusted_roots or prioritized_roots
+    overall_limits = limits
+    for root_index, root in enumerate(ordered_roots):
+        if trusted_roots:
+            limits = _root_limits(overall_limits, len(ordered_roots), root_index)
+        else:
+            limits = replace(
+                overall_limits,
+                max_skill_files=overall_limits.max_skill_files - files_seen,
+                max_skill_directories=overall_limits.max_skill_directories - directories_seen,
+                max_skill_entries=overall_limits.max_skill_entries - entries_seen,
+                max_total_skill_bytes=overall_limits.max_total_skill_bytes - total_bytes,
+            )
         if root.is_symlink():
             add_warning(warnings, "skipped symbolic-link skill root: {0}".format(root), limits.max_warnings)
             continue
         if not root.is_dir():
             continue
+        root_files = root_bytes = root_directories = root_entries = 0
+        stopped = False
         pending = [(root, 0)]
-        while pending:
+        while pending and not stopped:
             directory, depth = pending.pop()
-            if directories_seen >= limits.max_skill_directories:
+            if root_directories >= limits.max_skill_directories:
                 add_warning(warnings, "stopped skill discovery after {0} directories".format(limits.max_skill_directories), limits.max_warnings)
-                return list(found.values()), warnings, {"skill_files": files_seen, "skill_directories": directories_seen, "skill_entries": entries_seen, "skill_bytes": total_bytes}
-            directories_seen += 1
+                stopped = True
+                continue
+            root_directories += 1
             try:
                 with os.scandir(directory) as iterator:
                     entries = []
                     for entry in iterator:
-                        if entries_seen >= limits.max_skill_entries:
+                        if root_entries >= limits.max_skill_entries:
                             add_warning(warnings, "stopped skill discovery after {0} directory entries".format(limits.max_skill_entries), limits.max_warnings)
-                            return list(found.values()), warnings, {"skill_files": files_seen, "skill_directories": directories_seen, "skill_entries": entries_seen, "skill_bytes": total_bytes}
-                        entries_seen += 1
+                            stopped = True
+                            break
+                        root_entries += 1
                         entries.append(entry)
             except OSError:
                 add_warning(warnings, "could not traverse skill directory: {0}".format(directory), limits.max_warnings)
+                continue
+            if stopped:
                 continue
             child_directories: List[Path] = []
             for entry in sorted(entries, key=lambda item: item.name):
                 path = Path(entry.path)
                 if entry.name == "SKILL.md":
-                    if files_seen >= limits.max_skill_files:
+                    if root_files >= limits.max_skill_files:
                         add_warning(warnings, "stopped skill discovery after {0} files".format(limits.max_skill_files), limits.max_warnings)
-                        return list(found.values()), warnings, {"skill_files": files_seen, "skill_directories": directories_seen, "skill_entries": entries_seen, "skill_bytes": total_bytes}
-                    if total_bytes >= limits.max_total_skill_bytes:
+                        stopped = True
+                        break
+                    if root_bytes >= limits.max_total_skill_bytes:
                         add_warning(warnings, "stopped skill discovery after {0} bytes".format(limits.max_total_skill_bytes), limits.max_warnings)
-                        return list(found.values()), warnings, {"skill_files": files_seen, "skill_directories": directories_seen, "skill_entries": entries_seen, "skill_bytes": total_bytes}
-                    capability, bytes_read, warning = read_skill(path, root, min(limits.max_skill_file_bytes, limits.max_total_skill_bytes - total_bytes), limits)
-                    files_seen += 1
-                    total_bytes += bytes_read
+                        stopped = True
+                        break
+                    capability, bytes_read, warning = read_skill(path, root, min(limits.max_skill_file_bytes, limits.max_total_skill_bytes - root_bytes), limits)
+                    root_files += 1
+                    root_bytes += bytes_read
                     if warning:
                         add_warning(warnings, "{0}: {1}".format(warning, path), limits.max_warnings)
                     if capability:
@@ -289,6 +337,10 @@ def _collect_skills(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                     add_warning(warnings, "stopped skill traversal below depth {0}: {1}".format(limits.max_skill_depth, directory), limits.max_warnings)
                 continue
             pending.extend((child, depth + 1) for child in reversed(child_directories))
+        files_seen += root_files
+        total_bytes += root_bytes
+        directories_seen += root_directories
+        entries_seen += root_entries
     return list(found.values()), warnings, {"skill_files": files_seen, "skill_directories": directories_seen, "skill_entries": entries_seen, "skill_bytes": total_bytes}
 
 
@@ -296,39 +348,58 @@ def _collect_agents(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
     found: Dict[str, Capability] = {}
     warnings: List[str] = []
     files_seen = entries_seen = total_bytes = 0
-    for root in roots:
+    prioritized_roots = _prioritized_roots(roots)
+    trusted_roots = tuple(root for root in prioritized_roots if source_for(root) in TRUSTED_SOURCES)
+    ordered_roots = trusted_roots or prioritized_roots
+    overall_limits = limits
+    for root_index, root in enumerate(ordered_roots):
+        if trusted_roots:
+            limits = _root_limits(overall_limits, len(ordered_roots), root_index)
+        else:
+            limits = replace(
+                overall_limits,
+                max_agent_files=overall_limits.max_agent_files - files_seen,
+                max_agent_entries=overall_limits.max_agent_entries - entries_seen,
+                max_total_agent_bytes=overall_limits.max_total_agent_bytes - total_bytes,
+            )
         if root.is_symlink():
             add_warning(warnings, "skipped symbolic-link agent root: {0}".format(root), limits.max_warnings)
             continue
         if not root.is_dir():
             continue
+        root_files = root_entries = root_bytes = 0
+        stopped = False
         try:
             with os.scandir(root) as iterator:
                 paths = []
                 for entry in iterator:
-                    if entries_seen >= limits.max_agent_entries:
+                    if root_entries >= limits.max_agent_entries:
                         add_warning(warnings, "stopped agent discovery after {0} directory entries".format(limits.max_agent_entries), limits.max_warnings)
-                        return list(found.values()), warnings, {"agent_files": files_seen, "agent_entries": entries_seen, "agent_bytes": total_bytes}
-                    entries_seen += 1
+                        stopped = True
+                        break
+                    root_entries += 1
                     if entry.name.endswith(".toml"):
                         paths.append(Path(entry.path))
         except OSError:
             add_warning(warnings, "could not traverse agent root: {0}".format(root), limits.max_warnings)
             continue
-        for path in sorted(paths):
-            if files_seen >= limits.max_agent_files:
+        for path in sorted(paths) if not stopped else ():
+            if root_files >= limits.max_agent_files:
                 add_warning(warnings, "stopped agent discovery after {0} files".format(limits.max_agent_files), limits.max_warnings)
-                return list(found.values()), warnings, {"agent_files": files_seen, "agent_entries": entries_seen, "agent_bytes": total_bytes}
-            if total_bytes >= limits.max_total_agent_bytes:
+                break
+            if root_bytes >= limits.max_total_agent_bytes:
                 add_warning(warnings, "stopped agent discovery after {0} bytes".format(limits.max_total_agent_bytes), limits.max_warnings)
-                return list(found.values()), warnings, {"agent_files": files_seen, "agent_entries": entries_seen, "agent_bytes": total_bytes}
-            capability, bytes_read, warning = read_agent(path, root, min(limits.max_agent_file_bytes, limits.max_total_agent_bytes - total_bytes), limits)
-            files_seen += 1
-            total_bytes += bytes_read
+                break
+            capability, bytes_read, warning = read_agent(path, root, min(limits.max_agent_file_bytes, limits.max_total_agent_bytes - root_bytes), limits)
+            root_files += 1
+            root_bytes += bytes_read
             if warning:
                 add_warning(warnings, "{0}: {1}".format(warning, path), limits.max_warnings)
             if capability:
                 found[capability.path] = capability
+        files_seen += root_files
+        entries_seen += root_entries
+        total_bytes += root_bytes
     return list(found.values()), warnings, {"agent_files": files_seen, "agent_entries": entries_seen, "agent_bytes": total_bytes}
 
 
@@ -346,7 +417,7 @@ def collect(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[List[Capabi
 
 def rank(query: str, capabilities: Sequence[Capability], context: Sequence[str]) -> List[Capability]:
     """Rank metadata deterministically as text, retaining transparent matches."""
-    items = list(capabilities)
+    items = [item for item in capabilities if item.source in TRUSTED_SOURCES]
     query_tokens, phrase = tokens(query), query.lower().strip()
     context_tokens = tokens(" ".join(context)) - query_tokens
     selection_tokens = query_tokens | context_tokens
@@ -413,6 +484,36 @@ def _validate_limits(limits: DiscoveryLimits) -> None:
             raise ValueError("{0} must be between 0 and {1}".format(item.name, maximum))
 
 
+def _root_limits(limits: DiscoveryLimits, root_count: int, root_index: int) -> DiscoveryLimits:
+    """Allocate each global discovery limit deterministically across roots."""
+
+    if root_count <= 0:
+        return limits
+    values: Dict[str, int] = {}
+    for item in fields(DiscoveryLimits):
+        total = getattr(limits, item.name)
+        if item.name in ROOT_SHARED_LIMITS:
+            base, remainder = divmod(total, root_count)
+            values[item.name] = base + (1 if root_index < remainder else 0)
+        else:
+            values[item.name] = total
+    return DiscoveryLimits(**values)
+
+
+def _prioritized_roots(roots: Sequence[Path]) -> Tuple[Path, ...]:
+    """Visit provenance-eligible roots before untrusted roots without reordering peers."""
+
+    indexed = enumerate(Path(root).expanduser() for root in roots)
+    return tuple(
+        root for _index, root in sorted(
+            indexed,
+            key=lambda pair: (source_for(pair[1]) not in TRUSTED_SOURCES, pair[0]),
+        )
+    )
+
+
+
+
 def _validate_roots(roots: Sequence[Path], limits: DiscoveryLimits) -> None:
     """Reject an unbounded root set before any path is materialized or read."""
     if len(roots) > limits.max_explicit_roots:
@@ -454,10 +555,16 @@ def result_limit(value: str) -> int:
     return count
 
 
-def _legacy_payload(query: str, context: Sequence[str], cwd: Path, capabilities: Sequence[Capability], warnings: Sequence[str], top_skills: int, top_agents: int, unscoped_high_risk: bool) -> Dict[str, object]:
+def _legacy_payload(query: str, context: Sequence[str], cwd: Path, capabilities: Sequence[Capability], warnings: Sequence[str], top_skills: int, top_agents: int, unscoped_high_risk: bool, canonical_agents_root: Optional[Path] = None) -> Dict[str, object]:
     skills = rank(query, [item for item in capabilities if item.kind == "skill"], context)
     discovered_agents = [item for item in capabilities if item.kind == "agent"]
-    lane_agents = sorted((item for item in discovered_agents if item.name in LANE_AGENT_NAMES), key=lambda item: item.name)
+    lane_agents = sorted(
+        (
+            item for item in discovered_agents
+            if _is_canonical_lane_agent(item, canonical_agents_root)
+        ),
+        key=lambda item: item.name,
+    )
     agents = rank(query, discovered_agents, context)
     if unscoped_high_risk:
         skills, agents = [], []
@@ -480,6 +587,19 @@ def _legacy_payload(query: str, context: Sequence[str], cwd: Path, capabilities:
     }
 
 
+def _is_canonical_lane_agent(item: Capability, canonical_agents_root: Optional[Path]) -> bool:
+    """Require a reserved role to come from its canonical managed path."""
+
+    if canonical_agents_root is None or item.kind != "agent" or item.name not in LANE_AGENT_NAMES:
+        return False
+    root = Path(os.path.abspath(os.fspath(canonical_agents_root.expanduser())))
+    path = Path(os.path.abspath(item.path))
+    if path.parent != root or path.name != item.name + ".toml":
+        return False
+    data, _bytes_read, _warning = _read_bounded_regular(path, MAX_AGENT_FILE_BYTES, "agent")
+    return data is not None and data.startswith(b"# managed-by: laneorchestrator ")
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the established catalog CLI, retaining its v1 JSON contract."""
     parser = argparse.ArgumentParser(description="Discover and rank local Codex skills and custom agents without dependencies.")
@@ -497,7 +617,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         parser.error("explicit roots must not exceed {0} per capability type".format(MAX_EXPLICIT_ROOTS))
     cwd = Path(args.cwd).resolve()
     skill_roots = roots_for(cwd, args.skills_root, args.no_default_roots)
-    agent_roots = list(dict.fromkeys(Path(item).expanduser() for item in args.agents_root)) or [Path.home() / ".codex" / "agents"]
+    managed_agents_root = codex_home() / "agents"
+    agent_roots = list(dict.fromkeys(Path(item).expanduser() for item in args.agents_root)) or [managed_agents_root]
     if not args.query.strip():
         parser.error("--query must not be blank")
     if len(args.query) > MAX_QUERY_CHARS:
@@ -511,6 +632,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     skills, skill_warnings, _ = _collect_skills(skill_roots, DEFAULT_LIMITS)
     agents, agent_warnings, _ = _collect_agents(agent_roots, DEFAULT_LIMITS)
     capabilities = skills + agents
-    payload = _legacy_payload(args.query, args.context, cwd, capabilities, skill_warnings + agent_warnings, args.top_skills, args.top_agents, args.unscoped_high_risk)
+    payload = _legacy_payload(args.query, args.context, cwd, capabilities, skill_warnings + agent_warnings, args.top_skills, args.top_agents, args.unscoped_high_risk, managed_agents_root)
     print(json.dumps(payload, indent=2))
     return 0

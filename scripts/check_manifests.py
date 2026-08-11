@@ -4,11 +4,25 @@
 from __future__ import annotations
 
 import argparse
-import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Any, List, Sequence
+
+if __package__ in (None, ""):
+    sys.path.insert(0, os.fspath(Path(__file__).resolve().parents[1]))
+
+from laneorchestrator.security import (
+    DuplicateJSONKeyError,
+    SecurityError,
+    parse_json_object,
+    read_regular_nofollow,
+)
+
+
+MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 def _safe_path(value: object, allow_dot: bool = False) -> bool:
@@ -27,10 +41,14 @@ def _safe_path(value: object, allow_dot: bool = False) -> bool:
 
 def _load(root: Path, relative: str, errors: List[str]) -> Any:
     try:
-        return json.loads((root / relative).read_text(encoding="utf-8"))
+        return parse_json_object(
+            read_regular_nofollow(root / relative, MAX_MANIFEST_BYTES).decode("utf-8")
+        )
     except FileNotFoundError:
         errors.append("{0}: missing".format(relative))
-    except (OSError, json.JSONDecodeError):
+    except DuplicateJSONKeyError as error:
+        errors.append("{0}: {1}".format(relative, error))
+    except (OSError, SecurityError, UnicodeError, ValueError):
         errors.append("{0}: invalid JSON".format(relative))
     return None
 

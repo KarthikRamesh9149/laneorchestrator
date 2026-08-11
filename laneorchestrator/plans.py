@@ -41,6 +41,7 @@ from laneorchestrator.security import (
 SCHEMA_VERSION = 1
 PLAN_TTL_SECONDS = 600
 MAX_PLAN_BYTES = 1024 * 1024
+MAX_JSON_NESTING = 64
 
 _TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
 _HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -67,6 +68,55 @@ T = TypeVar("T")
 
 class PlanError(SecurityError):
     """Raised when a mutation plan is invalid, unsafe, expired, or consumed."""
+
+
+def validate_json_nesting(content: bytes, *, limit: int = MAX_JSON_NESTING) -> None:
+    """Reject structurally over-nested JSON before CPython can recurse."""
+
+    if not isinstance(content, bytes):
+        raise PlanError("JSON content must be bytes")
+    depth = 0
+    quoted = False
+    escaped = False
+    for byte in content:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif byte == ord("\\"):
+                escaped = True
+            elif byte == ord('"'):
+                quoted = False
+            continue
+        if byte == ord('"'):
+            quoted = True
+        elif byte in (ord("["), ord("{")):
+            depth += 1
+            if depth > limit:
+                raise PlanError("JSON nesting exceeds {0}".format(limit))
+        elif byte in (ord("]"), ord("}")):
+            depth -= 1
+            if depth < 0:
+                return
+
+
+def approval_digest(plan: "MutationPlan") -> str:
+    """Return the exact review digest a host must bind to human approval."""
+
+    payload = {
+        "action": plan.kind,
+        "expires_at": plan.expires_at,
+        "state_fingerprint": plan.state_fingerprint,
+        "targets": sorted(operation.path for operation in plan.operations),
+    }
+    return hashlib.sha256(_canonical_json_bytes(payload)).hexdigest()
+
+
+def _validate_approval_event(approval: object, plan: "MutationPlan") -> None:
+    """Require an independently supplied host approval for this exact preview."""
+
+    expected = "approve:" + approval_digest(plan)
+    if not isinstance(approval, str) or not secrets.compare_digest(approval, expected):
+        raise PlanError("plan requires an explicit approval event for this preview")
 
 
 @dataclass(frozen=True)
@@ -208,6 +258,7 @@ def _require_exact_keys(document: Dict[str, Any], expected: frozenset, label: st
 
 def _decode_plan(content: bytes) -> MutationPlan:
     try:
+        validate_json_nesting(content)
         document = json.loads(
             content.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
         )
@@ -500,6 +551,7 @@ def consume_plan(
     expected_kind: str,
     plans_root: Path,
     apply: Callable[[MutationPlan], T],
+    approval: Optional[str] = None,
     now: Optional[int] = None,
 ) -> T:
     """Durably consume a valid plan before invoking ``apply`` exactly once."""
@@ -513,6 +565,7 @@ def consume_plan(
     plan_path = _plan_path_for_token(token, root)
     with _locked_plans_root(root) as (parent_fd, _lock_fd):
         plan = _load_plan_locked(token, expected_kind, root, current_time)
+        _validate_approval_event(approval, plan)
         try:
             atomic_private_write(
                 _consumed_path_for_plan(plan_path), _CONSUMED_CONTENT, mode=0o600

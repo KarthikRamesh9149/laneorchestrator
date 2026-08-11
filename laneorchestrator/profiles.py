@@ -15,7 +15,7 @@ from typing import Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from .config import MAX_CONFIG_BYTES, serialize_config
 from .diagnostics import CommandResult, command_result
 from .models import EffectiveConfig, LOGICAL_ROLES
-from .plans import MutationPlan, Operation, PlanError, consume_plan, create_plan
+from .plans import MutationPlan, Operation, PlanError, approval_digest, consume_plan, create_plan, load_plan, validate_json_nesting
 from .security import (
     SecurityError,
     close_private_lock,
@@ -87,7 +87,7 @@ If Luna or an optional specialist is unavailable, fall back to Terra / High and 
         "small_task_executor",
         "laneorchestrator-luna-executor",
         "Use only for router-approved, tightly scoped, low-risk tasks in one known area with explicit acceptance criteria.",
-        "workspace-write",
+        "read-only",
         """Implement only the router-approved task packet. Keep changes small, test the stated acceptance criteria, and report exact files changed.
 
 Stop and return the packet to Terra if the task expands beyond one known area or touches a public API, schema, auth, security, payments, persistent data, migration, concurrency, deployment, or external system. Never make external, destructive, costly, or scope-expanding actions without the parent obtaining the required approval.""",
@@ -445,10 +445,13 @@ def _load_receipt(content: Optional[bytes], agents_root: Path) -> Optional[Mappi
     if content is None:
         return None
     try:
+        validate_json_nesting(content)
         value = json.loads(content.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys)
+    except PlanError as error:
+        raise ProfileConflict("receipt JSON nesting is unsafe") from error
     except ProfileConflict:
         raise
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as error:
         raise ProfileConflict("receipt is malformed") from error
     if not isinstance(value, dict) or frozenset(value) != _RECEIPT_KEYS:
         raise ProfileConflict("receipt schema is invalid")
@@ -806,6 +809,7 @@ def preview_profiles(
             "action": action,
             "change_count": change_count,
             "expires_in_seconds": 600,
+            "approval_digest": approval_digest(load_plan(token, "profiles.{0}".format(action), plans_root, now=now)),
             "phase": "preview",
             "profiles": list(PROFILE_NAMES),
             "token": token,
@@ -1078,6 +1082,7 @@ def apply_profiles(
     token: str,
     agents_root: Path,
     state_root: Path,
+    approval: Optional[str] = None,
     now: Optional[int] = None,
 ) -> CommandResult:
     """Consume and apply one exact profile preview token."""
@@ -1092,6 +1097,7 @@ def apply_profiles(
             "profiles.{0}".format(action),
             plans_root,
             lambda plan: _apply_plan(plan, action, agents, state),
+            approval=approval,
             now=now,
         )
     except ProfileConflict:

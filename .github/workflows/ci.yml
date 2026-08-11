@@ -58,8 +58,8 @@ jobs:
           tests.test_routing_matrix tests.test_routes
           tests.test_plugin_manifests tests.test_repository
 
-  release-evidence:
-    name: Verify release evidence
+  candidate-evidence:
+    name: Verify candidate distribution
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -73,7 +73,7 @@ jobs:
           python-version: "3.14"
       - name: Generate benchmark evidence
         run: python -m laneorchestrator benchmark --json > "$RUNNER_TEMP/benchmark.json"
-      - name: Build and verify release assets
+      - name: Build and verify candidate assets
         id: release-assets
         run: |
           version="$(python -c 'from laneorchestrator import __version__; print(__version__)')"
@@ -84,7 +84,7 @@ jobs:
           test -f "$RUNNER_TEMP/release/$tar"
           test -f "$RUNNER_TEMP/release/$zip"
           printf 'tar=%s\nzip=%s\nsums=SHA256SUMS\n' "$tar" "$zip" >> "$GITHUB_OUTPUT"
-      - name: Upload verified benchmark evidence
+      - name: Upload candidate benchmark evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: benchmark-${{ github.sha }}-${{ github.run_id }}
@@ -92,10 +92,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           include-hidden-files: false
-      - name: Upload verified release evidence
+      - name: Upload candidate distribution assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-assets-${{ github.sha }}-${{ github.run_id }}
+          name: candidate-assets-${{ github.sha }}-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/release/${{ steps.release-assets.outputs.tar }}
             ${{ runner.temp }}/release/${{ steps.release-assets.outputs.zip }}

@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-verify:
+  quality-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -26,14 +26,36 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      - name: Assert immutable tag and version agreement
+      - name: Run required CI and security gates
+        run: sh scripts/validate.sh
+
+  build-and-verify:
+    needs: quality-gates
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Assert protected annotated tag and version agreement
         shell: bash
         run: |
           test "${GITHUB_REF_TYPE}" = tag
           printf '%s' "${GITHUB_REF_NAME}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
           version=$(python -c 'from laneorchestrator import __version__; print(__version__)')
           test "${GITHUB_REF_NAME}" = "v${version}"
-          test "$(git rev-list -n 1 "${GITHUB_REF_NAME}")" = "${GITHUB_SHA}"
+          git cat-file -e "${GITHUB_REF}^{tag}"
+          test "$(git rev-parse "${GITHUB_REF}^{}")" = "${GITHUB_SHA}"
       - name: Build and verify release assets
         id: release-assets
         run: |
@@ -45,6 +67,10 @@ jobs:
           test -f "$RUNNER_TEMP/release/$tar"
           test -f "$RUNNER_TEMP/release/$zip"
           printf 'tar=%s\nzip=%s\nsums=SHA256SUMS\n' "$tar" "$zip" >> "$GITHUB_OUTPUT"
+      - name: Attest immutable release assets
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-checksums: ${{ runner.temp }}/release/SHA256SUMS
       - name: Upload verified release evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

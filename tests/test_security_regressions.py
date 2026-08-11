@@ -28,17 +28,37 @@ from laneorchestrator.plans import (
     MAX_PLAN_BYTES,
     PLAN_TTL_SECONDS,
     PlanError,
-    consume_plan,
+    approval_digest,
+    consume_plan as _consume_plan,
     create_plan,
     load_plan,
 )
 from laneorchestrator.models import EffectiveConfig, RoleConfig
-from laneorchestrator.profiles import PROFILE_NAMES, ProfileConflict, apply_profiles, preview_profiles, render_profiles
+from laneorchestrator.profiles import PROFILE_NAMES, ProfileConflict, apply_profiles as _apply_profiles, preview_profiles, render_profiles
 from laneorchestrator.routing import HIGH_RISK_PHRASES, HIGH_RISK_TERMS, RouteFacts, recommend_route
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "security"
+
+
+def consume_plan(token, expected_kind, plans_root, apply, now=None):
+    plan = load_plan(token, expected_kind, plans_root, now=now)
+    return _consume_plan(
+        token, expected_kind, plans_root, apply,
+        approval="approve:" + approval_digest(plan), now=now,
+    )
+
+
+def apply_profiles(action, token, agents_root, state_root, now=None):
+    try:
+        plan = load_plan(token, "profiles.{0}".format(action), Path(state_root) / "plans", now=now)
+    except PlanError:
+        return _apply_profiles(action, token, agents_root, state_root, now=now)
+    return _apply_profiles(
+        action, token, agents_root, state_root,
+        approval="approve:" + approval_digest(plan), now=now,
+    )
 
 
 class SecurityRegressionTests(unittest.TestCase):
@@ -192,8 +212,7 @@ class SecurityRegressionTests(unittest.TestCase):
         names = [item["name"] for item in data["capabilities"]]
         high_risk = recommend_route(RouteFacts("rotate OAuth2 token", True, True, 1, "low"))
 
-        self.assertEqual(names[0], "python-parser")
-        self.assertIn("priority-override", names)
+        self.assertEqual(names, [])
         self.assertNotIn("instruction", data)
         self.assertEqual(high_risk["lane"], "sol-plan-terra-sol-review")
         self.assertLessEqual(data["counters"]["skill_bytes"], data["limits"]["max_total_skill_bytes"])

@@ -22,4 +22,4 @@ Discovery reads bounded metadata from configured skill and agent roots, skips sy
 
 ## Preview and apply
 
-Configuration and profile operations use a preview followed by an explicit, short-lived bound token. Preview is not a mutation at the destination. An apply must match the reviewed state; changed, expired, or replayed plans fail safely. Details and recovery steps are in [configuration](configuration.md).
+Configuration and profile operations use a preview followed by an explicit, short-lived bound token and matching `approve:<approval_digest>` value. Preview is not a mutation at the destination. An apply must match the reviewed state; changed, expired, or replayed plans fail safely. Details and recovery steps are in [configuration](configuration.md).

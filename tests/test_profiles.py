@@ -14,17 +14,25 @@ from unittest import mock
 from laneorchestrator.config import DEFAULT_ROLES, load_config, serialize_config
 from laneorchestrator.diagnostics import render_json
 from laneorchestrator.models import EffectiveConfig, RoleConfig
-from laneorchestrator.plans import Operation, create_plan
+from laneorchestrator.plans import Operation, approval_digest, create_plan, load_plan
 import laneorchestrator.profiles as profiles_module
 from laneorchestrator.profiles import (
     PROFILE_NAMES,
     ProfileConflict,
-    apply_profiles,
+    apply_profiles as _apply_profiles,
     inspect_profiles,
     preview_profiles,
     render_profile,
     render_profiles,
 )
+
+
+def apply_profiles(action, token, agents_root, state_root, now=None):
+    plan = load_plan(token, "profiles.{0}".format(action), Path(state_root) / "plans", now=now)
+    return _apply_profiles(
+        action, token, agents_root, state_root,
+        approval="approve:" + approval_digest(plan), now=now,
+    )
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "profiles" / "v0.1.0"
@@ -83,6 +91,10 @@ class ProfileRenderingTests(unittest.TestCase):
         self.assertNotEqual(changed[PROFILE_NAMES[0]], rendered[PROFILE_NAMES[0]])
         for name in PROFILE_NAMES[1:]:
             self.assertEqual(changed[name], rendered[name])
+
+    def test_luna_profile_is_read_only_at_the_host_boundary(self) -> None:
+        rendered = render_profiles(EffectiveConfig(1, DEFAULT_ROLES, "defaults"))
+        self.assertIn(b'sandbox_mode = "read-only"', rendered["laneorchestrator-luna-executor.toml"])
 
     def test_unknown_profile_and_incomplete_config_are_rejected(self) -> None:
         config = load_config(Path("/definitely/missing/laneorchestrator-state"))
@@ -286,6 +298,14 @@ class ProfileLifecycleTests(unittest.TestCase):
         )
         receipt_path.write_text(duplicate_json, encoding="utf-8")
         with self.assertRaisesRegex(ProfileConflict, "duplicate"):
+            preview_profiles("update", self.config, self.agents, self.state, now=200)
+
+    def test_deeply_nested_receipt_is_a_domain_failure_not_recursion_error(self) -> None:
+        self._preview_apply("install")
+        receipt_path = self.state / "receipts.json"
+        receipt_path.write_bytes((b"[" * 1200) + b"0" + (b"]" * 1200))
+        receipt_path.chmod(0o600)
+        with self.assertRaisesRegex(ProfileConflict, "receipt.*nesting"):
             preview_profiles("update", self.config, self.agents, self.state, now=200)
 
     def test_noop_plans_still_bind_receipt_bytes(self) -> None:

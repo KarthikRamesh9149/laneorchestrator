@@ -25,6 +25,16 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Dict, Iterable, List, Sequence, Tuple
 
+if __package__ in (None, ""):
+    sys.path.insert(0, os.fspath(Path(__file__).resolve().parents[1]))
+
+from laneorchestrator.security import (
+    DuplicateJSONKeyError,
+    SecurityError,
+    parse_json_object,
+    read_regular_nofollow,
+)
+
 
 RELEASE_FILES = (
     "CHANGELOG.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "LICENSE",
@@ -72,16 +82,22 @@ def release_version(root: Path) -> str:
 
     root = _release_root(root)
     try:
-        package = (root / "laneorchestrator" / "__init__.py").read_text(encoding="utf-8")
+        package = read_regular_nofollow(
+            root / "laneorchestrator" / "__init__.py", MAX_MEMBER_BYTES
+        ).decode("utf-8")
         match = _VERSION.search(package)
         if match is None:
             raise ReleaseError("laneorchestrator/__init__.py: version is missing")
         version = match.group(1)
         for name in ("plugin.json", ".codex-plugin/plugin.json"):
-            payload = json.loads((root / name).read_text(encoding="utf-8"))
+            payload = parse_json_object(
+                read_regular_nofollow(root / name, MAX_MEMBER_BYTES).decode("utf-8")
+            )
             if not isinstance(payload, dict) or payload.get("version") != version:
                 raise ReleaseError("{0}: version does not equal package version".format(name))
-    except (OSError, json.JSONDecodeError) as error:
+    except DuplicateJSONKeyError as error:
+        raise ReleaseError(str(error)) from error
+    except (OSError, SecurityError, UnicodeError, ValueError) as error:
         raise ReleaseError("could not load release version") from error
     return version
 
@@ -190,14 +206,45 @@ def archive_members(root: Path) -> List[Path]:
     trees: List[Path] = []
     for tree in RELEASE_TREES:
         source = root / tree
-        if not source.is_dir() or source.is_symlink():
+        try:
+            source_metadata = os.lstat(source)
+        except OSError as error:
+            raise ReleaseError("release tree is missing or unsafe: {0}".format(tree)) from error
+        if stat.S_ISLNK(source_metadata.st_mode) or not stat.S_ISDIR(source_metadata.st_mode):
             raise ReleaseError("release tree is missing or unsafe: {0}".format(tree))
-        for path in sorted(source.rglob("*"), key=lambda item: item.as_posix()):
-            if tree == "docs" and "superpowers" in path.relative_to(source).parts:
-                continue
-            if "__pycache__" in path.parts or path.suffix == ".pyc":
-                continue
-            trees.append(path)
+        pending = [source]
+        traversed = 0
+        while pending:
+            directory = pending.pop()
+            entries = []
+            try:
+                with os.scandir(directory) as stream:
+                    for entry in stream:
+                        traversed += 1
+                        if traversed > MAX_MEMBERS:
+                            raise ReleaseError("release tree traversal exceeds member limit")
+                        path = Path(entry.path)
+                        relative_parts = path.relative_to(source).parts
+                        if tree == "docs" and "superpowers" in relative_parts:
+                            continue
+                        try:
+                            metadata = entry.stat(follow_symlinks=False)
+                        except OSError as error:
+                            raise ReleaseError("could not inspect release tree member") from error
+                        if stat.S_ISLNK(metadata.st_mode):
+                            raise ReleaseError("release tree contains symbolic link")
+                        if stat.S_ISDIR(metadata.st_mode):
+                            entries.append((entry.name, path, True))
+                        elif stat.S_ISREG(metadata.st_mode):
+                            if "__pycache__" not in path.parts and path.suffix != ".pyc":
+                                trees.append(path)
+                        else:
+                            raise ReleaseError("release tree contains non-regular member")
+            except OSError as error:
+                raise ReleaseError("could not traverse release tree") from error
+            for _name, path, is_directory in reversed(sorted(entries, key=lambda item: item[0])):
+                if is_directory:
+                    pending.append(path)
     members = validate_release_members(root, explicit + trees)
     if len(members) > MAX_MEMBERS:
         raise ReleaseError("release has too many members")

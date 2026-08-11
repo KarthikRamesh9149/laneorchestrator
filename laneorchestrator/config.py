@@ -19,7 +19,7 @@ from .models import (
     is_valid_reasoning_effort,
 )
 from .diagnostics import CommandResult, command_result
-from .plans import MutationPlan, Operation, PlanError, consume_plan, create_plan
+from .plans import MutationPlan, Operation, PlanError, approval_digest, consume_plan, create_plan, load_plan, validate_json_nesting
 from .security import (
     SecurityError,
     close_private_lock,
@@ -43,6 +43,7 @@ CONFIG_NAME = "config.json"
 PLANS_DIRECTORY = "plans"
 CONFIG_PLAN_KIND = "configure"
 MAX_CONFIG_SETS = 8
+MAX_CONFIG_NESTING = 64
 
 DEFAULT_ROLES = {
     "router": RoleConfig("gpt-5.6-sol", "high"),
@@ -77,12 +78,15 @@ def parse_config_bytes(content: bytes) -> object:
     if not isinstance(content, bytes):
         raise ConfigError("configuration content must be bytes")
     try:
+        validate_json_nesting(content, limit=MAX_CONFIG_NESTING)
         return json.loads(
             content.decode("utf-8"),
             object_pairs_hook=reject_duplicate_pairs,
             parse_constant=_reject_json_constant,
         )
-    except UnicodeDecodeError as error:
+    except PlanError as error:
+        raise ConfigError("configuration JSON nesting exceeds {0}".format(MAX_CONFIG_NESTING)) from error
+    except (UnicodeDecodeError, RecursionError) as error:
         raise ConfigError("configuration must be UTF-8") from error
     except json.JSONDecodeError as error:
         raise ConfigError("configuration is not valid JSON") from error
@@ -100,9 +104,11 @@ def _is_secret_like_key(key: str) -> bool:
     )
 
 
-def _validate_safe_values(value: object) -> None:
+def _validate_safe_values(value: object, depth: int = 0) -> None:
     """Reject unsafe strings and credential-shaped keys before schema handling."""
 
+    if depth > MAX_CONFIG_NESTING:
+        raise ConfigError("configuration nesting exceeds {0}".format(MAX_CONFIG_NESTING))
     if isinstance(value, str):
         if len(value) > MAX_VALUE_CHARS:
             raise ConfigError("configuration string exceeds {0} characters".format(MAX_VALUE_CHARS))
@@ -113,14 +119,14 @@ def _validate_safe_values(value: object) -> None:
         for key, nested in value.items():
             if not isinstance(key, str):
                 raise ConfigError("configuration object keys must be strings")
-            _validate_safe_values(key)
+            _validate_safe_values(key, depth + 1)
             if _is_secret_like_key(key):
                 raise ConfigError("configuration must not contain secret-like keys")
-            _validate_safe_values(nested)
+            _validate_safe_values(nested, depth + 1)
         return
     if isinstance(value, (list, tuple)):
         for nested in value:
-            _validate_safe_values(nested)
+            _validate_safe_values(nested, depth + 1)
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -384,6 +390,7 @@ def preview_config(
             "before_sha256": None if before is None else _sha256(before),
             "destination": os.fspath(destination),
             "expires_in_seconds": 600,
+            "approval_digest": approval_digest(load_plan(token, CONFIG_PLAN_KIND, plans_root, now=now)),
             "phase": "preview",
             "settings": sorted(changes),
             "token": token,
@@ -487,7 +494,7 @@ def _apply_config_plan(plan: MutationPlan, state_root: Path) -> CommandResult:
 
 
 def apply_config(
-    token: str, state_root: Path, now: Optional[int] = None
+    token: str, state_root: Path, approval: Optional[str] = None, now: Optional[int] = None
 ) -> CommandResult:
     """Consume and apply an unchanged, unexpired configuration plan."""
 
@@ -498,6 +505,7 @@ def apply_config(
             CONFIG_PLAN_KIND,
             state / PLANS_DIRECTORY,
             lambda plan: _apply_config_plan(plan, state),
+            approval=approval,
             now=now,
         )
     except (PlanError, ConfigError):

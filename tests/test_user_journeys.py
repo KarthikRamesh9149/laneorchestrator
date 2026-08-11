@@ -105,8 +105,13 @@ class UserJourneyTests(unittest.TestCase):
     def preview_apply(self, action: str) -> dict[str, Any]:
         preview = self.run_cli("profiles", action, "preview", "--json")
         self.assertEqual(preview.returncode, 0, preview.stderr)
-        token = self.payload(preview)["data"]["token"]
-        applied = self.run_cli("profiles", action, "apply", "--token", token, "--json")
+        preview_data = self.payload(preview)["data"]
+        token = preview_data["token"]
+        approval = "approve:" + preview_data["approval_digest"]
+        applied = self.run_cli(
+            "profiles", action, "apply", "--token", token,
+            "--approval", approval, "--json",
+        )
         self.assertEqual(applied.returncode, 0, applied.stderr)
         self.assertNotIn(token, applied.stdout + applied.stderr)
         return self.payload(applied)
@@ -183,9 +188,17 @@ class UserJourneyTests(unittest.TestCase):
             "configure", "preview", "--set", "router.reasoning_effort=ultra", "--json"
         )
         self.assertEqual(preview.returncode, 0, preview.stderr)
-        token = self.payload(preview)["data"]["token"]
-        applied = self.run_cli("configure", "apply", "--token", token, "--json")
-        replay = self.run_cli("configure", "apply", "--token", token, "--json")
+        preview_data = self.payload(preview)["data"]
+        token = preview_data["token"]
+        approval = "approve:" + preview_data["approval_digest"]
+        applied = self.run_cli(
+            "configure", "apply", "--token", token,
+            "--approval", approval, "--json",
+        )
+        replay = self.run_cli(
+            "configure", "apply", "--token", token,
+            "--approval", approval, "--json",
+        )
         self.assertEqual(applied.returncode, 0, applied.stderr)
         self.assertEqual(replay.returncode, 1)
         self.assertEqual(self.payload(replay)["errors"][0]["code"], "PLAN_CONSUMED")
@@ -198,8 +211,13 @@ class UserJourneyTests(unittest.TestCase):
         self.install_profiles()
         previous = (self.agents / "laneorchestrator-router.toml").read_bytes()
         preview = self.run_cli("configure", "preview", "--set", "router.model=journey-router", "--json")
-        token = self.payload(preview)["data"]["token"]
-        self.assertEqual(self.run_cli("configure", "apply", "--token", token, "--json").returncode, 0)
+        preview_data = self.payload(preview)["data"]
+        token = preview_data["token"]
+        approval = "approve:" + preview_data["approval_digest"]
+        self.assertEqual(self.run_cli(
+            "configure", "apply", "--token", token,
+            "--approval", approval, "--json",
+        ).returncode, 0)
         self.preview_apply("update")
         receipt = json.loads((self.state / "receipts.json").read_text())
         entry = next(item for item in receipt["profiles"] if item["name"] == "laneorchestrator-router.toml")
@@ -223,8 +241,13 @@ class UserJourneyTests(unittest.TestCase):
     def test_safe_uninstall_preserves_unrelated_file_and_configuration(self) -> None:
         self.install_profiles()
         preview = self.run_cli("configure", "preview", "--set", "router.model=uninstall-router", "--json")
-        token = self.payload(preview)["data"]["token"]
-        self.assertEqual(self.run_cli("configure", "apply", "--token", token, "--json").returncode, 0)
+        preview_data = self.payload(preview)["data"]
+        token = preview_data["token"]
+        approval = "approve:" + preview_data["approval_digest"]
+        self.assertEqual(self.run_cli(
+            "configure", "apply", "--token", token,
+            "--approval", approval, "--json",
+        ).returncode, 0)
         unrelated = self.agents / "third-party.toml"
         unrelated.write_bytes(b"name = 'third-party'\n")
         config = (self.state / "config.json").read_bytes()

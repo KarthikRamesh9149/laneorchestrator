@@ -9,8 +9,12 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_NAME = "laneorchestrator"
 PLUGIN_VERSION = "0.2.0"
-PUBLIC_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main",
+SKILL_COMMANDS = (
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0",
+    "codex plugin add laneorchestrator@laneorchestrator",
+)
+README_COMMANDS = (
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 
@@ -89,9 +93,9 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_skill_documents_exact_public_commands_and_safe_first_run(self) -> None:
         skill = (ROOT / "skills/laneorchestrator/SKILL.md").read_text(encoding="utf-8")
-        self.assertEqual(re.findall(r"^codex plugin .+$", skill, re.MULTILINE), list(PUBLIC_COMMANDS))
+        self.assertEqual(re.findall(r"^codex plugin .+$", skill, re.MULTILINE), list(SKILL_COMMANDS))
         self.assertLess(skill.index("python3 -m laneorchestrator doctor --json"), skill.index("python3 -m laneorchestrator profiles install preview --json"))
-        self.assertIn("profiles install apply --token <bound-token> --json", skill)
+        self.assertIn("profiles install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
         self.assertIn("never apply", skill.lower())
         self.assertIn("Third-party agent packs are optional", skill)
         self.assertIn("missing Terra", skill)
@@ -103,8 +107,9 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_readme_uses_only_the_supported_marketplace_and_token_flow(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn(PUBLIC_COMMANDS[0], readme)
-        self.assertIn(PUBLIC_COMMANDS[1], readme)
+        self.assertIn(README_COMMANDS[0], readme)
+        self.assertIn(README_COMMANDS[1], readme)
+        self.assertNotIn("--ref main", readme)
         self.assertNotIn("sh scripts/install-agents.sh", readme)
         self.assertIn("doctor", readme)
         self.assertIn("preview", readme)

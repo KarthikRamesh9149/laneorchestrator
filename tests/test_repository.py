@@ -62,7 +62,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("windows-latest", ci)
         self.assertIn('python: ["3.9", "3.14"]', ci)
         self.assertIn("windows-control-plane", ci)
-        windows_partition = ci.split("windows-control-plane:", 1)[1].split("release-evidence:", 1)[0]
+        windows_partition = ci.split("windows-control-plane:", 1)[1].split("candidate-evidence:", 1)[0]
         self.assertNotIn("sh scripts/validate.sh", windows_partition)
         for posix_suite in ("tests.test_release_tools", "tests.test_security_primitives", "tests.test_profiles", "tests.test_installer"):
             self.assertNotIn(posix_suite, windows_partition)
@@ -72,6 +72,16 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("timeout-minutes: 10", ci)
+        release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        self.assertIn("quality-gates:", release)
+        self.assertIn("needs: quality-gates", release)
+        self.assertIn("sh scripts/validate.sh", release)
+        self.assertIn("attestations: write", release)
+        self.assertIn("id-token: write", release)
+        self.assertRegex(release, r"actions/attest@[0-9a-f]{40}\s+# v4\.2\.0")
+        self.assertIn("subject-checksums:", release)
+        self.assertNotIn("release-assets-${{ github.sha }}-${{ github.run_id }}", ci)
+        self.assertIn("candidate-assets-${{ github.sha }}-${{ github.run_id }}", ci)
         security = (ROOT / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
         private_job = security.split("  private-static-analysis:", 1)[1].split("  public-codeql:", 1)[0]
         public_job = security.split("  public-codeql:", 1)[1]

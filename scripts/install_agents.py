@@ -246,6 +246,14 @@ def _exists_nofollow(path: Path) -> bool:
 
 def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> int:
     load_templates(templates_dir)
+    if not check_only:
+        print(
+            "Legacy installer does not apply profiles. Run `python3 -m laneorchestrator "
+            "profiles install preview --json`, review its exact preview, then supply "
+            "the host-mediated approval event to the canonical apply command.",
+            file=sys.stderr,
+        )
+        return 2
     canonical_target = Path(canonical_system_path(target))
     target_fd = open_target_directory(canonical_target, create=False)
     if target_fd is None and check_only:
@@ -255,58 +263,16 @@ def install_profiles(templates_dir: Path, target: Path, *, check_only: bool) -> 
     if target_fd is not None:
         os.close(target_fd)
 
-    if check_only:
-        canonical_target = _ensure_private_root(
-            canonical_target, create=False, managed_agents=True
-        )
-        state = state_root_for_target(canonical_target)
-        state_exists = _exists_nofollow(state)
-        config = load_config(state) if state_exists else load_config(state)
-        statuses = _read_compatibility_status(
-            canonical_target, config, state_exists=state_exists
-        )
-        return _print_statuses(target, statuses)
-
     canonical_target = _ensure_private_root(
-        canonical_target, managed_agents=True
+        canonical_target, create=False, managed_agents=True
     )
-    state_path = state_root_for_target(canonical_target)
-    state_exists = _exists_nofollow(state_path)
-    if not state_exists:
-        config = load_config(state_path)
-        statuses = _read_compatibility_status(
-            canonical_target, config, state_exists=False
-        )
-        if all(status == "missing" for status in statuses.values()):
-            action = "install"
-        elif _all_adoptable(canonical_target):
-            action = "adopt"
-        else:
-            return _print_statuses(
-                target, _collision_statuses(canonical_target)
-            )
-        state = _ensure_private_root(state_path)
-    else:
-        state = _ensure_private_root(state_path, create=False)
-        config = load_config(state)
-        try:
-            statuses = _read_compatibility_status(
-                canonical_target, config, state_exists=True
-            )
-        except ProfileConflict:
-            return _print_statuses(target, _collision_statuses(canonical_target))
-        action = "install"
-    try:
-        token, preview = preview_profiles(action, config, canonical_target, state)
-        result = apply_profiles(action, token, canonical_target, state)
-    except ProfileConflict:
-        return _print_statuses(target, statuses)
-    if not preview.ok or not result.ok:
-        return 1
-    label = "installed" if result.data["change_count"] else "unchanged"
-    for name in sorted(PROFILE_NAMES):
-        print(f"{label} {name}")
-    return 0
+    state = state_root_for_target(canonical_target)
+    state_exists = _exists_nofollow(state)
+    config = load_config(state)
+    statuses = _read_compatibility_status(
+        canonical_target, config, state_exists=state_exists
+    )
+    return _print_statuses(target, statuses)
 
 
 def main(argv: Optional[list[str]] = None) -> int:

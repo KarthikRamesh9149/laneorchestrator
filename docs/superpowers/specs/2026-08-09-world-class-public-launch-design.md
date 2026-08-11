@@ -322,7 +322,7 @@ The repository will contain:
 The public installation flow is:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0
 codex plugin add laneorchestrator@laneorchestrator
 ```
 

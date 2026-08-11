@@ -123,6 +123,13 @@ class PrivateStaticAnalysisTests(unittest.TestCase):
             with self.assertRaisesRegex(ScannerError, "directory depth"):
                 analyze(("source",), workspace=self.root)
 
+    def test_fails_closed_before_visiting_an_oversized_ast(self) -> None:
+        (self.source / "wide.py").write_text("value = [1, 2, 3]\n", encoding="utf-8")
+
+        with mock.patch("scripts.private_static_analysis.MAX_AST_NODES", 1, create=True):
+            with self.assertRaisesRegex(ScannerError, "AST node limit"):
+                analyze(("source",), workspace=self.root)
+
     def test_empty_source_writes_deterministic_failure_sarif(self) -> None:
         first = self.root / "first.sarif"
         second = self.root / "second.sarif"

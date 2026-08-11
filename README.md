@@ -12,7 +12,7 @@ task + repository evidence -> route card -> bounded implementation -> verificati
 ```
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -29,7 +29,7 @@ On first use, the skill runs `doctor` to check readiness. If the host does not e
 
 See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt). They illustrate the first-run readiness and route flow; neither is a live-install recording or an embedded player.
 
-`--ref main` follows a moving branch and is not content-pinned. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
+The protected annotated `v0.2.0` release tag pins the reviewed source snapshot; the release ruleset blocks moving or deleting it. To upgrade, review and select a new protected release tag. The marketplace command registers the source; the second command installs the plugin. The runtime has no third-party Python dependencies.
 
 ## Start here
 
@@ -39,7 +39,7 @@ The default path works without third-party agents. When available, optional spec
 
 ## Safety and lifecycle
 
-Profile and configuration changes are previewed before they are applied. Review the exact preview and supply its unexpired bound token yourself; the examples intentionally do not contain a usable token. Plugin removal removes registration and cached plugin files; it does not remove managed profiles or configuration.
+Profile and configuration changes are previewed before they are applied. Review the exact preview and supply its unexpired bound token and matching explicit `approve:<approval_digest>` value yourself; the examples intentionally do not contain a usable token or approval. Plugin removal removes registration and cached plugin files; it does not remove managed profiles or configuration.
 
 Read the [security model](docs/security-model.md), [threat model](docs/threat-model.md), and [Windows and Python compatibility](docs/compatibility.md) before relying on mutation workflows. Native Windows supports read-only control-plane commands only; use WSL for profile or configuration mutation.
 

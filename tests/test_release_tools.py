@@ -13,10 +13,12 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
+import contextlib
 from unittest import mock
 from pathlib import Path, PurePosixPath
 
 from scripts.build_release import (
+    MAX_MEMBERS,
     RELEASE_FILES,
     RELEASE_EXECUTABLES,
     RELEASE_TREES,
@@ -28,12 +30,15 @@ from scripts.build_release import (
 )
 from scripts.check_docs import check_docs
 from scripts.check_manifests import check_manifests
+from scripts import healthcheck
 from scripts.verify_release import (
+    MAX_ZIP_CENTRAL_DIRECTORY_BYTES,
     ReleaseVerificationError,
     _parse_sums,
     _check_content,
     _validate_name,
     _zip_entry_count,
+    _tar_members,
     main as verify_main,
     verify_release,
 )
@@ -208,6 +213,33 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual(build_main(["--output", str(self.output_one)]), 2)
         self.assertEqual(verify_main([str(self.work / "missing"), "--root", str(self.root)]), 1)
 
+    def test_archive_walk_and_archive_preflights_fail_before_unbounded_work(self) -> None:
+        """Catch removal of the traversal, gzip, or central-directory bounds."""
+
+        for index in range(MAX_MEMBERS + 1):
+            (self.root / "docs" / "fanout-{0}".format(index)).mkdir()
+        with self.assertRaisesRegex(ReleaseError, "traversal"):
+            archive_members(self.root)
+
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w") as archive:
+            for index in range(13):
+                info = tarfile.TarInfo("laneorchestrator-0.2.0/file-{0}".format(index))
+                info.size = 1024 * 1024
+                info.mode = 0o644
+                archive.addfile(info, io.BytesIO(b"\0" * info.size))
+        compressed = gzip.compress(payload.getvalue(), mtime=0)
+        with self.assertRaisesRegex(ReleaseVerificationError, "decompression"):
+            _tar_members(compressed, "laneorchestrator-0.2.0")
+
+        central_directory = b"x" * (MAX_ZIP_CENTRAL_DIRECTORY_BYTES + 1)
+        eocd = (
+            b"PK\x05\x06" + b"\0\0\0\0" + (1).to_bytes(2, "little") * 2
+            + len(central_directory).to_bytes(4, "little") + b"\0\0\0\0" + b"\0\0"
+        )
+        with self.assertRaisesRegex(ReleaseVerificationError, "central directory"):
+            _zip_entry_count(central_directory + eocd)
+
     def test_distribution_entry_limit_is_enforced_without_archive_parsing(self) -> None:
         release = build_release(self.root, self.output_one)
         for index in range(3):
@@ -286,6 +318,33 @@ class ReleaseToolTests(unittest.TestCase):
         manifest = self.root / "plugin.json"
         manifest.write_text("{", encoding="utf-8")
         self.assertEqual(check_manifests(self.root), ["plugin.json: invalid JSON"])
+
+    def test_manifest_and_release_identity_reject_duplicate_json_keys(self) -> None:
+        manifest = self.root / "plugin.json"
+        original = manifest.read_text(encoding="utf-8")
+        manifest.write_text(original.replace('"version": "0.2.0",', '"version": "0.0.1",\n  "version": "0.2.0",', 1), encoding="utf-8")
+        self.assertEqual(check_manifests(self.root), ["plugin.json: duplicate JSON key (version)"])
+        with self.assertRaisesRegex(ReleaseError, "duplicate JSON key"):
+            build_release(self.root, self.output_one)
+
+    def test_healthcheck_rejects_duplicate_json_keys(self) -> None:
+        manifest = self.root / ".codex-plugin" / "plugin.json"
+        original = manifest.read_text(encoding="utf-8")
+        manifest.write_text(original.replace('"version": "0.2.0",', '"version": "0.0.1",\n  "version": "0.2.0",', 1), encoding="utf-8")
+        output = io.StringIO()
+        with mock.patch.object(healthcheck, "ROOT", self.root), \
+                mock.patch.object(healthcheck, "REQUIRED", (manifest,)), \
+                mock.patch.object(healthcheck, "EXPECTED_MODELS", {}), \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(healthcheck.main(), 1)
+        self.assertIn("duplicate JSON key (version)", output.getvalue())
+
+    @unittest.skipUnless(os.name == "posix", "symbolic links are POSIX-specific")
+    def test_document_validator_rejects_symlinked_content_without_reading_it(self) -> None:
+        outside = self.work / "outside.md"
+        outside.write_text("safe\n", encoding="utf-8")
+        (self.root / "docs" / "linked.md").symlink_to(outside)
+        self.assertEqual(check_docs(self.root), ["docs/linked.md: symbolic links are not allowed"])
 
     def test_check_scripts_return_one_for_invalid_public_roots(self) -> None:
         credential = "Bearer " + "abcdefghijklmnopqrstuvwxyz"

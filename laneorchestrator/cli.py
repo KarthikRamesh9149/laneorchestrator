@@ -106,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     configure_preview.add_argument("--set", dest="settings", action="append", required=True)
     configure_apply = _subparser(configure_phases, "apply")
     configure_apply.add_argument("--token", required=True)
+    configure_apply.add_argument("--approval", required=True)
 
     route = _subparser(commands, "route")
     route.add_argument("--objective", required=True)
@@ -136,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
         _subparser(phases, "preview")
         apply_parser = _subparser(phases, "apply")
         apply_parser.add_argument("--token", required=True)
+        apply_parser.add_argument("--approval", required=True)
     return parser
 
 
@@ -176,7 +178,7 @@ def handle_configure(args: argparse.Namespace) -> CommandResult:
     if args.phase == "preview":
         _token, result = preview_config(_settings(args.settings), state)
         return result
-    return apply_config(args.token, state)
+    return apply_config(args.token, state, approval=args.approval)
 
 
 def _role_payload(evidence: Mapping[str, RoleEvidence]) -> Mapping[str, object]:
@@ -303,11 +305,10 @@ def handle_catalog(args: argparse.Namespace) -> CommandResult:
         raise DomainError(
             "INVALID_ARGUMENTS", "combined --context must not exceed {0} characters".format(MAX_CONTEXT_CHARS)
         )
+    _home, _state, managed_agents_root = _runtime_paths()
     cwd = Path(args.cwd).resolve()
     skill_roots = roots_for(cwd, args.skills_root, args.no_default_roots)
-    agent_roots = list(dict.fromkeys(Path(item).expanduser() for item in args.agents_root)) or [
-        Path.home() / ".codex" / "agents"
-    ]
+    agent_roots = list(dict.fromkeys(Path(item).expanduser() for item in args.agents_root)) or [managed_agents_root]
     skills, skill_warnings, _skill_counters = _collect_skills(skill_roots, DEFAULT_LIMITS)
     agents, agent_warnings, _agent_counters = _collect_agents(agent_roots, DEFAULT_LIMITS)
     payload = _legacy_payload(
@@ -319,6 +320,7 @@ def handle_catalog(args: argparse.Namespace) -> CommandResult:
         args.top_skills,
         args.top_agents,
         args.unscoped_high_risk,
+        managed_agents_root,
     )
     return command_result("catalog", data={"catalog": payload})
 
@@ -337,7 +339,7 @@ def handle_profiles(args: argparse.Namespace) -> CommandResult:
         return result
     if _TOKEN_RE.fullmatch(args.token) is None:
         raise DomainError("PLAN_INVALID", "plan token has invalid syntax")
-    return apply_profiles(args.action, args.token, agents, state)
+    return apply_profiles(args.action, args.token, agents, state, approval=args.approval)
 
 
 def _manifest_version() -> str:

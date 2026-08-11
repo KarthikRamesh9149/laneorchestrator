@@ -6,13 +6,13 @@
         "kind": "skill",
         "name": "oauth-security",
         "description": "Review OAuth login and session security.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "ui-helper",
         "description": "Build interface components.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -39,7 +39,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "oauth-security": "project"
+      "oauth-security": "user"
     }
   },
   {
@@ -49,7 +49,7 @@
         "kind": "skill",
         "name": "stripe-webhooks",
         "description": "Verify Stripe payment webhook signatures.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -61,7 +61,7 @@
         "kind": "skill",
         "name": "github-actions",
         "description": "Manage GitHub build workflows.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -82,7 +82,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "stripe-webhooks": "project"
+      "stripe-webhooks": "user"
     }
   },
   {
@@ -92,13 +92,13 @@
         "kind": "agent",
         "name": "postgresql-optimizer",
         "description": "Design PostgreSQL indexing migration plans and optimize queries.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "redis-expert",
         "description": "Optimize Redis cache behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -125,7 +125,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "postgresql-optimizer": "project"
+      "postgresql-optimizer": "user"
     }
   },
   {
@@ -135,13 +135,13 @@
         "kind": "skill",
         "name": "react-accessibility",
         "description": "Audit React accessibility behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "react-dashboard",
         "description": "Build React dashboard widgets.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -168,7 +168,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "react-accessibility": "project"
+      "react-accessibility": "user"
     }
   },
   {
@@ -178,7 +178,7 @@
         "kind": "skill",
         "name": "azure-storage",
         "description": "Operate Azure Blob storage ingestion.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -211,7 +211,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "azure-storage": "project"
+      "azure-storage": "user"
     }
   },
   {
@@ -221,13 +221,13 @@
         "kind": "agent",
         "name": "slack-expert",
         "description": "Implement Slack event handling and interactive workflows.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "teams-expert",
         "description": "Implement Teams events and workflows.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -254,7 +254,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "slack-expert": "project"
+      "slack-expert": "user"
     }
   },
   {
@@ -264,13 +264,13 @@
         "kind": "skill",
         "name": "deployment-engineer",
         "description": "Review deployment pipeline rollout behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "release-notes",
         "description": "Write release notes.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -297,7 +297,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "deployment-engineer": "project"
+      "deployment-engineer": "user"
     }
   },
   {
@@ -307,13 +307,13 @@
         "kind": "skill",
         "name": "payments-specialist",
         "description": "Handle payment settlement.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "database-specialist",
         "description": "Handle database migrations.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -346,7 +346,7 @@
         "kind": "skill",
         "name": "python-tests",
         "description": "Evaluate duplicate Python test helpers and run test suites.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -358,7 +358,7 @@
         "kind": "skill",
         "name": "javascript-tests",
         "description": "Run JavaScript test suites.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -379,7 +379,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "python-tests": "project"
+      "python-tests": "user"
     }
   },
   {
@@ -389,13 +389,13 @@
         "kind": "agent",
         "name": "kubernetes-specialist",
         "description": "Plan Kubernetes workload rollout and recovery.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "terraform-engineer",
         "description": "Plan Terraform infrastructure modules.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -422,7 +422,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "kubernetes-specialist": "project"
+      "kubernetes-specialist": "user"
     }
   },
   {
@@ -432,13 +432,13 @@
         "kind": "skill",
         "name": "supabase-postgres",
         "description": "Integrate Supabase PostgreSQL data access.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "firebase-helper",
         "description": "Integrate Firebase documents.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -465,7 +465,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "supabase-postgres": "project"
+      "supabase-postgres": "user"
     }
   },
   {
@@ -475,13 +475,13 @@
         "kind": "skill",
         "name": "figma-bridge",
         "description": "Translate Figma design handoff into implementation tasks.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "canva-bridge",
         "description": "Translate Canva artwork.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -508,7 +508,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "figma-bridge": "project"
+      "figma-bridge": "user"
     }
   },
   {
@@ -518,13 +518,13 @@
         "kind": "skill",
         "name": "github-actions",
         "description": "Review GitHub Actions CI workflow reliability.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "gitlab-ci",
         "description": "Review GitLab CI workflow reliability.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -551,7 +551,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "github-actions": "project"
+      "github-actions": "user"
     }
   },
   {
@@ -561,13 +561,13 @@
         "kind": "agent",
         "name": "cloudflare-worker",
         "description": "Deploy Cloudflare Worker service safely.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "vercel-deploy",
         "description": "Deploy Vercel application services.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -594,7 +594,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "cloudflare-worker": "project"
+      "cloudflare-worker": "user"
     }
   },
   {
@@ -604,13 +604,13 @@
         "kind": "agent",
         "name": "terraform-engineer",
         "description": "Plan Terraform AWS network module changes.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "azure-infra",
         "description": "Plan Azure network module changes.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -637,7 +637,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "terraform-engineer": "project"
+      "terraform-engineer": "user"
     }
   },
   {
@@ -647,13 +647,13 @@
         "kind": "skill",
         "name": "docker-expert",
         "description": "Optimize Docker image build performance.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "npm-helper",
         "description": "Optimize npm package installation.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -680,7 +680,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "docker-expert": "project"
+      "docker-expert": "user"
     }
   },
   {
@@ -690,13 +690,13 @@
         "kind": "agent",
         "name": "fastapi-developer",
         "description": "Build FastAPI endpoint validation behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "django-developer",
         "description": "Build Django endpoint validation behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -723,7 +723,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "fastapi-developer": "project"
+      "fastapi-developer": "user"
     }
   },
   {
@@ -733,13 +733,13 @@
         "kind": "agent",
         "name": "redis-specialist",
         "description": "Diagnose Redis cache eviction behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "postgresql-optimizer",
         "description": "Diagnose PostgreSQL query behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -766,7 +766,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "redis-specialist": "project"
+      "redis-specialist": "user"
     }
   },
   {
@@ -776,13 +776,13 @@
         "kind": "agent",
         "name": "graphql-architect",
         "description": "Review GraphQL schema federation design.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "rest-api-designer",
         "description": "Review REST endpoint design.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -809,7 +809,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "graphql-architect": "project"
+      "graphql-architect": "user"
     }
   },
   {
@@ -819,13 +819,13 @@
         "kind": "agent",
         "name": "nextjs-developer",
         "description": "Implement Next.js server rendering.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "agent",
         "name": "vue-expert",
         "description": "Implement Vue client rendering.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -852,7 +852,7 @@
     "applicable_specialist": true,
     "adversarial": false,
     "expected_sources": {
-      "nextjs-developer": "project"
+      "nextjs-developer": "user"
     }
   },
   {
@@ -862,13 +862,13 @@
         "kind": "skill",
         "name": "stripe-payments",
         "description": "Manage Stripe payment settlement.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "aws-network",
         "description": "Manage AWS network routing.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -901,13 +901,13 @@
         "kind": "skill",
         "name": "kubernetes-specialist",
         "description": "Operate Kubernetes workloads.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "terraform-engineer",
         "description": "Manage Terraform modules.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -940,13 +940,13 @@
         "kind": "skill",
         "name": "postgresql-optimizer",
         "description": "Optimize PostgreSQL indexes.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "slack-expert",
         "description": "Implement Slack events.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -979,13 +979,13 @@
         "kind": "skill",
         "name": "azure-storage",
         "description": "Operate Azure Blob storage.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
         "name": "figma-bridge",
         "description": "Translate Figma design handoff.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -1018,7 +1018,7 @@
         "kind": "skill",
         "name": "stripe-checkout",
         "description": "Audit Stripe payment checkout flow behavior.",
-        "source": "project"
+        "source": "user"
       },
       {
         "kind": "skill",
@@ -1051,7 +1051,7 @@
     "applicable_specialist": true,
     "adversarial": true,
     "expected_sources": {
-      "stripe-checkout": "project"
+      "stripe-checkout": "user"
     }
   }
 ]

@@ -7,6 +7,8 @@ evaluation result, never a replay of the expected answer.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import random
 import tempfile
@@ -42,6 +44,13 @@ _CAPABILITY_FIELDS = {"query", "capabilities", "expected_top3", "expected_source
 _MAX_CORPUS_BYTES = 512 * 1024
 _MAX_CAPABILITIES_PER_CASE = 8
 _CATALOG_SEED = 20260809
+_MIN_ADVERSARIAL_CASES = 8
+_MIN_SOURCE_PRECEDENCE_ADVERSARIAL_CASES = 1
+_MIN_MEANINGFUL_HIGH_RISK_CASES = 20
+# Authentication value for the reviewed routing corpus.  This digest covers
+# every field, including the gold lane/category/risk labels, so corpus edits
+# cannot silently redefine the benchmark contract.
+_ROUTE_CORPUS_DIGEST = "df6d7ddc7ba22b7f349b3337a211070481cf68695f51538249ff64f89aeec509"
 
 
 class BenchmarkError(ValueError):
@@ -111,6 +120,16 @@ def load_route_corpus(repo_root: Path) -> List[Dict[str, object]]:
     expected_counts = {"bounded-low": 40, "normal": 60, "high-risk": 70, "high-risk-evasion": 15, "conservative-unknown": 15}
     if counts != expected_counts:
         raise BenchmarkError("routing corpus category counts do not match the reviewed contract")
+    canonical = json.dumps(cases, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    if not hmac.compare_digest(digest, _ROUTE_CORPUS_DIGEST):
+        raise BenchmarkError("routing corpus does not match the independently authenticated reviewed labels")
+    meaningful_high_risk = sum(
+        case["expected_lane"] == "sol-plan-terra-sol-review" and case["risk"] != "high"
+        for case in cases
+    )
+    if meaningful_high_risk < _MIN_MEANINGFUL_HIGH_RISK_CASES:
+        raise BenchmarkError("routing corpus lacks meaningful non-explicit high-risk cases")
     return cases
 
 
@@ -120,6 +139,8 @@ def load_capability_corpus(repo_root: Path) -> List[Dict[str, object]]:
     if not isinstance(payload, list) or not payload:
         raise BenchmarkError("capability corpus must be a nonempty JSON array")
     cases: List[Dict[str, object]] = []
+    adversarial_count = 0
+    source_precedence_adversarial_count = 0
     for index, case in enumerate(payload):
         if not isinstance(case, dict) or set(case) != _CAPABILITY_FIELDS:
             raise BenchmarkError("capability case {0} has an invalid schema".format(index))
@@ -159,7 +180,18 @@ def load_capability_corpus(repo_root: Path) -> List[Dict[str, object]]:
             sources_by_name.setdefault(item["name"], set()).add(item["source"])
         if any(source not in sources_by_name[name] for name, source in expected_sources.items()):
             raise BenchmarkError("capability case {0} labels a missing specialist source".format(index))
+        if case["adversarial"]:
+            adversarial_count += 1
+            if case["applicable_specialist"] and any(
+                len(sources_by_name.get(name, set())) >= 2
+                for name in expected_sources
+            ):
+                source_precedence_adversarial_count += 1
         cases.append(dict(case))
+    if adversarial_count < _MIN_ADVERSARIAL_CASES:
+        raise BenchmarkError("capability corpus lacks mandatory adversarial coverage")
+    if source_precedence_adversarial_count < _MIN_SOURCE_PRECEDENCE_ADVERSARIAL_CASES:
+        raise BenchmarkError("capability corpus lacks mandatory source-precedence coverage")
     return cases
 
 
@@ -180,13 +212,24 @@ def evaluate_routes(cases: Sequence[Mapping[str, object]], repeat: int = 3) -> D
     snapshots = [_route_decisions(cases) for _ in range(repeat)]
     actual = snapshots[0]
     expected = [str(case["expected_lane"]) for case in cases]
-    high_indices = [index for index, lane in enumerate(expected) if lane == "sol-plan-terra-sol-review"]
+    # Measure semantic/high-risk backstop coverage separately from rows whose
+    # explicit ``risk=high`` input already forces the Sol lane.
+    high_indices = [
+        index for index, (lane, case) in enumerate(zip(expected, cases))
+        if lane == "sol-plan-terra-sol-review" and case["risk"] != "high"
+    ]
     non_high_indices = [index for index, lane in enumerate(expected) if lane != "sol-plan-terra-sol-review"]
     adversarial_indices = [index for index, case in enumerate(cases) if case["category"] == "high-risk-evasion"]
     explicit_high_indices = [index for index, case in enumerate(cases) if case["risk"] == "high"]
     unknown_indices = [index for index, case in enumerate(cases) if case["risk"] == "unknown"]
     agreement = sum(found == wanted for found, wanted in zip(actual, expected)) / float(len(cases))
-    high_recall = sum(actual[index] == expected[index] for index in high_indices) / float(len(high_indices))
+    # An evaluation with no non-explicit high-risk cases is not a passing
+    # security result; represent it as a zero recall so the release threshold
+    # fails closed instead of dividing by zero or reporting a vacuous 1.0.
+    high_recall = (
+        sum(actual[index] == expected[index] for index in high_indices) / float(len(high_indices))
+        if high_indices else 0.0
+    )
     false_positives = sum(actual[index] == "sol-plan-terra-sol-review" for index in non_high_indices)
     adversarial = (sum(actual[index] == expected[index] for index in adversarial_indices) / float(len(adversarial_indices))) if adversarial_indices else 1.0
     return {

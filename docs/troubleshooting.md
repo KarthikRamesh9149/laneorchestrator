@@ -2,7 +2,7 @@
 
 ## A required profile is missing or unknown
 
-Run `doctor --json` or `status --json` to inspect the state. If the host does not expose bundled profiles, request a profile-install preview, review it, and supply a new bound token only when the preview is correct. Do not reuse a token after a changed, expired, or failed plan.
+Run `doctor --json` or `status --json` to inspect the state. If the host does not expose bundled profiles, request a profile-install preview, review it, and supply its new bound token with the matching `approve:<approval_digest>` value only when the preview is correct. Do not reuse a token or approval after a changed, expired, or failed plan.
 
 ## A profile preview reports a conflict or drift
 

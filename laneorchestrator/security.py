@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import json
 import os
 import secrets
 import stat
@@ -26,6 +27,28 @@ PRIVATE_MUTATION_LOCK_NAME = ".laneorchestrator-state.lock"
 
 class SecurityError(ValueError):
     """Raised when an untrusted filesystem object fails a safety check."""
+
+
+class DuplicateJSONKeyError(ValueError):
+    """Raised when JSON object input has ambiguous duplicate members."""
+
+
+def _json_object_without_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise DuplicateJSONKeyError("duplicate JSON key ({0})".format(key))
+        result[key] = value
+    return result
+
+
+def parse_json_object(data: str) -> dict[str, object]:
+    """Parse one JSON object while rejecting ambiguous duplicate keys."""
+
+    value = json.loads(data, object_pairs_hook=_json_object_without_duplicates)
+    if not isinstance(value, dict):
+        raise ValueError("JSON value must be an object")
+    return value
 
 
 try:
@@ -551,7 +574,10 @@ def read_regular_nofollow(path: Path, max_bytes: int) -> bytes:
         raise SecurityError("path is not a regular file")
 
     try:
-        flags = os.O_RDONLY | os.O_NOFOLLOW
+        # A regular file can be replaced by a FIFO after lstat and before open.
+        # O_NONBLOCK lets the descriptor identity check reject that race rather
+        # than waiting for a FIFO writer.
+        flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
     except AttributeError as error:
         raise SecurityError("platform does not support no-follow reads") from error
     try:

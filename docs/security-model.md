@@ -16,7 +16,7 @@ LaneOrchestrator protects repository contents, user configuration, managed profi
 
 ## Mutation boundary
 
-Profile and configuration updates use private exact-state previews, bound tokens, descriptor-relative no-follow checks, private temporary files, atomic replacement, and parent-directory synchronization where supported. A changed, expired, or replayed preview fails without publishing a partial configuration document.
+Profile and configuration updates use private exact-state previews, bound tokens, matching explicit approvals, descriptor-relative no-follow checks, private temporary files, atomic replacement, and parent-directory synchronization where supported. A changed, expired, or replayed preview fails without publishing a partial configuration document.
 
 These controls serialize cooperating LaneOrchestrator writers inside the documented POSIX boundary. They do not claim protection from malicious code sharing the same effective user identity, a compromised host, or an external system compromise. Native Windows mutation is disabled in this release; use WSL for configuration and profile mutation.
 

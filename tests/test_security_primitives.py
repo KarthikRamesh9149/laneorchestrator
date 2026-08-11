@@ -204,6 +204,23 @@ finally:
             with self.assertRaises(SecurityError):
                 read_regular_nofollow(destination, 10)
 
+    def test_read_uses_nonblocking_descriptor_open_before_rechecking_identity(self) -> None:
+        """A FIFO swapped in after lstat must never make this bounded read wait."""
+
+        destination = self.private / "content"
+        destination.write_bytes(b"old")
+        replacement = self.private / "replacement"
+        replacement.write_bytes(b"new")
+        real_open = os.open
+
+        def require_nonblocking(path: object, flags: int, *args: object, **kwargs: object) -> int:
+            self.assertNotEqual(flags & os.O_NONBLOCK, 0)
+            return real_open(replacement, flags, *args, **kwargs)
+
+        with mock.patch("laneorchestrator.security.os.open", side_effect=require_nonblocking):
+            with self.assertRaisesRegex(SecurityError, "changed while opening"):
+                read_regular_nofollow(destination, 10)
+
     def test_atomic_write_never_follows_dangling_destination(self) -> None:
         outside = self.root / "outside"
         destination = self.private / "config.json"

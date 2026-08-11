@@ -28,6 +28,28 @@ HIGH_RISK_PHRASES = {
 }
 RISK_TOKEN_ALIASES = {"oauth2": "oauth", "openid": "oidc"}
 VALID_RISKS = ("low", "normal", "high", "unknown")
+LOW_RISK_ACTIONS = frozenset({"adjust", "amend", "change", "correct", "fix", "rename", "replace", "update"})
+LOW_RISK_TARGET_TOKENS = frozenset({
+    "alt", "bullet", "caption", "comment", "date", "description", "example", "flag", "grammar", "heading",
+    "hint", "label", "link", "placeholder", "punctuation", "spelling", "string", "text", "title", "token", "typo",
+    "url", "wording",
+})
+LOW_RISK_OBJECTIVE_TOKENS = LOW_RISK_ACTIONS | LOW_RISK_TARGET_TOKENS | {
+    "a", "accessibility", "an", "anchor", "api", "architecture", "approved", "breadcrumb", "broken", "button", "capitalization", "changelog",
+    "checklist", "client", "code", "color", "command", "component", "contributor", "css", "development", "diagram", "docstring",
+    "documented", "documentation", "enum", "error", "established", "existing", "faq", "field", "file", "fixture", "form",
+    "glossary", "guide", "help", "in", "issue", "keyboard", "known", "local", "log", "map", "mark", "message", "misleading",
+    "misspelled", "mock", "model", "name", "note", "notes", "of", "one", "operations", "outdated", "ownership", "page", "panel",
+    "payload", "policy", "preferences", "product", "readme", "release", "repository", "response", "sample", "screenshot", "section",
+    "setup", "shortcut", "snapshot", "source", "spacing", "stale", "static", "story", "table", "team", "template", "terminology", "test",
+    "the", "to", "troubleshooting", "tutorial", "unit",
+}
+LOW_RISK_CONTEXT_TOKENS = frozenset({
+    "accessibility", "api", "architecture", "breadcrumb", "button", "changelog", "client", "code", "component", "contributor",
+    "css", "development", "diagram", "documentation", "docstring", "error", "example", "faq", "form", "guide", "help", "keyboard",
+    "log", "mock", "operations", "page", "panel", "readme", "release", "repository", "sample", "screenshot", "source", "story", "team",
+    "template", "test", "troubleshooting", "tutorial", "unit",
+})
 
 
 @dataclass(frozen=True)
@@ -52,6 +74,18 @@ def contains_term(text: str, term: str) -> bool:
 
 def validate_route_facts(facts: RouteFacts) -> RouteFacts:
     """Validate a route request before deriving a recommendation."""
+    if type(facts) is not RouteFacts:
+        raise ValueError("route facts must be a RouteFacts instance")
+    if type(facts.objective) is not str:
+        raise ValueError("--objective must be a string")
+    if type(facts.known_area) is not bool:
+        raise ValueError("--known-area must be a boolean")
+    if type(facts.acceptance_criteria) is not bool:
+        raise ValueError("--acceptance-criteria must be a boolean")
+    if type(facts.files) is not int:
+        raise ValueError("--files must be an integer")
+    if type(facts.risk) is not str:
+        raise ValueError("--risk-assessment must be a string")
     if not facts.objective.strip():
         raise ValueError("--objective must not be blank")
     if len(facts.objective.strip()) > MAX_OBJECTIVE_CHARS:
@@ -69,6 +103,22 @@ def high_risk_signals(objective: str) -> List[str]:
     return sorted(term for term in HIGH_RISK_TERMS | HIGH_RISK_PHRASES if contains_term(normalized, term))
 
 
+def is_bounded_low_risk_objective(objective: str) -> bool:
+    """Allow Luna only for an ASCII-only, bounded editorial objective."""
+    if not objective.isascii():
+        return False
+    tokens = normalize(objective).split()
+    token_set = set(tokens)
+    return (
+        len(tokens) >= 4
+        and tokens[0] in LOW_RISK_ACTIONS
+        and bool(token_set & LOW_RISK_TARGET_TOKENS)
+        and bool(token_set & LOW_RISK_CONTEXT_TOKENS)
+        and ("token" not in token_set or {"css", "color"}.issubset(token_set))
+        and token_set.issubset(LOW_RISK_OBJECTIVE_TOKENS)
+    )
+
+
 def route_payload(facts: RouteFacts, lane: str, model: str, signals: Sequence[str]) -> Dict[str, object]:
     """Build the stable v1 JSON payload used by direct and legacy callers."""
     if signals:
@@ -77,6 +127,8 @@ def route_payload(facts: RouteFacts, lane: str, model: str, signals: Sequence[st
         reason = "explicit high-risk assessment"
     elif facts.risk == "unknown":
         reason = "risk assessment required"
+    elif lane == "sol-plan-terra-sol-review":
+        reason = "low-risk objective not recognized"
     elif lane == "luna":
         reason = "bounded known-area task"
     elif facts.risk == "low":
@@ -103,10 +155,16 @@ def recommend_route(facts: RouteFacts) -> Dict[str, object]:
     """Return the stable v1 route recommendation for validated task facts."""
     facts = validate_route_facts(facts)
     signals = high_risk_signals(facts.objective)
+    bounded_low_risk_objective = is_bounded_low_risk_objective(facts.objective)
     if signals or facts.risk in {"high", "unknown"}:
         lane, model = "sol-plan-terra-sol-review", "gpt-5.6-sol"
-    elif facts.risk == "low" and facts.known_area and facts.acceptance_criteria and facts.files == 1:
-        lane, model = "luna", "gpt-5.6-luna"
+    elif facts.risk == "low":
+        if bounded_low_risk_objective and facts.known_area and facts.acceptance_criteria and facts.files == 1:
+            lane, model = "luna", "gpt-5.6-luna"
+        elif not bounded_low_risk_objective:
+            lane, model = "sol-plan-terra-sol-review", "gpt-5.6-sol"
+        else:
+            lane, model = "terra", "gpt-5.6-terra"
     else:
         lane, model = "terra", "gpt-5.6-terra"
     return route_payload(facts, lane, model, signals)

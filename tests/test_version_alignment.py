@@ -64,7 +64,7 @@ class VersionAlignmentTests(unittest.TestCase):
             "POSIX Python 3.9 on ubuntu-latest", "POSIX Python 3.14 on ubuntu-latest",
             "POSIX Python 3.9 on macos-latest", "POSIX Python 3.14 on macos-latest",
             "Windows read-only control plane Python 3.9", "Windows read-only control plane Python 3.14",
-            "Verify release evidence",
+            "Verify candidate distribution",
         ):
             self.assertRegex(
                 settings,

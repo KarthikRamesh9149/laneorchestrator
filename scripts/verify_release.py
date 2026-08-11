@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import io
 import os
@@ -41,6 +42,8 @@ except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execu
 
 MAX_ASSET_BYTES = 24 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 100
+MAX_TAR_DECOMPRESSED_BYTES = MAX_TOTAL_BYTES + (MAX_MEMBERS * 1024) + 1024
+MAX_ZIP_CENTRAL_DIRECTORY_BYTES = MAX_MEMBERS * 512
 _DIGEST_LINE = re.compile(r"^([0-9a-f]{64})  (laneorchestrator-[0-9]+\.[0-9]+\.[0-9]+\.(?:tar\.gz|zip))$")
 _WINDOWS_RESERVED = frozenset(
     ("con", "prn", "aux", "nul", "clock$")
@@ -51,6 +54,24 @@ _WINDOWS_RESERVED = frozenset(
 
 class ReleaseVerificationError(ValueError):
     """Raised when a release asset does not satisfy the public contract."""
+
+
+class _BoundedDecompressionReader:
+    """Expose at most one bounded decompressed stream to the tar parser."""
+
+    def __init__(self, source: gzip.GzipFile, maximum: int) -> None:
+        self._source = source
+        self._maximum = maximum
+        self._read = 0
+
+    def read(self, size: int = -1) -> bytes:
+        remaining = self._maximum - self._read
+        request = remaining + 1 if size is None or size < 0 else min(size, remaining + 1)
+        data = self._source.read(request)
+        self._read += len(data)
+        if self._read > self._maximum:
+            raise ReleaseVerificationError("tar archive exceeds decompression limit")
+        return data
 
 
 def _read_asset(path: Path, max_bytes: int = MAX_ASSET_BYTES) -> bytes:
@@ -125,21 +146,23 @@ def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     try:
         if len(content) < 10 or content[:10] != b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff":
             raise ReleaseVerificationError("tar gzip header is not deterministic")
-        with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as archive:
-            for member in archive:
-                if not member.isfile() or member.issym() or member.islnk() or member.linkname:
-                    raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
-                relative = _validate_name(member.name, prefix)
-                expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
-                if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
-                    raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
-                if member.size < 0 or member.size > MAX_MEMBER_BYTES:
-                    raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
-                source = archive.extractfile(member)
-                if source is None:
-                    raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
-                data = source.read(MAX_MEMBER_BYTES + 1)
-                _record(records, seen, member.name, data, prefix)
+        with gzip.GzipFile(fileobj=io.BytesIO(content), mode="rb") as compressed:
+            bounded = _BoundedDecompressionReader(compressed, MAX_TAR_DECOMPRESSED_BYTES)
+            with tarfile.open(fileobj=bounded, mode="r|") as archive:
+                for member in archive:
+                    if not member.isfile() or member.issym() or member.islnk() or member.linkname:
+                        raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
+                    relative = _validate_name(member.name, prefix)
+                    expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
+                    if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
+                        raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
+                    if member.size < 0 or member.size > MAX_MEMBER_BYTES:
+                        raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
+                    source = archive.extractfile(member)
+                    if source is None:
+                        raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
+                    data = source.read(MAX_MEMBER_BYTES + 1)
+                    _record(records, seen, member.name, data, prefix)
     except (tarfile.TarError, OSError) as error:
         raise ReleaseVerificationError("invalid tar archive") from error
     return records
@@ -180,11 +203,19 @@ def _zip_entry_count(content: bytes) -> None:
     if offset < 0 or offset + 22 > len(content):
         raise ReleaseVerificationError("zip archive has no valid EOCD")
     fields = struct.unpack("<4s4H2LH", content[offset:offset + 22])
-    disk, directory_disk, disk_entries, total_entries, _, _, comment_size = fields[1:]
+    disk, directory_disk, disk_entries, total_entries, directory_size, directory_offset, comment_size = fields[1:]
     if offset + 22 + comment_size != len(content):
         raise ReleaseVerificationError("zip archive EOCD is malformed")
-    if disk != 0 or directory_disk != 0 or disk_entries != total_entries or total_entries > MAX_MEMBERS:
+    if (
+        disk != 0 or directory_disk != 0 or disk_entries != total_entries
+        or total_entries > MAX_MEMBERS or total_entries == 0xFFFF
+        or directory_size == 0xFFFFFFFF or directory_offset == 0xFFFFFFFF
+    ):
         raise ReleaseVerificationError("zip archive exceeds entry limit")
+    if directory_size > MAX_ZIP_CENTRAL_DIRECTORY_BYTES:
+        raise ReleaseVerificationError("zip archive central directory exceeds resource limit")
+    if directory_offset + directory_size != offset:
+        raise ReleaseVerificationError("zip archive central directory is malformed")
 
 
 def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]:

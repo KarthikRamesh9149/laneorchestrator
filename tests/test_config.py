@@ -69,6 +69,11 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             parse_config_bytes(b'{"schema_version": 1, "roles": {"router": {"model": "a", "model": "b", "reasoning_effort": "high"}}}')
 
+    def test_deeply_nested_json_is_a_domain_failure_not_recursion_error(self) -> None:
+        nested = (b"[" * 1200) + b"0" + (b"]" * 1200)
+        with self.assertRaisesRegex(ConfigError, "nesting"):
+            parse_config_bytes(nested)
+
     def test_rejects_every_secret_key_at_any_depth(self) -> None:
         payload = self.valid_payload()
         for key in ("api_key", "token", "password", "secret"):

@@ -17,10 +17,19 @@ from laneorchestrator.plans import (
     MutationPlan,
     Operation,
     PlanError,
+    approval_digest,
     create_plan,
     load_plan,
-    consume_plan,
+    consume_plan as _consume_plan,
 )
+
+
+def consume_plan(token, expected_kind, plans_root, apply, now=None):
+    plan = load_plan(token, expected_kind, plans_root, now=now)
+    return _consume_plan(
+        token, expected_kind, plans_root, apply,
+        approval="approve:" + approval_digest(plan), now=now,
+    )
 
 
 class MutationPlanTests(unittest.TestCase):
@@ -228,6 +237,14 @@ class MutationPlanTests(unittest.TestCase):
         with self.assertRaisesRegex(PlanError, "schema"):
             load_plan(token, "profiles.install", self.root, now=101)
 
+    def test_deeply_nested_plan_is_a_domain_failure_not_recursion_error(self) -> None:
+        token = create_plan("profiles.install", self.operations, self.root, now=100)
+        path = self.plan_path(token)
+        path.write_bytes((b"[" * 1200) + b"0" + (b"]" * 1200))
+        path.chmod(0o600)
+        with self.assertRaisesRegex(PlanError, "nesting"):
+            load_plan(token, "profiles.install", self.root, now=101)
+
     def test_load_rejects_wrong_mode_symlink_and_directory(self) -> None:
         token = create_plan("profiles.install", self.operations, self.root, now=100)
         path = self.plan_path(token)
@@ -275,6 +292,55 @@ class MutationPlanTests(unittest.TestCase):
             load_plan(token, "profiles.install", self.root, now=102)
         with self.assertRaisesRegex(PlanError, "already used"):
             consume_plan(token, "profiles.install", self.root, lambda plan: None, now=102)
+
+    def test_consume_refuses_possession_without_a_separate_approval_event(self) -> None:
+        token = create_plan("profiles.install", self.operations, self.root, now=100)
+        with self.assertRaisesRegex(PlanError, "approval"):
+            _consume_plan(token, "profiles.install", self.root, lambda plan: None, now=101)
+        self.assertTrue(self.plan_path(token).exists())
+
+    def test_approval_event_is_bound_to_preview_action_target_and_expiry(self) -> None:
+        token = create_plan("profiles.install", self.operations, self.root, now=100)
+        plan = load_plan(token, "profiles.install", self.root, now=101)
+        alternatives = (
+            MutationPlan(1, "profiles.update", 100, 700, plan.state_fingerprint, plan.operations),
+            MutationPlan(1, plan.kind, 100, 701, plan.state_fingerprint, plan.operations),
+            MutationPlan(
+                1,
+                plan.kind,
+                100,
+                700,
+                plan.state_fingerprint,
+                (Operation("agents/other.toml", None, "a" * 64, None),),
+            ),
+        )
+        for alternative in alternatives:
+            with self.subTest(alternative=alternative):
+                with self.assertRaisesRegex(PlanError, "approval"):
+                    _consume_plan(
+                        token,
+                        "profiles.install",
+                        self.root,
+                        lambda _plan: None,
+                        approval="approve:" + approval_digest(alternative),
+                        now=101,
+                    )
+        self.assertTrue(self.plan_path(token).exists())
+
+    def test_explicit_approval_event_preserves_one_time_apply(self) -> None:
+        token = create_plan("profiles.install", self.operations, self.root, now=100)
+        plan = load_plan(token, "profiles.install", self.root, now=101)
+        self.assertEqual(
+            _consume_plan(
+                token,
+                "profiles.install",
+                self.root,
+                lambda _plan: "applied",
+                approval="approve:" + approval_digest(plan),
+                now=101,
+            ),
+            "applied",
+        )
 
     def test_failed_apply_still_consumes_token(self) -> None:
         token = create_plan("profiles.install", self.operations, self.root, now=100)

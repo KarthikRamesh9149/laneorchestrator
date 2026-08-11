@@ -14,7 +14,7 @@ Task text, copied third-party text, repository files, capability metadata, paths
 - Unknown risk does not select Luna. High-risk lexical signals provide an additional conservative check.
 - Required Terra and Sol roles fail closed when absent; only Luna and optional specialists can fall back to Terra.
 - Discovery limits files, directories, bytes, depth, and results, and skips symbolic links.
-- Profile and configuration mutation use exact-state previews, short-lived bound tokens, no-follow validation, and atomic publication within the documented POSIX boundary.
+- Profile and configuration mutation use exact-state previews, short-lived bound tokens, matching explicit approvals, no-follow validation, and atomic publication within the documented POSIX boundary.
 
 ## Limits and non-goals
 

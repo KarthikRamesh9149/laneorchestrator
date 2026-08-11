@@ -429,6 +429,9 @@ class DoctorContractTests(unittest.TestCase):
                 ).encode("utf-8"),
                 0o700 | stat.S_ISUID | stat.S_ISGID,
             )
+            mode = binary.lstat().st_mode
+            if not mode & (stat.S_ISUID | stat.S_ISGID):
+                self.skipTest("temporary filesystem does not retain set-ID bits")
             diagnostic = check_codex_cli({"PATH": str(binary.parent)})
             self.assertEqual(diagnostic.level, Level.FAIL)
             self.assertEqual(diagnostic.evidence["probe"], "unsafe_executable")

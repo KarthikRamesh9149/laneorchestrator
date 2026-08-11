@@ -90,6 +90,11 @@ class PrivateStaticAnalysisFailureTests(unittest.TestCase):
                         self.root / ("visitor-{0}-second.sarif".format(error_type.__name__)),
                     )
 
+    def test_ast_memory_error_writes_deterministic_failure_evidence(self) -> None:
+        (self.source / "clean.py").write_text("value = 1\n", encoding="utf-8")
+        with mock.patch("scripts.private_static_analysis.ast.walk", side_effect=MemoryError("simulated")):
+            self._assert_closed_failure(self.root / "memory-first.sarif", self.root / "memory-second.sarif")
+
 
 if __name__ == "__main__":
     unittest.main()

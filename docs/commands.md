@@ -17,8 +17,8 @@ The canonical module command is `python3 -m laneorchestrator` from a source chec
 
 ## Mutating commands
 
-`configure preview --set ROLE.FIELD=VALUE [--json]` creates a preview. `configure apply --token <bound-token> [--json]` consumes the exact token only after human review.
+`configure preview --set ROLE.FIELD=VALUE [--json]` creates a preview. `configure apply --token <bound-token> --approval approve:<approval-digest> [--json]` consumes the exact token only after human review and an independently supplied approval for that preview.
 
-`profiles ACTION preview [--json]` and `profiles ACTION apply --token <bound-token> [--json]` use `ACTION` from `install`, `update`, `adopt`, or `uninstall`. The placeholder is intentionally not a token and cannot be used to apply a change.
+`profiles ACTION preview [--json]` and `profiles ACTION apply --token <bound-token> --approval approve:<approval-digest> [--json]` use `ACTION` from `install`, `update`, `adopt`, or `uninstall`. The placeholders are intentionally neither a usable token nor a human-approval event and cannot be used to apply a change.
 
 Native Windows supports read-only commands only in this release. Use WSL for configuration or profile mutation. See [compatibility](compatibility.md) and [troubleshooting](troubleshooting.md).

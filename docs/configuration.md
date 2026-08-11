@@ -8,7 +8,7 @@ The configurable logical roles are `router`, `small_task_executor`, `main_implem
 
 1. Create a `configure preview` with one or more `--set ROLE.FIELD=VALUE` settings.
 2. Inspect the proposed destination, content hash, and changed settings.
-3. If and only if the preview is correct, supply its exact unexpired bound token to `configure apply`.
+3. If and only if the preview is correct, supply its exact unexpired bound token and its matching `approve:<approval_digest>` value to `configure apply`.
 4. Run `status --json` to confirm the resulting state.
 
 Do not place credentials, tokens, or private paths in configuration. Unknown fields, duplicate keys, control characters, secret-shaped keys, and oversized values are rejected.

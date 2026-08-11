@@ -108,7 +108,11 @@ class DocumentationTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         first_screen = "\n".join(readme.splitlines()[:80])
         self.assertIn("Secure, evidence-driven model and agent routing for Codex.", first_screen)
-        self.assertIn("codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main", first_screen)
+        self.assertIn(
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0",
+            first_screen,
+        )
+        self.assertNotIn("--ref main", first_screen)
         self.assertIn("codex plugin add laneorchestrator@laneorchestrator", first_screen)
         self.assertIn("$laneorchestrator", first_screen)
         self.assertIn("Third-party agent packs are optional", first_screen)
@@ -140,9 +144,11 @@ class DocumentationTests(unittest.TestCase):
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(preview.returncode, 0, preview.stderr)
-            token = json.loads(preview.stdout)["data"]["token"]
+            preview_data = json.loads(preview.stdout)["data"]
+            token = preview_data["token"]
+            approval = "approve:" + str(preview_data["approval_digest"])
             apply = subprocess.run(
-                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--approval", approval, "--json"],
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)
@@ -199,9 +205,11 @@ class DocumentationTests(unittest.TestCase):
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(preview.returncode, 0, preview.stderr)
-            token = json.loads(preview.stdout)["data"]["token"]
+            preview_data = json.loads(preview.stdout)["data"]
+            token = preview_data["token"]
+            approval = "approve:" + str(preview_data["approval_digest"])
             apply = subprocess.run(
-                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--approval", approval, "--json"],
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)
@@ -278,9 +286,11 @@ class DocumentationTests(unittest.TestCase):
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(preview.returncode, 0, preview.stderr)
-            token = json.loads(preview.stdout)["data"]["token"]
+            preview_data = json.loads(preview.stdout)["data"]
+            token = preview_data["token"]
+            approval = "approve:" + str(preview_data["approval_digest"])
             apply = subprocess.run(
-                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--json"],
+                [sys.executable, "-m", "laneorchestrator", "profiles", "install", "apply", "--token", token, "--approval", approval, "--json"],
                 cwd=ROOT, env=environment, text=True, capture_output=True, check=False
             )
             self.assertEqual(apply.returncode, 0, apply.stderr)

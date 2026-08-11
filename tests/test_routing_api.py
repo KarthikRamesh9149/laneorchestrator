@@ -62,6 +62,45 @@ class RoutingApiTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_route_facts(RouteFacts("Fix a typo", True, True, 1, "unsafe"))
 
+    def test_validate_route_facts_rejects_noncanonical_runtime_types(self) -> None:
+        invalid_facts = (
+            RouteFacts("Fix a README typo", "false", True, 1, "low"),
+            RouteFacts("Fix a README typo", True, "false", 1, "low"),
+            RouteFacts("Fix a README typo", True, True, True, "low"),
+            RouteFacts("Fix a README typo", True, True, 1.0, "low"),
+            RouteFacts(1, True, True, 1, "low"),  # type: ignore[arg-type]
+            RouteFacts("Fix a README typo", True, True, 1, None),  # type: ignore[arg-type]
+        )
+        for facts in invalid_facts:
+            with self.subTest(facts=facts):
+                with self.assertRaises(ValueError):
+                    recommend_route(facts)
+
+    def test_unrecognized_or_unicode_low_risk_objectives_never_select_luna(self) -> None:
+        objectives = (
+            "Prevent account takeover through a harmless-looking text update",
+            "Patch a SQL injection weakness in one response string",
+            "Update one API token label",
+            "Fix a p\u0430ssword reset label",
+            "Update pass\u200bword recovery documentation link",
+        )
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
+                self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
+
+    def test_bounded_ascii_editorial_objectives_keep_luna_eligibility(self) -> None:
+        objectives = (
+            "Replace one screenshot alt text in a known guide",
+            "Update one example command flag in a known tutorial",
+            "Correct one diagram caption in the operations guide",
+            "Fix one product name spelling in the FAQ",
+        )
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
+                self.assertEqual(route_data["lane"], "luna")
+
     def test_api_matches_legacy_json(self) -> None:
         facts = RouteFacts("Fix a README typo", True, True, 1, "low")
         direct = recommend_route(facts)

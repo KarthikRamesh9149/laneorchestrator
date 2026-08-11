@@ -615,7 +615,7 @@ def handle_route(args: argparse.Namespace) -> CommandResult:
 - Marketplace name and plugin name are both `laneorchestrator`; version is `0.2.0` everywhere.
 - The marketplace source resolves to one canonical repository-root plugin source; manifests reference only paths inside the repository.
 - Public commands are exactly:
-  - `codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main`
+  - `codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0`
   - `codex plugin add laneorchestrator@laneorchestrator`
 - The skill runs `python3 -m laneorchestrator doctor --json` first and never applies a mutation without displaying preview evidence and receiving the bound token.
 
@@ -767,7 +767,7 @@ def run_benchmark(repo_root: Path, repeat: int = 3) -> CommandResult:
 def test_readme_first_screen_has_install_and_standalone_message(self) -> None:
     readme = (ROOT / "README.md").read_text()
     first_screen = "\n".join(readme.splitlines()[:80])
-    self.assertIn("codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main", first_screen)
+    self.assertIn("codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0", first_screen)
     self.assertIn("codex plugin add laneorchestrator@laneorchestrator", first_screen)
     self.assertIn("$laneorchestrator", first_screen)
     self.assertIn("Third-party agent packs are optional", first_screen)
@@ -783,7 +783,7 @@ def test_readme_first_screen_has_install_and_standalone_message(self) -> None:
 Secure, evidence-driven model and agent routing for Codex.
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref main
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
