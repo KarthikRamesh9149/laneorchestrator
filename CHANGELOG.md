@@ -2,9 +2,7 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
-## [0.2.0] - Candidate
-
-This candidate is not a publication claim. The operational release runbook still requires fresh CI, benchmark, archive, security, independent-review, GitHub-settings, visibility, tag, asset, and unauthenticated verification evidence.
+## [0.2.0] - 2026-08-11
 
 ### Added
 
@@ -17,6 +15,7 @@ This candidate is not a publication claim. The operational release runbook still
 - Deterministic route examples, terminal demonstration source, Mermaid architecture source, and self-contained social preview asset.
 - Public bug and feature forms with private security-report routing.
 - Isolated lifecycle journeys and direct regression replays for routing, discovery, plans, and managed profiles.
+- An exactly 100-case deterministic acceptance suite spanning routing, discovery, approvals, fallbacks, installers, archives, malformed inputs, and standalone skill entry points.
 
 ### Changed
 
@@ -25,6 +24,7 @@ This candidate is not a publication claim. The operational release runbook still
 - Upgraded CI actions to current Node.js 24 releases pinned by immutable commit SHA.
 - Documented the canonical module CLI while retaining legacy helper wrappers through 0.2.0.
 - Bounded metadata readers now reject non-regular files before reading them.
+- Hardened approval binding, Luna containment, release verification, benchmark integrity, duplicate-key handling, AST/JSON bounds, and trusted capability provenance after the canonical security review.
 
 ## 0.1.0 - 2026-08-07
 

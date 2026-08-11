@@ -56,6 +56,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator status --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
     "python3 -m laneorchestrator benchmark --json",
+    "python3 -m unittest tests.test_acceptance_100 -v",
     "python3 scripts/healthcheck.py",
     "sh scripts/validate.sh",
 )
@@ -174,6 +175,11 @@ class DocumentationTests(unittest.TestCase):
                 if command == "python3 scripts/healthcheck.py":
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertIn("health check passed", result.stdout.lower())
+                    continue
+                if command == "python3 -m unittest tests.test_acceptance_100 -v":
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("Ran 100 tests", result.stderr)
+                    self.assertIn("OK", result.stderr)
                     continue
                 payload = json.loads(result.stdout)
                 self.assertEqual(payload["schema_version"], 1, command)

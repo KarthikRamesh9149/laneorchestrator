@@ -33,7 +33,7 @@ class VersionAlignmentTests(unittest.TestCase):
         self.assertEqual(marketplace["plugins"][0]["source"], {"path": ".", "source": "local"})
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [0.2.0]", changelog)
-        self.assertIn("candidate", changelog.lower())
+        self.assertIn("## [0.2.0] - 2026-08-11", changelog)
         notes = (ROOT / "docs" / "releases" / "v0.2.0.md").read_text(encoding="utf-8")
         self.assertIn(TAG, notes)
         self.assertIn("SHA256SUMS", notes)
@@ -48,7 +48,7 @@ class VersionAlignmentTests(unittest.TestCase):
             self.assertEqual(release.sums_path.name, "SHA256SUMS")
             self.assertEqual(len(release.sums_path.read_text(encoding="ascii").splitlines()), 2)
 
-    def test_release_configuration_is_exact_and_not_yet_applied(self) -> None:
+    def test_release_configuration_contract_is_exact(self) -> None:
         codeowners = (ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
         self.assertEqual(codeowners.strip(), "* @KarthikRamesh9149")
         self.assertNotRegex(codeowners, r"[/@].+\s+.+")
@@ -59,12 +59,12 @@ class VersionAlignmentTests(unittest.TestCase):
             self.assertIn("`{0}`".format(topic), settings)
         self.assertIn("Discussions: enable", settings)
         self.assertIn("only `main`", settings)
-        self.assertIn("do not apply", settings.lower())
+        self.assertIn("inspect the live github api", settings.lower())
         for check in (
             "POSIX Python 3.9 on ubuntu-latest", "POSIX Python 3.14 on ubuntu-latest",
             "POSIX Python 3.9 on macos-latest", "POSIX Python 3.14 on macos-latest",
             "Windows read-only control plane Python 3.9", "Windows read-only control plane Python 3.14",
-            "Verify candidate distribution",
+            "Verify candidate distribution", "private-static-analysis", "public-codeql",
         ):
             self.assertRegex(
                 settings,

@@ -1,6 +1,6 @@
-# GitHub launch settings (unapplied)
+# Required GitHub launch settings
 
-This is the exact post-code-gate plan. It does not assert current repository settings, visibility, remote branches, CI state, or ownership. Do not apply it until the release commit has passed the pre-public evidence gates.
+This is the exact post-code-gate contract. Inspect the live GitHub API before relying on it. Apply it only after the release commit passes the pre-public evidence gates. If the account plan cannot protect a private repository, make the explicitly authorized visibility change first, then apply and verify both rulesets immediately before creating any release tag.
 
 ## Repository metadata
 
@@ -21,6 +21,8 @@ Create exactly one active ruleset named `protect-main`, targeting only `main`. D
   - `Windows read-only control plane Python 3.9` — expected source: `GitHub Actions` app.
   - `Windows read-only control plane Python 3.14` — expected source: `GitHub Actions` app.
   - `Verify candidate distribution` — expected source: `GitHub Actions` app.
+  - `private-static-analysis` — expected source: `GitHub Actions` app.
+  - `public-codeql` — expected source: `GitHub Actions` app.
 - Require the branch to be up to date before the checks pass.
 - force pushes: block.
 - deletions: block.

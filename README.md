@@ -53,6 +53,6 @@ Read the [security model](docs/security-model.md), [threat model](docs/threat-mo
 
 ## Development and community
 
-Run `sh scripts/validate.sh` before opening a pull request. It runs the repository checks and unit suite; [CONTRIBUTING.md](CONTRIBUTING.md) explains the expected evidence and rollback note. See [CHANGELOG.md](CHANGELOG.md), [RELEASING.md](RELEASING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Run `sh scripts/validate.sh` before opening a pull request. It runs the repository checks, the exactly 100-case acceptance surface, and the broader unit suite; [CONTRIBUTING.md](CONTRIBUTING.md) explains the expected evidence and rollback note. See [CHANGELOG.md](CHANGELOG.md), [RELEASING.md](RELEASING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 Licensed under the [MIT License](LICENSE). [NOTICE](NOTICE) records clean-room provenance.
