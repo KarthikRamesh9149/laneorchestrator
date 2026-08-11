@@ -38,7 +38,14 @@ Why: multi-file work or uncertain scope uses the default implementation lane
 Safety: workspace execution only
 ```
 
-**No Volt installation is required.** LaneOrchestrator works with its bundled Codex profiles; third-party agent packs are optional and are never installed automatically.
+**No separate Volt download is required.** The plugin includes the pinned, MIT-licensed VoltAgent Codex specialist pack: 172 namespaced profiles, ready for LaneOrchestrator to select after activation. Plugin installation never silently writes to your global Codex profile directory, so activate the bundled pack through one reviewed preview and approval:
+
+```sh
+python3 -m laneorchestrator voltagent install preview --json
+python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
+```
+
+This installs `laneorchestrator-voltagent-*` profiles without replacing any of your own agents. The four LaneOrchestrator control profiles still provide safe routing even when you choose not to activate the specialist pack.
 
 On first use, the skill runs `doctor` to check readiness. If the host does not expose the required bundled profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
@@ -88,9 +95,9 @@ Security evidence is layered and bounded. It supports careful use and review; it
 
 ## FAQ
 
-### Do I need Volt or a large agent pack?
+### Do I need Volt or a separate agent-pack download?
 
-No. The bundled Codex profiles are sufficient. Optional specialists can be discovered when they are already available, but they are not a dependency and are never installed automatically.
+No. LaneOrchestrator ships the 172-profile VoltAgent specialist pack inside the plugin, with its pinned source and MIT attribution. Activate it once through the explicit preview and approval flow above; it never overwrites an existing user profile. The core routing profiles remain sufficient if you do not activate it.
 
 ### Can it change my files or configuration without asking?
 

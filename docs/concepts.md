@@ -18,7 +18,7 @@ The lexical signals are defense in depth, not a semantic classifier. The router 
 
 ## Optional specialists
 
-Discovery reads bounded metadata from configured skill and agent roots, skips symbolic links, and returns source and matched-term evidence. A specialist may be absent or rejected without blocking a route. Third-party agent packs are optional and are never installed automatically.
+Discovery reads bounded metadata from configured skill and agent roots, skips symbolic links, and returns source and matched-term evidence. LaneOrchestrator bundles a pinned MIT-licensed VoltAgent specialist pack, but its 172 namespaced profiles reach the global Codex directory only through a reviewed, approval-bound install plan. A specialist may be absent or rejected without blocking a route.
 
 ## Preview and apply
 

@@ -97,7 +97,9 @@ class PluginManifestTests(unittest.TestCase):
         self.assertLess(skill.index("python3 -m laneorchestrator doctor --json"), skill.index("python3 -m laneorchestrator profiles install preview --json"))
         self.assertIn("profiles install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
         self.assertIn("never apply", skill.lower())
-        self.assertIn("Third-party agent packs are optional", skill)
+        self.assertIn("pinned MIT-licensed VoltAgent specialist pack", skill)
+        self.assertIn("voltagent install preview --json", skill)
+        self.assertIn("voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
         self.assertIn("missing Terra", skill)
         self.assertIn("required Sol", skill)
         self.assertIn("ancestor of this `SKILL.md`", skill)
@@ -114,6 +116,7 @@ class PluginManifestTests(unittest.TestCase):
         self.assertIn("doctor", readme)
         self.assertIn("preview", readme)
         self.assertIn("bound token", readme)
+        self.assertIn("172 namespaced profiles", readme)
         self.assertIn("Plugin removal", readme)
 
 

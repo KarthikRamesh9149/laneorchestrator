@@ -11,12 +11,14 @@ LaneOrchestrator protects repository contents, user configuration, managed profi
 3. High-risk lexical signals are defense in depth; high-risk work requires Sol planning, Terra implementation, and a fresh read-only Sol review.
 4. Discovery is bounded, source-aware, and does not follow symbolic links. Metadata is an index, never executable instruction text.
 5. Agent lifecycle operations do not overwrite an existing path or follow caller-controlled symbolic links.
-6. Required Terra and Sol roles fail closed. Luna and optional specialists may fall back to Terra only where the route permits it.
+6. Required Terra and Sol roles fail closed. Luna and optional specialists may fall back to Terra only where the route permits it. The bundled VoltAgent specialists are optional, namespaced Terra/High profiles and cannot bypass lane selection.
 7. External, destructive, costly, credential-bearing, or scope-expanding actions remain subject to the host approval boundary.
 
 ## Mutation boundary
 
 Profile and configuration updates use private exact-state previews, bound tokens, matching explicit approvals, descriptor-relative no-follow checks, private temporary files, atomic replacement, and parent-directory synchronization where supported. A changed, expired, or replayed preview fails without publishing a partial configuration document.
+
+The bundled VoltAgent pack is an exact upstream-commit and content-tree pin with its MIT licence retained. Its activation is a separate approval-bound install: it verifies the bundle, rejects symbolic links, partial state, collisions, and drift, then publishes all namespaced profiles atomically. Downloading the plugin alone never writes to the host agent directory.
 
 These controls serialize cooperating LaneOrchestrator writers inside the documented POSIX boundary. They do not claim protection from malicious code sharing the same effective user identity, a compromised host, or an external system compromise. Native Windows mutation is disabled in this release; use WSL for configuration and profile mutation.
 
@@ -26,7 +28,7 @@ Security regressions exercise dangling and live destination links, unsafe filesy
 
 ## Static-analysis evidence
 
-The Security workflow uses a bounded standard-library AST scanner for private repositories where GitHub Code Scanning is unavailable. It analyzes the committed `laneorchestrator` and `scripts` trees and saves deterministic SARIF as a workflow artifact. This narrow gate detects a small set of high-confidence Python risks; it is not equivalent to CodeQL. Public repositories run the pinned CodeQL actions and upload Code Scanning results and the analysis database.
+The Security workflow uses a bounded standard-library AST scanner for private repositories where GitHub Code Scanning is unavailable. It analyzes the committed `laneorchestrator`, `scripts`, and distributed skill-wrapper trees and saves deterministic SARIF as a workflow artifact. This narrow gate detects a small set of high-confidence Python risks; it is not equivalent to CodeQL. Public repositories run the pinned CodeQL actions and upload Code Scanning results and the analysis database.
 
 ## Known limitations
 
