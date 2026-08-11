@@ -38,7 +38,7 @@ Do not repeat a token or approval after applying or after a failed apply. Re-run
 For marketplace installation, use these public commands exactly:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.0
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.1
 codex plugin add laneorchestrator@laneorchestrator
 ```
 

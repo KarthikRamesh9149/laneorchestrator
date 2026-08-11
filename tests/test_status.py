@@ -70,7 +70,7 @@ class StatusContractTests(unittest.TestCase):
                 "operation": "install",
                 "profile_count": 4,
                 "schema_version": 1,
-                "template_version": "0.2.0",
+                "template_version": "0.2.1",
             },
         )
         self.assertNotIn("timestamp", json.dumps(payload["latest_receipt"]).casefold())

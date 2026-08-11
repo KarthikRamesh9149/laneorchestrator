@@ -1,6 +1,6 @@
 {
   "name": "laneorchestrator",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Secure, evidence-driven model and agent routing for Codex.",
   "author": {
     "name": "KarthikRamesh9149",

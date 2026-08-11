@@ -65,10 +65,10 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(
             self.payload(version)["data"],
             {
-                "manifest_version": "0.2.0",
-                "package_version": "0.2.0",
+                "manifest_version": "0.2.1",
+                "package_version": "0.2.1",
                 "schema_version": 1,
-                "version": "0.2.0",
+                "version": "0.2.1",
             },
         )
         self.assertEqual(benchmark.returncode, 0, benchmark.stderr)
@@ -122,7 +122,7 @@ class CliIntegrationTests(unittest.TestCase):
         agents = self.home / "agents"
         agents.mkdir()
         (agents / "laneorchestrator-router.toml").write_text(
-            '# managed-by: laneorchestrator 0.2.0\n'
+            '# managed-by: laneorchestrator 0.2.1\n'
             'name = "laneorchestrator-router"\n'
             'description = "Read-only control plane."\n'
             'model = "gpt-5.6-sol"\n',

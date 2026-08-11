@@ -282,7 +282,7 @@ def _collect_skills(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                 max_total_skill_bytes=overall_limits.max_total_skill_bytes - total_bytes,
             )
         if root.is_symlink():
-            add_warning(warnings, "skipped symbolic-link skill root: {0}".format(root), limits.max_warnings)
+            add_warning(warnings, "skipped symbolic-link skill root", limits.max_warnings)
             continue
         if not root.is_dir():
             continue
@@ -307,7 +307,7 @@ def _collect_skills(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                         root_entries += 1
                         entries.append(entry)
             except OSError:
-                add_warning(warnings, "could not traverse skill directory: {0}".format(directory), limits.max_warnings)
+                add_warning(warnings, "could not traverse skill directory", limits.max_warnings)
                 continue
             if stopped:
                 continue
@@ -327,14 +327,14 @@ def _collect_skills(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                     root_files += 1
                     root_bytes += bytes_read
                     if warning:
-                        add_warning(warnings, "{0}: {1}".format(warning, path), limits.max_warnings)
+                        add_warning(warnings, warning, limits.max_warnings)
                     if capability:
                         found.setdefault(capability.path, capability)
                 elif not entry.is_symlink() and entry.is_dir(follow_symlinks=False):
                     child_directories.append(path)
             if depth >= limits.max_skill_depth:
                 if child_directories:
-                    add_warning(warnings, "stopped skill traversal below depth {0}: {1}".format(limits.max_skill_depth, directory), limits.max_warnings)
+                    add_warning(warnings, "stopped skill traversal below depth {0}".format(limits.max_skill_depth), limits.max_warnings)
                 continue
             pending.extend((child, depth + 1) for child in reversed(child_directories))
         files_seen += root_files
@@ -363,7 +363,7 @@ def _collect_agents(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                 max_total_agent_bytes=overall_limits.max_total_agent_bytes - total_bytes,
             )
         if root.is_symlink():
-            add_warning(warnings, "skipped symbolic-link agent root: {0}".format(root), limits.max_warnings)
+            add_warning(warnings, "skipped symbolic-link agent root", limits.max_warnings)
             continue
         if not root.is_dir():
             continue
@@ -381,7 +381,7 @@ def _collect_agents(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
                     if entry.name.endswith(".toml"):
                         paths.append(Path(entry.path))
         except OSError:
-            add_warning(warnings, "could not traverse agent root: {0}".format(root), limits.max_warnings)
+            add_warning(warnings, "could not traverse agent root", limits.max_warnings)
             continue
         for path in sorted(paths) if not stopped else ():
             if root_files >= limits.max_agent_files:
@@ -394,7 +394,7 @@ def _collect_agents(roots: Sequence[Path], limits: DiscoveryLimits) -> Tuple[Lis
             root_files += 1
             root_bytes += bytes_read
             if warning:
-                add_warning(warnings, "{0}: {1}".format(warning, path), limits.max_warnings)
+                add_warning(warnings, warning, limits.max_warnings)
             if capability:
                 found[capability.path] = capability
         files_seen += root_files
