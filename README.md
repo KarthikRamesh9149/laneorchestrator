@@ -7,7 +7,18 @@
 
 ## Route Codex work with evidence, not guesswork.
 
-LaneOrchestrator is a Codex plugin that turns a task and its repository context into an auditable execution path. It keeps simple, well-bounded work fast, sends normal implementation to the right lane, and makes elevated-risk work stop for independent planning and review.
+LaneOrchestrator is the safety-aware task router for Codex. It turns a task and its repository context into an auditable execution path: simple, well-bounded work stays fast; normal implementation goes to the right lane; elevated-risk work stops for independent planning and review.
+
+```text
+Without LaneOrchestrator                  With LaneOrchestrator
+────────────────────────                  ────────────────────
+"Fix the billing screen"                  "Fix the billing screen"
+        ↓                                          ↓
+One opaque agent choice                   Scope + risk + repository evidence
+        ↓                                          ↓
+Hope the task was interpreted well        A route card, safety boundary, and
+                                           the right execution lane
+```
 
 ```text
 task + repository evidence
@@ -19,7 +30,7 @@ Luna / Terra / Sol → Terra → Sol
     verification and handoff
 ```
 
-It is a control plane, not an autopilot: task text, metadata, paths, and rankings are treated as untrusted input; the router stays read-only; and changes to profiles or configuration require an explicit preview and approval.
+It is a control plane, not an autopilot: task text, metadata, paths, and rankings are treated as untrusted input; the router stays read-only; and profile or configuration changes require an explicit preview and approval.
 
 ## Install and try it
 
@@ -51,12 +62,12 @@ On first use, the skill runs `doctor` to check readiness. If the host does not e
 
 ## What it does
 
-- **Chooses an execution lane from evidence.** It evaluates scope, risk, acceptance criteria, and role availability rather than trusting a single task label.
-- **Keeps the control plane read-only.** A writable executor never grants itself authority or silently broadens the task.
-- **Finds optional capability help safely.** It reads bounded skill and agent metadata, rejects unsafe filesystem objects, and treats metadata as data—not instructions.
-- **Makes changes reviewable.** Profile and configuration operations use preview, a short-lived bound token, and a separate explicit approval value.
-- **Fails safely.** Missing required models or profiles pause the applicable route; unknown risk does not select the smallest writable lane.
-- **Fits people and automation.** Use `$laneorchestrator` for normal Codex work or stable JSON CLI results from a source checkout or resolved installed plugin root.
+- **Route with context.** It evaluates scope, risk, acceptance criteria, and role availability instead of trusting a task label.
+- **Keep authority separate.** The control plane is read-only; a writable executor never grants itself more authority or quietly broadens your task.
+- **Use specialists without surrendering control.** It discovers skills and agents through bounded metadata. The bundled VoltAgent pack adds 172 optional specialists, but none can override the lane decision.
+- **Make mutations deliberate.** Profile and configuration changes are previews first, then require a short-lived bound token and a matching approval.
+- **Fail in the safe direction.** Unknown risk does not select the smallest writable lane. Missing required roles pause the relevant work instead of quietly downgrading it.
+- **Work from chat or automation.** Use `$laneorchestrator` in Codex, or emit stable JSON from the canonical module command in a source checkout or resolved plugin root.
 
 ## The three lanes
 
