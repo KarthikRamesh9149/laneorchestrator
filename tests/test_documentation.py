@@ -40,6 +40,7 @@ REQUIRED = (
     "docs/compatibility.md",
     "docs/roadmap.md",
     "docs/assets/demo.cast",
+    "docs/assets/laneorchestrator-demo.gif",
     "docs/assets/architecture.mmd",
     "docs/assets/social-preview.svg",
     "docs/transcripts/quickstart.txt",
@@ -68,7 +69,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
 def public_text_files() -> Iterable[Path]:
     yield ROOT / "README.md"
     yield from sorted(path for path in (ROOT / "docs").rglob("*.md") if "superpowers" not in path.parts)
-    yield from sorted((ROOT / "docs" / "assets").glob("*"))
+    yield from sorted(path for path in (ROOT / "docs" / "assets").glob("*") if path.suffix != ".gif")
     yield from sorted((ROOT / "docs" / "transcripts").glob("*"))
     yield ROOT / "CHANGELOG.md"
     yield ROOT / "CONTRIBUTING.md"
@@ -385,6 +386,25 @@ class DocumentationTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             self.assertNotIn("\x1b", text)
             self.assertNotRegex(text, LOCAL_PATH)
+
+    def test_readme_demo_is_animated_bounded_and_reproducible(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        relative = "docs/assets/laneorchestrator-demo.gif"
+        self.assertIn(relative, readme)
+        data = (ROOT / relative).read_bytes()
+        self.assertLessEqual(len(data), 1_000_000)
+        self.assertEqual(data[:6], b"GIF89a")
+        self.assertEqual(int.from_bytes(data[6:8], "little"), 1200)
+        self.assertEqual(int.from_bytes(data[8:10], "little"), 675)
+        graphic_controls = [index for index in range(len(data)) if data.startswith(b"\x21\xf9\x04", index)]
+        self.assertGreaterEqual(len(graphic_controls), 20)
+        duration_centiseconds = sum(
+            int.from_bytes(data[index + 4 : index + 6], "little") for index in graphic_controls
+        )
+        self.assertEqual(duration_centiseconds, 2_000)
+        renderer = ROOT / "scripts" / "render_demo_gif.py"
+        self.assertTrue(renderer.is_file())
+        self.assertIn("Deterministic walkthrough", renderer.read_text(encoding="utf-8"))
 
     def test_issue_forms_and_security_policy_route_sensitive_reports_privately(self) -> None:
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
