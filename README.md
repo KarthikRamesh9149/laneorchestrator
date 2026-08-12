@@ -7,12 +7,15 @@
 [![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Codex is powerful when it has the right context. LaneOrchestrator gives it a disciplined starting point: it turns a task and its repository context into an auditable execution path before implementation begins, then matches the work with relevant expertise from **172 bundled specialist agents** spanning engineering, architecture, security, data, AI, cloud, operations, product, and quality. Small, well-bounded work stays quick; normal changes use the default engineering lane; security-sensitive work earns independent planning and review. The specialist pack is included with the plugin, and the guided setup command activates all 172 alongside the four control profiles in one reviewed installation.
+LaneOrchestrator is an intelligent control plane for Codex. It analyzes your prompt and repository context, evaluates complexity and risk, routes the work to GPT‑5.6 Luna, Terra, or Sol, and selects the right expertise from 172 bundled specialist agents. It orchestrates who plans, implements, and reviews—so you do not have to choose models or agents manually.
 
 ```text
-Your task → repository evidence → route card → right people → verification
-                                      │
-                         Luna / Terra / Sol → Terra → Sol
+Your task → prompt + repository context → complexity & risk → route card
+                                                              │
+              ┌───────────────────────────────────────────────┼──────────────────────────────────────────────┐
+              │                                               │                                              │
+        Luna executes                              Terra + specialist execute              Sol plans → Terra + specialist → Sol reviews
+        bounded work                                     normal work                                      high-risk work
 ```
 
 ## What ships in the box
