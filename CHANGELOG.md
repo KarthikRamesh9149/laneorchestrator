@@ -2,6 +2,19 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-08-13
+
+### Added
+
+- Add the interactive `python3 -m laneorchestrator setup` first-run flow for one reviewed installation of four control profiles and 172 bundled specialists (176 profiles total).
+- Add TTY-bound confirmation, combined preview fingerprints, read-only `setup --json` readiness output, resumable core-first recovery, and native-Windows WSL guidance.
+- Keep the explicit `profiles` and `voltagent` preview/apply commands available as the advanced automation path.
+
+### Safety
+
+- Require both terminal input and output; piped, redirected, empty, interrupted, or unrecognized confirmations never apply a setup plan.
+- Verify the final control-profile doctor checks and specialist-pack status after setup; refuse drift, collisions, partial packs, and unsafe filesystem state.
+
 ## [0.2.2] - 2026-08-11
 
 ### Added

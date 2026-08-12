@@ -13,6 +13,7 @@ PYTHONPYCACHEPREFIX="$cache_dir" "$python_bin" -m py_compile \
   laneorchestrator/__main__.py \
   laneorchestrator/diagnostics.py \
   laneorchestrator/cli.py \
+  laneorchestrator/setup.py \
   scripts/check_docs.py \
   scripts/check_manifests.py \
   scripts/build_release.py \

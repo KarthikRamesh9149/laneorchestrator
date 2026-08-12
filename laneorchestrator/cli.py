@@ -39,10 +39,11 @@ from .plans import PlanError
 from .profiles import ProfileConflict, apply_profiles, ensure_agents_root, preview_profiles
 from .routing import RouteFacts, VALID_RISKS, positive_file_count, recommend_route
 from .security import SecurityError
+from .setup import json_status as setup_json_status, render_result as render_setup_result, run_interactive as run_interactive_setup
 from .voltagent import PackError, apply_install as apply_voltagent_install, pack_inventory, pack_status, preview_install as preview_voltagent_install
 
 
-COMMANDS = ("doctor", "status", "configure", "route", "catalog", "profiles", "voltagent", "benchmark", "version")
+COMMANDS = ("setup", "doctor", "status", "configure", "route", "catalog", "profiles", "voltagent", "benchmark", "version")
 PROFILE_ACTIONS = ("install", "update", "adopt", "uninstall")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -100,6 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     _subparser(commands, "doctor")
     _subparser(commands, "status")
     _subparser(commands, "version")
+    _subparser(commands, "setup")
 
     configure = _subparser(commands, "configure")
     configure_phases = configure.add_subparsers(dest="phase", required=True, parser_class=_Parser)
@@ -183,6 +185,14 @@ def handle_doctor(args: argparse.Namespace) -> CommandResult:
 def handle_status(args: argparse.Namespace) -> CommandResult:
     _home, state, agents = _runtime_paths()
     return run_status(state, agents)
+
+
+def handle_setup(args: argparse.Namespace) -> CommandResult:
+    _home, state, agents = _runtime_paths()
+    repo = Path(__file__).absolute().parents[1]
+    if bool(getattr(args, "json", False)):
+        return setup_json_status(repo, state, agents)
+    return run_interactive_setup(repo, state, agents, sys.stdin, sys.stdout)
 
 
 def handle_configure(args: argparse.Namespace) -> CommandResult:
@@ -407,6 +417,7 @@ def _plan_error(error: BaseException) -> DomainError:
 
 def dispatch(args: argparse.Namespace) -> CommandResult:
     handlers = {
+        "setup": handle_setup,
         "doctor": handle_doctor,
         "status": handle_status,
         "configure": handle_configure,
@@ -456,6 +467,9 @@ def _command_for_error(argv: Sequence[str]) -> str:
 
 
 def _render(result: CommandResult, as_json: bool) -> None:
+    if not as_json and result.command == "setup":
+        print(render_setup_result(result))
+        return
     print(render_json(result) if as_json else render_human(result))
 
 

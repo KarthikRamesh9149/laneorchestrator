@@ -55,6 +55,8 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator version --json",
     "python3 -m laneorchestrator doctor --json",
     "python3 -m laneorchestrator status --json",
+    "python3 -m laneorchestrator setup",
+    "python3 -m laneorchestrator setup --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
     "python3 -m laneorchestrator voltagent inventory --json",
     "python3 -m laneorchestrator voltagent install preview --json",
@@ -115,7 +117,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
         self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)
@@ -190,6 +192,10 @@ class DocumentationTests(unittest.TestCase):
                     self.assertEqual(syntax.returncode, 0, syntax.stderr)
                     self.assertIn("unittest discover", (ROOT / "scripts/validate.sh").read_text(encoding="utf-8"))
                     continue
+                if command == "python3 -m laneorchestrator setup":
+                    # The documented interactive command intentionally requires a real TTY;
+                    # this contract test verifies its presence without attempting mutation.
+                    continue
                 arguments = shlex.split(command)
                 if arguments[0] == "python3":
                     arguments[0] = sys.executable
@@ -216,6 +222,11 @@ class DocumentationTests(unittest.TestCase):
                     self.assertIn("OK", result.stderr)
                     continue
                 payload = json.loads(result.stdout)
+                if command == "python3 -m laneorchestrator setup --json":
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(payload["errors"][0]["code"], "SETUP_INTERACTIVE_REQUIRED")
+                    self.assertIn("interactive_command", payload["data"])
+                    continue
                 self.assertEqual(payload["schema_version"], 1, command)
                 self.assertEqual(payload["command"], command.split()[3] if " -m " in command else "", command)
                 if command == "python3 -m laneorchestrator doctor --json":

@@ -28,10 +28,10 @@ This is not “one giant prompt.” LaneOrchestrator first decides the lane from
 
 ## Start here
 
-Install the reviewed `v0.2.2` release, then invoke the skill from any workspace:
+Install the reviewed `v0.2.3` release, then invoke the skill from any workspace:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -41,9 +41,27 @@ Then give Codex a normal request:
 
 The response begins with a route card—lane, reason, safety boundary, and available roles—before work begins.
 
+### One-command setup (recommended)
+
+After installing the plugin, resolve its installed root (or use a source checkout), then run the setup command from an interactive POSIX terminal or WSL session. It shows one combined, human-readable preview for all four control profiles and the bundled specialist pack, then asks once before writing any profile targets:
+
+```sh
+python3 -m laneorchestrator setup
+```
+
+The preview names the destination, control roles, all **172 specialists**, pinned upstream commit, exact change counts, expiry, and a combined fingerprint. The confirmation covers **176 profiles** (4 control profiles plus 172 specialists). Only `y` or `yes` confirms; Enter, `n`, interruptions, pipes, and redirected input cancel or refuse safely. Setup never prints raw plan tokens or approval digests. It applies the four control profiles first, then the specialist pack. If the specialist stage fails, the valid control installation is retained and rerunning setup resumes after the conflict is resolved.
+
+For automation or a noninteractive readiness check, use the read-only form:
+
+```sh
+python3 -m laneorchestrator setup --json
+```
+
+It never prompts or mutates profile targets. It returns `SETUP_INTERACTIVE_REQUIRED` with the interactive command and current readiness. Native Windows reports WSL guidance; the existing read-only commands remain available there.
+
 **No separate Volt download is required.** The plugin already contains the pinned, MIT-licensed VoltAgent source pack: **172 namespaced profiles** ready to activate when you choose.
 
-### Activate the bundled specialists
+### Activate the bundled specialists (advanced manual path)
 
 Plugin installation downloads the pack; it deliberately does **not** write 172 profiles into your global Codex directory without review. Inspect what is included, create an exact installation preview, then approve that one preview:
 
@@ -55,7 +73,7 @@ python3 -m laneorchestrator voltagent install apply --token <bound-token> --appr
 
 Activation creates only `laneorchestrator-voltagent-*` profiles. It refuses profile collisions, partial installs, drift, unsafe filesystem objects, expired plans, and replayed approvals. Your existing profiles are left alone.
 
-On first use, the skill runs `doctor` to check readiness. If the host does not expose the required control profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
+On first use, the skill runs `doctor` to check readiness. The recommended `setup` command handles a fresh or resumable installation in one confirmation. If you choose the advanced manual path, or the host does not expose the required control profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
 ![LaneOrchestrator walkthrough: task evidence, route card, bundled specialists, and high-risk verification](docs/assets/laneorchestrator-demo.gif)
 
@@ -130,7 +148,7 @@ For direct integration or source development, use `python3 -m laneorchestrator` 
 
 ## Trust, safety, and release evidence
 
-- The protected annotated [`v0.2.2` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.2) includes deterministic archives and `SHA256SUMS`.
+- The protected annotated [`v0.2.3` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.3) includes deterministic archives and `SHA256SUMS`.
 - The tag-triggered [release workflow](.github/workflows/release.yml) validates the repository, verifies generated assets, and emits GitHub artifact attestations.
 - Read the [security model](docs/security-model.md) and [threat model](docs/threat-model.md) for boundaries and known limitations.
 - Use the [security policy](SECURITY.md) to report a vulnerability privately; do not put sensitive reproduction details in an issue.
