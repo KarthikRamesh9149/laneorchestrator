@@ -7,7 +7,7 @@
 [![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Codex is powerful when it has the right context. LaneOrchestrator gives it a disciplined starting point: it turns a task and its repository context into an auditable execution path before implementation begins. Small, well-bounded work stays quick; normal changes use the default engineering lane; security-sensitive work earns independent planning and review.
+Codex is powerful when it has the right context. LaneOrchestrator gives it a disciplined starting point: it turns a task and its repository context into an auditable execution path before implementation begins, then matches the work with relevant expertise from **172 bundled specialist agents** spanning engineering, architecture, security, data, AI, cloud, operations, product, and quality. Small, well-bounded work stays quick; normal changes use the default engineering lane; security-sensitive work earns independent planning and review. The specialist pack is included with the plugin, and the guided setup command activates all 172 alongside the four control profiles in one reviewed installation.
 
 ```text
 Your task → repository evidence → route card → right people → verification

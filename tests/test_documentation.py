@@ -116,6 +116,8 @@ class DocumentationTests(unittest.TestCase):
         first_screen = "\n".join(readme.splitlines()[:100])
         self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
         self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
+        self.assertIn("relevant expertise from **172 bundled specialist agents**", first_screen)
+        self.assertIn("guided setup command activates all 172", first_screen)
         self.assertIn(
             "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
             first_screen,
