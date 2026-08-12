@@ -115,9 +115,10 @@ class DocumentationTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         first_screen = "\n".join(readme.splitlines()[:100])
         self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
-        self.assertIn("turns a task and its repository context into an auditable execution path", first_screen)
-        self.assertIn("relevant expertise from **172 bundled specialist agents**", first_screen)
-        self.assertIn("guided setup command activates all 172", first_screen)
+        self.assertIn("analyzes your prompt and repository context", first_screen)
+        self.assertIn("GPT‑5.6 Luna, Terra, or Sol", first_screen)
+        self.assertIn("172 bundled specialist agents", first_screen)
+        self.assertIn("Sol plans → Terra + specialist → Sol reviews", first_screen)
         self.assertIn(
             "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
             first_screen,
@@ -129,7 +130,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("172 namespaced profiles", first_screen)
         self.assertIn("Activate the bundled specialists", first_screen)
         self.assertIn("voltagent inventory --json", first_screen)
-        self.assertIn("Luna / Terra / Sol → Terra → Sol", first_screen)
+        self.assertIn("Luna executes", first_screen)
+        self.assertIn("Terra + specialist execute", first_screen)
         self.assertIn("preview and waits for your explicit approval", first_screen)
         self.assertIn("docs/assets/demo.cast", first_screen)
         self.assertEqual(first_screen.count("[!["), 4)
