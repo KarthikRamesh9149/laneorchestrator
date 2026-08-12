@@ -1,10 +1,10 @@
 $ $laneorchestrator route and implement this task safely
 LaneOrchestrator: resolving installed plugin root
 Readiness: doctor checks configuration and required profiles
-Profiles: host does not expose bundled profiles
-Next step: profiles install preview; no target changes applied
-Human review: supply the exact unexpired <bound-token> only after approval
-Readiness: doctor is rechecked after an approved apply
+Setup: preview 4 control profiles + 172 bundled specialists
+Human review: Install these 176 profiles? [y/N]
+Approval: one TTY-only yes binds the exact in-memory plans
+Readiness: doctor and specialist status verify the installation
 Route card: Lane Terra
 Why: multi-file work or uncertain scope uses the default implementation lane
 Safety: workspace execution only

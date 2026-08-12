@@ -1,5 +1,13 @@
 # Troubleshooting
 
+## Setup requires a terminal
+
+Run `python3 -m laneorchestrator setup` from the resolved plugin root in a POSIX terminal or WSL. Setup requires both stdin and stdout to be TTYs; piped or redirected input is refused, and only `y` or `yes` confirms the exact combined preview. Use `python3 -m laneorchestrator setup --json` for a read-only readiness result and the command to run interactively. Native Windows should use WSL for setup; read-only commands remain supported natively.
+
+## Setup reports `SETUP_PARTIAL`
+
+The four control profiles were installed and verified, but the specialist stage could not complete. The control installation is retained. Read the reported collision, drift, unsafe path, or pack-integrity error, resolve it deliberately without overwriting unrelated profiles, and rerun `setup`; it will resume the remaining specialist step. Do not reuse an expired preview or approval value.
+
 ## A required profile is missing or unknown
 
 Run `doctor --json` or `status --json` to inspect the state. If the host does not expose bundled profiles, request a profile-install preview, review it, and supply its new bound token with the matching `approve:<approval_digest>` value only when the preview is correct. Do not reuse a token or approval after a changed, expired, or failed plan.

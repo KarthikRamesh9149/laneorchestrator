@@ -19,7 +19,7 @@ class DiagnosticTests(unittest.TestCase):
         result = CommandResult(
             command="doctor",
             ok=False,
-            data={"version": "0.2.2"},
+            data={"version": "0.2.3"},
             diagnostics=tuple(
                 Diagnostic(code=f"D{i}", level=level, message=level.value, evidence={"i": i})
                 for i, level in enumerate(Level)
@@ -35,7 +35,7 @@ class DiagnosticTests(unittest.TestCase):
             self.assertIn(item["message"], human)
 
     def test_dict_field_order_is_stable(self) -> None:
-        result = command_result("version", data={"version": "0.2.2"})
+        result = command_result("version", data={"version": "0.2.3"})
         self.assertEqual(
             list(result.to_dict()),
             ["schema_version", "command", "ok", "data", "diagnostics", "errors"],

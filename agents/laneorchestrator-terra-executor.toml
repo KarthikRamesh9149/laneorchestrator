@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.2
+# managed-by: laneorchestrator 0.2.3
 name = "laneorchestrator-terra-executor"
 description = "Use as the default GPT-5.6 implementation lane for multi-file, integration, or uncertain work after a bounded routing packet."
 model = "gpt-5.6-terra"

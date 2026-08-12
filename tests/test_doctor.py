@@ -65,11 +65,11 @@ def _profile_fixture(root: Path) -> tuple[Path, Path, Path, dict[str, str]]:
     manifests = {
         repo / ".codex-plugin" / "plugin.json": {
             "name": "laneorchestrator",
-            "version": "0.2.2",
+            "version": "0.2.3",
         },
         repo / "plugin.json": {
             "name": "laneorchestrator",
-            "version": "0.2.2",
+            "version": "0.2.3",
         },
         repo / ".agents" / "plugins" / "marketplace.json": {
             "name": "laneorchestrator",

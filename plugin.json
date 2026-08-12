@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "laneorchestrator",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Secure, evidence-driven model and agent routing for Codex.",
   "author": {
     "name": "KarthikRamesh9149",

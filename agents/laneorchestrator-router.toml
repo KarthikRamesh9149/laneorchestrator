@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.2
+# managed-by: laneorchestrator 0.2.3
 name = "laneorchestrator-router"
 description = "Use to inspect project context, select relevant skills and agents, classify GPT-5.6 execution lanes, and emit a bounded delegation packet before work begins."
 model = "gpt-5.6-sol"

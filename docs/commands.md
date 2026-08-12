@@ -1,6 +1,24 @@
 # Command reference
 
-The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `doctor`, `status`, `version`, `configure`, `route`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
+The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `setup`, `doctor`, `status`, `version`, `configure`, `route`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
+
+## Recommended first-run setup
+
+`setup` is the guided path for a fresh or resumable installation of all 176 bundled profiles: four control profiles plus 172 namespaced specialists.
+
+```sh
+python3 -m laneorchestrator setup
+```
+
+It requires an interactive POSIX/WSL terminal with both stdin and stdout attached to a TTY. It renders one combined preview, then accepts only `y` or `yes`; empty, negative, interrupted, piped, and redirected input cancel or refuse safely. The preview does not reveal raw plan tokens or approval digests. Control profiles are applied first, specialists second, and final doctor/status verification is required. If specialists fail after control profiles succeed, setup returns `SETUP_PARTIAL` and a later run resumes after the reported conflict is resolved.
+
+For automation, inspection, or CI, the JSON form is deliberately noninteractive and read-only:
+
+```sh
+python3 -m laneorchestrator setup --json
+```
+
+It returns `SETUP_INTERACTIVE_REQUIRED`, the current readiness snapshot, and the command to run interactively. Native Windows returns WSL guidance. The explicit preview/apply commands below remain the advanced path for operators who need separate lifecycle control.
 
 ## Read-only commands
 

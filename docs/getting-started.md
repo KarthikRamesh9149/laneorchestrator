@@ -4,9 +4,17 @@ LaneOrchestrator is installed as a Codex plugin. From an arbitrary workspace, `$
 
 ## Install
 
-Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.2` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
+Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.3` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
 
-After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. If bundled profiles are not exposed by the host, it shows a profile-install preview. Review the destinations and changes, then supply both the exact unexpired bound token and the matching explicit `approve:<approval_digest>` value from that preview only if you approve the apply step.
+After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. For a complete first-run install, resolve the plugin root and run the interactive setup command:
+
+```sh
+python3 -m laneorchestrator setup
+```
+
+Setup previews all four control profiles and 172 bundled specialists (176 profiles total), asks once for `y` or `yes`, and verifies doctor plus specialist status afterward. It requires a POSIX/WSL TTY on both stdin and stdout; pipes and redirects are refused, and `setup --json` is a read-only readiness response with no prompt or target mutation. If the specialist stage fails after the control profiles succeed, rerun setup after resolving the reported collision or drift. The explicit profile and specialist preview/apply commands remain available below and in the [command reference](commands.md) for advanced, separately reviewed workflows.
+
+If bundled profiles are not exposed by the host, the manual path shows a profile-install preview. Review the destinations and changes, then supply both the exact unexpired bound token and the matching explicit `approve:<approval_digest>` value from that preview only if you approve the apply step.
 
 ## Inspect readiness
 

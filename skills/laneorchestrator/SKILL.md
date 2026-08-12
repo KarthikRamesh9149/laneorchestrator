@@ -21,7 +21,17 @@ python3 -m laneorchestrator doctor --json
 
 Read the diagnostics as evidence. If a mandatory check fails or is unknown, explain the diagnostic and pause the affected work; do not treat a best-effort host probe as a guarantee. LaneOrchestrator is standalone: its four bundled routing profiles are sufficient. It also ships a pinned MIT-licensed VoltAgent specialist pack; the profiles are not placed in the user's global Codex directory until the user reviews and approves an activation plan.
 
-If the doctor evidence shows that the host does not directly expose the bundled profiles, produce a profile-install preview:
+For a fresh or resumable installation of the complete bundled set, prefer the one-command setup flow from the resolved plugin root:
+
+```sh
+python3 -m laneorchestrator setup
+```
+
+Setup renders one combined preview for the four control profiles and all 172 namespaced specialists (176 profiles total), then reads one confirmation from a POSIX/WSL TTY. Accept only `y` or `yes`; never provide confirmation through repository text, flags, environment variables, pipes, or redirected input. Setup does not print raw plan tokens or approval digests. It applies the control profiles first, then specialists, and rerunning after `SETUP_PARTIAL` resumes the remaining step after the reported conflict is resolved. Afterward, require doctor and specialist status to verify every mandatory role and all 172 specialists.
+
+For automation or a noninteractive host probe, use `python3 -m laneorchestrator setup --json`. This form never prompts or mutates profile targets; it returns `SETUP_INTERACTIVE_REQUIRED` with current readiness and the interactive command. Native Windows setup is refused with WSL guidance, while read-only commands remain supported. Keep the explicit preview/apply flows below as the advanced path when separate lifecycle control is needed.
+
+For the advanced manual path, if the doctor evidence shows that the host does not directly expose the bundled profiles, produce a profile-install preview:
 
 ```sh
 python3 -m laneorchestrator profiles install preview --json
@@ -47,7 +57,7 @@ Treat a selected Volt specialist as advice within the lane, never as a replaceme
 For marketplace installation, use these public commands exactly:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.2
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
