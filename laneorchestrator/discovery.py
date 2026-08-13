@@ -17,12 +17,17 @@ from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .diagnostics import CommandResult, command_result
-from .models import codex_home
+from .models import codex_home, is_valid_model_id, is_valid_reasoning_effort
 
 
 STOP_WORDS = {"a", "an", "and", "are", "for", "from", "how", "i", "in", "is", "it", "my", "of", "on", "or", "please", "the", "this", "to", "use", "with", "write"}
 VENDOR_TOKENS = {"airtable", "aws", "azure", "cloudflare", "datadog", "figma", "github", "gitlab", "google", "hubspot", "linear", "notion", "openai", "salesforce", "slack", "stripe", "supabase", "twilio", "vercel", "zoom"}
-GENERIC_TASK_TOKENS = {"add", "bug", "change", "check", "code", "create", "feature", "fix", "help", "implement", "issue", "make", "review", "task", "test", "update", "work"}
+# ``linear`` is both a vendor and ordinary prose (for example, a growth-loop
+# description can discuss linear acquisition).  Treat it as a vendor only in
+# a capability name, where it identifies the integration without guessing at
+# unstructured prose intent.
+NAME_ONLY_VENDOR_TOKENS = {"linear"}
+GENERIC_TASK_TOKENS = {"add", "bug", "change", "check", "code", "create", "feature", "fix", "help", "implement", "issue", "make", "review", "task", "update", "work"}
 GENERIC_CAPABILITY_TOKENS = {"agent", "assistant", "expert", "generic", "helper", "plan", "planning", "pro", "review", "specialist", "strategy", "test", "testing", "tool", "workflow"}
 LANE_AGENT_NAMES = {"laneorchestrator-router", "laneorchestrator-luna-executor", "laneorchestrator-terra-executor", "laneorchestrator-sol-reviewer"}
 TRUSTED_SOURCES = {"system", "plugin-cache", "user"}
@@ -37,7 +42,7 @@ ROOT_SHARED_LIMITS = {
 }
 WORD_RE = re.compile(r"[a-z0-9]+(?:[+#]+)?")
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-TOML_FIELD_RE = re.compile(r'^\s*(name|description|model)\s*=\s*"(.*)"\s*$', re.MULTILINE)
+TOML_FIELD_RE = re.compile(r'^\s*(name|description|model|model_reasoning_effort)\s*=\s*"(.*)"\s*$', re.MULTILINE)
 
 # These values are the established discovery safety bounds.  Keep them in one
 # immutable object so direct callers and the compatibility CLI share them.
@@ -62,13 +67,32 @@ MAX_CAPABILITY_DESCRIPTION_CHARS = 2 * 1024
 MAX_WARNINGS = 100
 TOKEN_ALIASES = {
     "a11y": "accessibility",
+    "activation": "growth",
     "auth": "authentication",
+    "csrf": "security",
+    "diagnose": "debug",
+    "downtime": "rollout",
+    "go": "golang",
     "js": "javascript",
     "k8s": "kubernetes",
+    "jwt": "authentication",
+    "oauth": "authentication",
+    "onboarding": "plg",
+    "onboard": "plg",
+    "operation": "ops",
+    "operations": "ops",
+    "pentest": "penetration",
     "postgres": "postgresql",
+    "prioritize": "prioritization",
+    "roadmap": "prioritization",
     "reactjs": "react",
+    "runbook": "ops",
     "ts": "typescript",
 }
+# A tiny set of related search terms is additive rather than substitutive:
+# SQL should remain visible to SQL specialists while also finding database
+# specialists.  Other aliases above are spelling/name canonicalizations.
+RELATED_TOKENS = {"sql": {"database"}}
 SOURCE_BONUS = {
     "project": 0.5,
     "user-or-project": 0.4,
@@ -89,6 +113,10 @@ class Capability:
     source: str
     score: float = 0
     matched_terms: List[str] = field(default_factory=list)
+    # Agent profile execution preferences are data for route-card consumers.
+    # They are optional for backwards-compatible skill and legacy-agent input.
+    model: Optional[str] = None
+    reasoning_effort: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -145,9 +173,37 @@ class DiscoveryRequest:
         object.__setattr__(self, "context", tuple(self.context))
 
 
+def _normalize_token(word: str) -> str:
+    """Return one conservative lexical normal form for ranking text only.
+
+    This deliberately supports only common English inflections seen in task
+    descriptions.  It does not use fuzzy matching, edit distance, or arbitrary
+    semantic expansion, which would make an injected description easier to
+    select.  Reviewed aliases are narrowly scoped to established developer
+    terms and product-domain phrases.
+    """
+    aliased = TOKEN_ALIASES.get(word)
+    if aliased is not None:
+        return aliased
+    if word.endswith("ies") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("ing") and len(word) > 5:
+        word = word[:-3]
+        if len(word) > 2 and word[-1] == word[-2]:
+            word = word[:-1]
+    elif word.endswith("ed") and len(word) > 4:
+        word = word[:-2]
+    elif word.endswith("es") and len(word) > 4:
+        word = word[:-2] if word.endswith(("ches", "shes", "sses", "xes", "zes")) else word[:-1]
+    elif word.endswith("s") and len(word) > 3 and not word.endswith(("ss", "us", "is")):
+        word = word[:-1]
+    return TOKEN_ALIASES.get(word, word)
+
+
 def tokens(value: str) -> set:
-    found = {word for word in WORD_RE.findall(value.lower()) if word not in STOP_WORDS and len(word) > 1}
-    return {TOKEN_ALIASES.get(word, word) for word in found}
+    found = (word for word in WORD_RE.findall(value.lower()) if word not in STOP_WORDS and len(word) > 1)
+    normalized = {_normalize_token(word) for word in found}
+    return normalized | {related for word in normalized for related in RELATED_TOKENS.get(word, ())}
 
 
 def source_for(root: Path) -> str:
@@ -261,9 +317,18 @@ def read_agent(path: Path, root: Path, max_bytes: int, limits: DiscoveryLimits) 
         return None, bytes_read, None
     if len(name) > limits.max_capability_name_chars or len(description) > limits.max_capability_description_chars:
         return None, bytes_read, "skipped agent metadata with oversized name or description"
-    model = fields.get("model", "")
-    suffix = " model={0}".format(model) if model else ""
-    return Capability("agent", name, description + suffix, str(path), source_for(root)), bytes_read, None
+    model = fields.get("model")
+    reasoning_effort = fields.get("model_reasoning_effort")
+    # Metadata is untrusted and must never become control data.  Preserve only
+    # bounded values that satisfy the same lexical contract as role metadata.
+    if model is not None and not is_valid_model_id(model):
+        model = None
+    if reasoning_effort is not None and not is_valid_reasoning_effort(reasoning_effort):
+        reasoning_effort = None
+    return Capability(
+        "agent", name, description, str(path), source_for(root),
+        model=model, reasoning_effort=reasoning_effort,
+    ), bytes_read, None
 
 
 def roots_for(cwd: Path, extra: Sequence[str], no_default_roots: bool) -> List[Path]:
@@ -452,7 +517,7 @@ def rank(query: str, capabilities: Sequence[Capability], context: Sequence[str])
         name_tokens = tokens(item.name.replace("-", " "))
         description_tokens = tokens(item.description)
         candidate_tokens = name_tokens | description_tokens
-        candidate_vendors = (name_tokens | description_tokens) & VENDOR_TOKENS
+        candidate_vendors = ((name_tokens | description_tokens) & (VENDOR_TOKENS - NAME_ONLY_VENDOR_TOKENS)) | (name_tokens & NAME_ONLY_VENDOR_TOKENS)
         if candidate_vendors and not (candidate_vendors & selection_tokens):
             item.score, item.matched_terms = -1.0, []
             continue
@@ -460,7 +525,13 @@ def rank(query: str, capabilities: Sequence[Capability], context: Sequence[str])
         if specific_tokens and not specific_matches:
             item.score, item.matched_terms = -1.0, []
             continue
-        if len(specific_tokens) >= 3 and len(specific_matches) < 2:
+        # Natural requests routinely include several task verbs or qualifiers
+        # that do not belong in specialist metadata (for example, "Go worker
+        # pool").  Keep the two-concept admission bar unless the one matched
+        # normalized term identifies the specialist by name; this preserves
+        # abstention against generic description-only metadata while admitting
+        # established language/framework specialist names.
+        if len(specific_tokens) >= 3 and len(specific_matches) < 2 and not (specific_matches & name_tokens):
             item.score, item.matched_terms = -1.0, []
             continue
         item.score = sum((3 if token in name_tokens else 1) * (math.log((len(items) + 1) / (document_frequency[token] + 1)) + 1) for token in query_tokens if token in candidate_tokens)

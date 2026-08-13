@@ -15,6 +15,7 @@ from unittest import mock
 from laneorchestrator.config import ConfigError, apply_config, ensure_private_directory, load_config, preview_config
 from laneorchestrator.models import Availability, RoleEvidence
 from laneorchestrator.plans import PlanError
+from laneorchestrator.voltagent import PACK_PREFIX, render_pack
 import laneorchestrator.cli as cli_module
 import laneorchestrator.config as config_module
 
@@ -86,6 +87,7 @@ class CliIntegrationTests(unittest.TestCase):
             ("configure", "preview", "--help"),
             ("configure", "apply", "--help"),
             ("route", "--help"),
+            ("orchestrate", "--help"),
             ("catalog", "--help"),
             ("benchmark", "--help"),
             ("profiles", "--help"),
@@ -98,6 +100,70 @@ class CliIntegrationTests(unittest.TestCase):
                 result = self.run_cli(*arguments)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn("--json", result.stdout)
+
+    def test_orchestrate_emits_one_route_card_and_auto_suppresses_unscoped_high_risk_specialists(self) -> None:
+        agents = self.home / "specialists"
+        agents.mkdir()
+        (agents / "security-auditor.toml").write_text(
+            'name = "security-auditor"\n'
+            'description = "Review OAuth and authentication controls."\n'
+            'model = "gpt-5.6-terra"\n'
+            'model_reasoning_effort = "high"\n',
+            encoding="utf-8",
+        )
+        result = self.run_cli(
+            "orchestrate", "--objective", "Rotate OAuth credentials", "--risk-assessment", "low",
+            "--agents-root", os.fspath(agents), "--json",
+        )
+
+        self.assertEqual(result.returncode, 1)
+        payload = self.payload(result)
+        self.assertEqual(payload["command"], "orchestrate")
+        card = payload["data"]["route_card"]
+        self.assertEqual(card["route"]["lane"], "sol-plan-terra-sol-review")
+        self.assertIsNone(card["selected_specialist"])
+        self.assertEqual(card["specialist_selection"]["reason"], "unscoped_high_risk")
+        self.assertIn("workflow", card)
+        self.assertIn("verification", card)
+
+    def test_orchestrate_emits_structured_trusted_specialist_metadata(self) -> None:
+        agents = self.home / "agents"
+        agents.mkdir()
+        (agents / "fastapi-developer.toml").write_text(
+            'name = "fastapi-developer"\n'
+            'description = "Implement FastAPI endpoints and request validation."\n'
+            'model = "gpt-5.6-terra"\n'
+            'model_reasoning_effort = "high"\n',
+            encoding="utf-8",
+        )
+        result = self.run_cli(
+            "orchestrate", "--objective", "Implement a FastAPI endpoint", "--risk-assessment", "normal",
+            "--context", "FastAPI service", "--json",
+        )
+
+        self.assertEqual(result.returncode, 1)
+        specialist = self.payload(result)["data"]["route_card"]["selected_specialist"]
+        self.assertEqual(specialist["name"], "fastapi-developer")
+        self.assertEqual(specialist["source"], "user")
+        self.assertEqual(specialist["model"], "gpt-5.6-terra")
+        self.assertEqual(specialist["reasoning_effort"], "high")
+        self.assertNotIn("description", specialist)
+
+    def test_orchestrate_selects_a_namespaced_bundled_specialist(self) -> None:
+        agents = self.home / "agents"
+        agents.mkdir()
+        for filename, content in render_pack().items():
+            (agents / filename).write_bytes(content)
+
+        result = self.run_cli(
+            "orchestrate", "--objective", "Build a FastAPI async endpoint",
+            "--risk-assessment", "normal", "--context", "FastAPI service", "--json",
+        )
+
+        self.assertEqual(result.returncode, 1)
+        specialist = self.payload(result)["data"]["route_card"]["selected_specialist"]
+        self.assertEqual(specialist["name"], PACK_PREFIX + "fastapi-developer")
+        self.assertEqual(specialist["model"], "gpt-5.6-terra")
 
     def test_catalog_does_not_accept_an_unmanaged_profile_as_a_control_plane_role(self) -> None:
         agents = self.home / "agents"
@@ -401,8 +467,9 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(installed["data"]["change_count"], 4)
 
         configure = self.run_cli(
-            "configure", "preview", "--set", "router.model=custom-router", "--json"
+            "configure", "preview", "--set", "router.reasoning_effort=ultra", "--json"
         )
+        self.assertEqual(configure.returncode, 0, configure.stderr)
         configure_data = self.payload(configure)["data"]
         configure_token = configure_data["token"]
         self.assertEqual(
@@ -414,7 +481,8 @@ class CliIntegrationTests(unittest.TestCase):
         updated = self._profile_preview_apply("update")
         self.assertGreaterEqual(updated["data"]["change_count"], 1)
         router = self.home / "agents" / "laneorchestrator-router.toml"
-        self.assertIn('model = "custom-router"', router.read_text(encoding="utf-8"))
+        self.assertIn('model = "gpt-5.6-sol"', router.read_text(encoding="utf-8"))
+        self.assertIn('model_reasoning_effort = "ultra"', router.read_text(encoding="utf-8"))
 
         unrelated = self.home / "agents" / "third-party.toml"
         unrelated.write_text("third party\n", encoding="utf-8")

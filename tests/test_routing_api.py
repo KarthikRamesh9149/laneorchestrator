@@ -110,6 +110,31 @@ class RoutingApiTests(unittest.TestCase):
                 self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
                 self.assertEqual(route_data["reason"], "high-risk signal")
 
+    def test_security_sensitive_normal_risk_objectives_require_sol_review(self) -> None:
+        cases = {
+            "SAML assertion validation": "saml assertion",
+            "signing-key rotation": "signing key",
+            "Prevent path traversal": "path traversal",
+            "Prevent arbitrary file reads": "arbitrary file reads",
+        }
+        for objective, signal in cases.items():
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "normal"))
+                self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
+                self.assertEqual(route_data["reason"], "high-risk signal")
+                self.assertIn(signal, route_data["signals"])
+
+    def test_security_signal_phrases_do_not_match_safe_subphrases(self) -> None:
+        objectives = (
+            "Update a test assertion message",
+            "Read a local fixture file in a unit test",
+        )
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "normal"))
+                self.assertEqual(route_data["lane"], "terra")
+                self.assertEqual(route_data["signals"], [])
+
     def test_high_risk_aliases_and_synonyms_cannot_downgrade_low_risk_claims(self) -> None:
         objectives = (
             "Rotate web-hook signing secret",

@@ -2,6 +2,22 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Add the read-only `orchestrate` command and schema-v1 route card combining lane workflow, role evidence, trusted specialist metadata, fallback, and verification requirements.
+- Add a reviewed 50-case corpus against the complete rendered 172-profile pack and a distinct 200-scenario routing, ranking, adversarial, model, and context evaluation.
+
+### Security
+
+- Route SAML assertions, signing keys, path traversal, and arbitrary file reads through mandatory Sol planning and review.
+- Fix schema-v1 control-model identities to Sol/Luna/Terra/Sol while retaining supported reasoning-effort configuration, and automatically suppress unscoped high-risk specialist selection.
+
+### Changed
+
+- Publish validated specialist model and reasoning effort as structured metadata and improve conservative natural-language ranking without weakening source, vendor, stuffing, or abstention guards.
+
 ## [0.2.4] - 2026-08-13
 
 ### Fixed

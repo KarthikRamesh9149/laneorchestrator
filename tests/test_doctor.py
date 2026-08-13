@@ -1019,7 +1019,7 @@ class DoctorContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, agents, env = _profile_fixture(Path(temporary))
             changed_roles = dict(DEFAULT_ROLES)
-            changed_roles["router"] = type(DEFAULT_ROLES["router"])("changed-router", "high")
+            changed_roles["router"] = type(DEFAULT_ROLES["router"])("gpt-5.6-sol", "low")
             changed = EffectiveConfig(1, changed_roles, "file")
             _write(state / "config.json", serialize_config(changed))
             result = run_doctor(repo, state, agents, env=env)

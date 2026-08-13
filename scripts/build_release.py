@@ -46,7 +46,7 @@ RELEASE_FILES = (
 # the validator and installer, so their scripts, tests, benchmark corpus and
 # CI evidence definitions are deliberately shipped as bounded trees too.
 RELEASE_TREES = (
-    "agents", "laneorchestrator", "skills/laneorchestrator", "docs", "benchmarks",
+    "agents", "laneorchestrator", "skills/laneorchestrator", "docs", "benchmarks", "reports",
     "scripts", "tests", ".github/ISSUE_TEMPLATE", ".github/workflows",
 )
 MAX_MEMBER_BYTES = 1024 * 1024

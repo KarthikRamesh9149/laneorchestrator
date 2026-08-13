@@ -28,6 +28,7 @@ HIGH_RISK_PHRASES = {
     "audit log", "disaster recovery", "multi factor", "sign in", "tenant isolation", "cross site scripting",
     "credit card", "data breach", "data erasure", "data export", "personal data", "privilege escalation",
     "remote code execution", "sql injection", "web hook", "wire transfer",
+    "saml assertion", "signing key", "path traversal", "arbitrary file read", "arbitrary file reads",
 }
 RISK_TOKEN_ALIASES = {"2fa": "mfa", "authz": "authorization", "authorisation": "authorization", "oauth2": "oauth", "openid": "oidc"}
 VALID_RISKS = ("low", "normal", "high", "unknown")

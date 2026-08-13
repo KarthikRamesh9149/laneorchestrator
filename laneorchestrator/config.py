@@ -52,6 +52,13 @@ DEFAULT_ROLES = {
     "independent_reviewer": RoleConfig("gpt-5.6-sol", "high"),
 }
 
+# These are control-plane identities, not user-tunable execution preferences.
+# The runtime may fall back from Luna to Terra when the small executor is
+# unavailable, but a configuration file must never silently redefine a lane or
+# weaken the independent Sol review boundary. Reasoning effort remains a
+# configuration preference in schema v1.
+CONTROL_ROLE_REQUIREMENTS = DEFAULT_ROLES
+
 
 class ConfigError(ValueError):
     """Raised when configuration is malformed or exceeds the v1 contract."""
@@ -143,6 +150,16 @@ def _exact_fields(payload: Mapping[str, object], allowed: frozenset, label: str)
         raise ConfigError("unknown {0} field: {1}".format(label, unknown[0]))
 
 
+def _validate_control_model(role: str, model: object) -> None:
+    """Keep schema-v1 logical roles bound to their published lane identities."""
+
+    required = CONTROL_ROLE_REQUIREMENTS[role]
+    if model != required.model:
+        raise ConfigError(
+            "control model for {0} must be {1}".format(role, required.model)
+        )
+
+
 def _role_config(role: str, value: object) -> RoleConfig:
     payload = _mapping(value, "role {0}".format(role))
     _exact_fields(payload, ROLE_FIELDS, "role")
@@ -155,6 +172,7 @@ def _role_config(role: str, value: object) -> RoleConfig:
         raise ConfigError("invalid model identifier")
     if not is_valid_reasoning_effort(effort):
         raise ConfigError("invalid reasoning effort")
+    _validate_control_model(role, model)
     return RoleConfig(model, effort)
 
 
@@ -340,6 +358,8 @@ def _validate_updates(updates: Mapping[str, str]) -> Mapping[str, str]:
             raise ConfigError("configuration setting resembles a secret")
         if field == "model" and not is_valid_model_id(value):
             raise ConfigError("invalid model identifier")
+        if field == "model":
+            _validate_control_model(role, value)
         if field == "reasoning_effort" and not is_valid_reasoning_effort(value):
             raise ConfigError("invalid reasoning effort")
         validated[key] = value

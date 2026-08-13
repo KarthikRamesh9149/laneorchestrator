@@ -21,6 +21,7 @@ Editable Mermaid source is available at [architecture.mmd](assets/architecture.m
 
 - `laneorchestrator.routing` derives a conservative route from explicit facts. Unknown risk and recognized high-risk signals avoid Luna.
 - `laneorchestrator.discovery` produces a bounded capability index. It does not execute descriptions or turn them into instructions.
+- `laneorchestrator.orchestration` composes routing, role evidence, and trusted structured specialist metadata into the schema-v1 route card returned by `orchestrate`.
 - `laneorchestrator.config`, `plans`, and `profiles` own schema validation, preview tokens, and safe lifecycle operations.
 - `laneorchestrator.doctor` and `diagnostics` provide readiness and stable result envelopes.
 - `laneorchestrator.benchmark` evaluates committed policy corpora.
