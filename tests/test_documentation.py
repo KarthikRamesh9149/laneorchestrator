@@ -120,7 +120,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("172 bundled specialist agents", first_screen)
         self.assertIn("Sol plans → Terra + specialist → Sol reviews", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)
@@ -302,6 +302,17 @@ class DocumentationTests(unittest.TestCase):
         for text in (getting_started, commands, compatibility):
             self.assertIn("source checkout", text)
             self.assertIn("resolved installed plugin root", text)
+
+    def test_update_and_removal_docs_preserve_pinned_release_and_managed_state_boundaries(self) -> None:
+        getting_started = (ROOT / "docs/getting-started.md").read_text(encoding="utf-8")
+        compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
+        self.assertIn("does **not** silently move a pinned installation", getting_started)
+        self.assertIn("codex plugin remove laneorchestrator@laneorchestrator", getting_started)
+        self.assertIn("codex plugin marketplace remove laneorchestrator", getting_started)
+        self.assertIn("profiles uninstall preview", getting_started)
+        self.assertIn("does not remove LaneOrchestrator-managed profiles or configuration", getting_started)
+        self.assertIn("completed that matrix successfully on 2026-08-12", compatibility)
+        self.assertNotIn("has not yet supplied live run evidence", compatibility)
 
     @unittest.skipUnless(os.name == "posix", "symlink fixture requires POSIX")
     def test_codex_home_docs_match_symlinked_absolute_failure(self) -> None:

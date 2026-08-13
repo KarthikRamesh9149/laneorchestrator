@@ -4,7 +4,7 @@ LaneOrchestrator is installed as a Codex plugin. From an arbitrary workspace, `$
 
 ## Install
 
-Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.3` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
+Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.4` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
 
 After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. For a complete first-run install, resolve the plugin root and run the interactive setup command:
 
@@ -38,3 +38,16 @@ python3 -m laneorchestrator route --json --objective "Fix a README typo" --known
 ```
 
 The `route` result distinguishes the requested lane from the effective lane. If required role availability is unknown or missing, the result reports that failure instead of claiming a usable route. See [commands](commands.md) for flags and [troubleshooting](troubleshooting.md) for recovery.
+
+## Update or remove
+
+The marketplace source is pinned to the release tag you selected. `codex plugin marketplace upgrade laneorchestrator` refreshes that same configured source; it does **not** silently move a pinned installation to a newer tag. Review a newer release first, then switch deliberately:
+
+```sh
+codex plugin remove laneorchestrator@laneorchestrator
+codex plugin marketplace remove laneorchestrator
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref vX.Y.Z
+codex plugin add laneorchestrator@laneorchestrator
+```
+
+Replace `vX.Y.Z` with the reviewed release tag. To remove the plugin without installing a replacement, use only the first two commands. Either path removes the plugin registration and cache; it does not remove LaneOrchestrator-managed profiles or configuration. If you want to remove those separately, create a `profiles uninstall preview` and follow the reviewed lifecycle in the [command reference](commands.md#mutating-commands). Never delete managed profile files by hand.

@@ -40,7 +40,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["command"], "version")
         self.assertTrue(payload["ok"])
-        self.assertEqual(payload["data"]["version"], "0.2.3")
+        self.assertEqual(payload["data"]["version"], "0.2.4")
         self.assertEqual(payload["diagnostics"], [])
         self.assertEqual(payload["errors"], [])
 

@@ -473,6 +473,22 @@ def _render(result: CommandResult, as_json: bool) -> None:
     print(render_json(result) if as_json else render_human(result))
 
 
+def _redacted_debug_traceback(args: argparse.Namespace) -> str:
+    """Return the active traceback without mutation authorization values.
+
+    Debug mode is for maintainers, but an approval digest is still tied to an
+    in-memory, short-lived mutation plan.  Treat it like the plan token so a
+    failing debug session cannot copy either value into a terminal transcript.
+    """
+
+    rendered = traceback.format_exc()
+    for attribute in ("token", "approval"):
+        value = getattr(args, attribute, None)
+        if isinstance(value, str) and value:
+            rendered = rendered.replace(value, "[REDACTED]")
+    return rendered
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Execute one command and return its process exit status."""
 
@@ -493,11 +509,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         result = error_result(args.command, "INTERNAL_ERROR", "unexpected internal error")
         _render(result, as_json)
         if os.environ.get("LANEORCHESTRATOR_DEBUG") == "1":
-            rendered = traceback.format_exc()
-            token = getattr(args, "token", None)
-            if isinstance(token, str) and token:
-                rendered = rendered.replace(token, "[REDACTED]")
-            sys.stderr.write(rendered)
+            sys.stderr.write(_redacted_debug_traceback(args))
         return 3
     _render(result, as_json)
     if result.errors and result.errors[0].get("code") == "INVALID_ARGUMENTS":

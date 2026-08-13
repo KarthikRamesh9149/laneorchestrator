@@ -17,37 +17,40 @@ HIGH_RISK_TERMS = {
     "migration", "schema", "database", "backfill", "retention", "purge", "delete", "deletion", "concurrency",
     "idempotency", "deployment", "deploy", "production", "certificate", "certificates", "iam", "rollback",
     "login", "session", "jwt", "oidc", "mfa", "acl", "cors", "tls", "kms", "backup", "restore", "infrastructure",
-    "firewall", "tenant", "compliance", "hipaa", "medical", "tax", "settlement", "webhook", "audit",
+    "firewall", "tenant", "compliance", "hipaa", "medical", "tax", "settlement", "webhook", "audit", "xss", "csrf",
+    "vulnerability", "vulnerabilities", "decrypt", "deployments", "rce", "ssrf", "chargebacks",
 }
 HIGH_RISK_PHRASES = {
     "access control", "access token", "account recovery", "api key", "bank transfer", "browser origin",
     "data integrity", "data retention", "endpoint response contract", "private key", "public api", "public contract",
     "public rest", "race condition", "response contract", "role based access", "session cookie", "signed webhook",
     "signature verification", "trusted issuer", "version outbound webhook", "webhook payload", "webhook request",
-    "audit log", "disaster recovery", "multi factor", "sign in", "tenant isolation",
+    "audit log", "disaster recovery", "multi factor", "sign in", "tenant isolation", "cross site scripting",
+    "credit card", "data breach", "data erasure", "data export", "personal data", "privilege escalation",
+    "remote code execution", "sql injection", "web hook", "wire transfer",
 }
-RISK_TOKEN_ALIASES = {"oauth2": "oauth", "openid": "oidc"}
+RISK_TOKEN_ALIASES = {"2fa": "mfa", "authz": "authorization", "authorisation": "authorization", "oauth2": "oauth", "openid": "oidc"}
 VALID_RISKS = ("low", "normal", "high", "unknown")
 LOW_RISK_ACTIONS = frozenset({"adjust", "amend", "change", "correct", "fix", "rename", "replace", "update"})
 LOW_RISK_TARGET_TOKENS = frozenset({
-    "alt", "bullet", "caption", "comment", "date", "description", "example", "flag", "grammar", "heading",
-    "hint", "label", "link", "placeholder", "punctuation", "spelling", "string", "text", "title", "token", "typo",
-    "url", "wording",
+    "alt", "bullet", "caption", "comment", "date", "description", "error", "example", "flag", "grammar", "heading",
+    "hint", "label", "link", "placeholder", "punctuation", "sentence", "spelling", "string", "text", "title", "token", "typo",
+    "url", "variable", "wording",
 })
 LOW_RISK_OBJECTIVE_TOKENS = LOW_RISK_ACTIONS | LOW_RISK_TARGET_TOKENS | {
     "a", "accessibility", "an", "anchor", "api", "architecture", "approved", "breadcrumb", "broken", "button", "capitalization", "changelog",
-    "checklist", "client", "code", "color", "command", "component", "contributor", "css", "development", "diagram", "docstring",
+    "checklist", "cli", "client", "code", "color", "command", "component", "contributor", "css", "development", "diagram", "docstring",
     "documented", "documentation", "enum", "error", "established", "existing", "faq", "field", "file", "fixture", "form",
-    "glossary", "guide", "help", "in", "issue", "keyboard", "known", "local", "log", "map", "mark", "message", "misleading",
+    "glossary", "guide", "help", "in", "issue", "keyboard", "known", "local", "log", "map", "mark", "message", "misleading", "mistake",
     "misspelled", "mock", "model", "name", "note", "notes", "of", "one", "operations", "outdated", "ownership", "page", "panel",
     "payload", "policy", "preferences", "product", "readme", "release", "repository", "response", "sample", "screenshot", "section",
     "setup", "shortcut", "snapshot", "source", "spacing", "stale", "static", "story", "table", "team", "template", "terminology", "test",
     "the", "to", "troubleshooting", "tutorial", "unit",
 }
 LOW_RISK_CONTEXT_TOKENS = frozenset({
-    "accessibility", "api", "architecture", "breadcrumb", "button", "changelog", "client", "code", "component", "contributor",
+    "accessibility", "api", "architecture", "breadcrumb", "button", "changelog", "cli", "client", "code", "component", "contributor",
     "css", "development", "diagram", "documentation", "docstring", "error", "example", "faq", "form", "guide", "help", "keyboard",
-    "log", "mock", "operations", "page", "panel", "readme", "release", "repository", "sample", "screenshot", "source", "story", "team",
+    "local", "log", "mistake", "mock", "operations", "page", "panel", "readme", "release", "repository", "sample", "screenshot", "source", "story", "team", "typo",
     "template", "test", "troubleshooting", "tutorial", "unit",
 })
 
@@ -110,7 +113,7 @@ def is_bounded_low_risk_objective(objective: str) -> bool:
     tokens = normalize(objective).split()
     token_set = set(tokens)
     return (
-        len(tokens) >= 4
+        len(tokens) >= 3
         and tokens[0] in LOW_RISK_ACTIONS
         and bool(token_set & LOW_RISK_TARGET_TOKENS)
         and bool(token_set & LOW_RISK_CONTEXT_TOKENS)
@@ -119,10 +122,18 @@ def is_bounded_low_risk_objective(objective: str) -> bool:
     )
 
 
-def route_payload(facts: RouteFacts, lane: str, model: str, signals: Sequence[str]) -> Dict[str, object]:
+def route_payload(
+    facts: RouteFacts,
+    lane: str,
+    model: str,
+    signals: Sequence[str],
+    non_ascii_objective: bool = False,
+) -> Dict[str, object]:
     """Build the stable v1 JSON payload used by direct and legacy callers."""
     if signals:
         reason = "high-risk signal"
+    elif non_ascii_objective:
+        reason = "non-ASCII objective requires review"
     elif facts.risk == "high":
         reason = "explicit high-risk assessment"
     elif facts.risk == "unknown":
@@ -155,8 +166,9 @@ def recommend_route(facts: RouteFacts) -> Dict[str, object]:
     """Return the stable v1 route recommendation for validated task facts."""
     facts = validate_route_facts(facts)
     signals = high_risk_signals(facts.objective)
+    non_ascii_objective = not facts.objective.isascii()
     bounded_low_risk_objective = is_bounded_low_risk_objective(facts.objective)
-    if signals or facts.risk in {"high", "unknown"}:
+    if signals or non_ascii_objective or facts.risk in {"high", "unknown"}:
         lane, model = "sol-plan-terra-sol-review", "gpt-5.6-sol"
     elif facts.risk == "low":
         if bounded_low_risk_objective and facts.known_area and facts.acceptance_criteria and facts.files == 1:
@@ -167,7 +179,7 @@ def recommend_route(facts: RouteFacts) -> Dict[str, object]:
             lane, model = "terra", "gpt-5.6-terra"
     else:
         lane, model = "terra", "gpt-5.6-terra"
-    return route_payload(facts, lane, model, signals)
+    return route_payload(facts, lane, model, signals, non_ascii_objective)
 
 
 def positive_file_count(value: str) -> int:

@@ -1,7 +1,7 @@
 """Fail-closed filesystem primitives used by the control plane.
 
 Reads reject terminal links and inspection/open replacement races.  State
-mutation is POSIX-only for v0.2.3 and keeps the validated parent directory
+mutation is POSIX-only for v0.2.4 and keeps the validated parent directory
 descriptor held for every destination operation.
 """
 
@@ -63,7 +63,7 @@ def platform_mutation_supported() -> Tuple[bool, str]:
     """Report whether required descriptor-relative mutation guarantees exist."""
 
     if os.name == "nt":
-        return False, "native Windows mutation is unsupported in v0.2.3"
+        return False, "native Windows mutation is unsupported in v0.2.4"
     if os.name != "posix":
         return False, "filesystem mutation requires POSIX descriptor semantics"
     if fcntl is None:

@@ -345,6 +345,42 @@ def _unlink_if_present(parent_fd: int, name: str) -> None:
         raise PackError("could not roll back VoltAgent installation") from error
 
 
+def _destination_hash_at(parent_fd: int, name: str) -> str:
+    """Hash one stable, bounded destination through the locked directory fd."""
+
+    before = validate_destination_at(parent_fd, name)
+    if before is None:
+        raise PackError("VoltAgent state changed after preview")
+    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    descriptor = -1
+    try:
+        descriptor = os.open(name, flags, dir_fd=parent_fd)
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise PackError("VoltAgent destination changed while opening")
+        content = bytearray()
+        while len(content) <= MAX_PACK_FILE_BYTES:
+            chunk = os.read(
+                descriptor, min(64 * 1024, MAX_PACK_FILE_BYTES + 1 - len(content))
+            )
+            if not chunk:
+                break
+            content.extend(chunk)
+        if len(content) > MAX_PACK_FILE_BYTES:
+            raise PackError("VoltAgent destination exceeds maximum size")
+        after = validate_destination_at(parent_fd, name)
+        if after is None or (after.st_dev, after.st_ino) != (opened.st_dev, opened.st_ino):
+            raise PackError("VoltAgent destination changed while reading")
+        return _sha256(bytes(content))
+    except OSError as error:
+        raise PackError("could not read VoltAgent destination safely") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
 def _apply_install(plan: MutationPlan, agents_root: Path) -> CommandResult:
     rendered = render_pack()
     root = Path(agents_root)
@@ -358,7 +394,7 @@ def _apply_install(plan: MutationPlan, agents_root: Path) -> CommandResult:
         for name, content in rendered.items():
             current = validate_destination_at(directory_fd, name)
             if no_change:
-                if current is None:
+                if current is None or _destination_hash_at(directory_fd, name) != _sha256(content):
                     raise PackError("VoltAgent state changed after preview")
                 continue
             if current is not None:
@@ -410,5 +446,9 @@ def apply_install(token: str, agents_root: Path, state_root: Path, approval: Opt
         return consume_plan(token, PACK_PLAN_KIND, plans_root, lambda plan: _apply_install(plan, Path(agents_root)), approval=approval, now=now)
     except PackError:
         raise
-    except (PlanError, SecurityError) as error:
+    except PlanError as error:
+        # Keep the public PackError boundary while preserving the bounded plan
+        # lifecycle message so the CLI can map precise stable PLAN_* codes.
+        raise PackError(str(error)) from error
+    except SecurityError as error:
         raise PackError("VoltAgent installation plan could not be applied") from error

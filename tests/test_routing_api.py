@@ -89,6 +89,46 @@ class RoutingApiTests(unittest.TestCase):
                 route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
                 self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
 
+    def test_unicode_confusables_cannot_downgrade_normal_risk_security_work(self) -> None:
+        objective = "Reset p\u0430ssword recovery flow"
+
+        route_data = recommend_route(RouteFacts(objective, True, True, 1, "normal"))
+
+        self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
+        self.assertEqual(route_data["reason"], "non-ASCII objective requires review")
+
+    def test_common_security_and_financial_phrases_cannot_downgrade_normal_risk_work(self) -> None:
+        objectives = (
+            "Fix SQL injection in the API",
+            "Mitigate cross-site scripting vulnerability",
+            "Change wire transfer approval rules",
+            "Update personal data export policy",
+        )
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "normal"))
+                self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
+                self.assertEqual(route_data["reason"], "high-risk signal")
+
+    def test_high_risk_aliases_and_synonyms_cannot_downgrade_low_risk_claims(self) -> None:
+        objectives = (
+            "Rotate web-hook signing secret",
+            "Change authorisation checks",
+            "Update authz policy",
+            "Enforce 2FA enrollment",
+            "Decrypt archived customer records",
+            "Coordinate production deployments",
+            "Mitigate RCE exposure",
+            "Prevent SSRF requests",
+            "Update credit card chargebacks",
+            "Perform data erasure request",
+        )
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
+                self.assertEqual(route_data["lane"], "sol-plan-terra-sol-review")
+                self.assertEqual(route_data["reason"], "high-risk signal")
+
     def test_bounded_ascii_editorial_objectives_keep_luna_eligibility(self) -> None:
         objectives = (
             "Replace one screenshot alt text in a known guide",
@@ -100,6 +140,22 @@ class RoutingApiTests(unittest.TestCase):
             with self.subTest(objective=objective):
                 route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
                 self.assertEqual(route_data["lane"], "luna")
+
+    def test_common_bounded_one_file_objectives_keep_luna_eligibility(self) -> None:
+        cases = {
+            "Fix a typo": "luna",
+            "Fix a spelling mistake": "luna",
+            "Correct documentation typo": "luna",
+            "Update one README sentence": "luna",
+            "Rename a local variable": "luna",
+            "Fix one CLI error message": "luna",
+            "Fix a password typo": "sol-plan-terra-sol-review",
+            "Update one API token sentence": "sol-plan-terra-sol-review",
+        }
+        for objective, expected_lane in cases.items():
+            with self.subTest(objective=objective):
+                route_data = recommend_route(RouteFacts(objective, True, True, 1, "low"))
+                self.assertEqual(route_data["lane"], expected_lane)
 
     def test_api_matches_legacy_json(self) -> None:
         facts = RouteFacts("Fix a README typo", True, True, 1, "low")

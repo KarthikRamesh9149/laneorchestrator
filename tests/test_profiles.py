@@ -75,7 +75,7 @@ class ProfileRenderingTests(unittest.TestCase):
         second = render_profiles(config)
         self.assertEqual(first, second)
         self.assertEqual(tuple(first), PROFILE_NAMES)
-        self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.2.3\n") for value in first.values()))
+        self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.2.4\n") for value in first.values()))
         self.assertIn('model = "example-router"', render_profile("laneorchestrator-router.toml", config))
         self.assertIn('model_reasoning_effort = "medium"', render_profile("laneorchestrator-terra-executor.toml", config))
 
@@ -681,7 +681,7 @@ class ProfileLifecycleTests(unittest.TestCase):
                 preview_profiles("install", self.config, self.agents, self.state, now=100)
         with mock.patch(
             "laneorchestrator.profiles.platform_mutation_supported",
-            return_value=(False, "native Windows mutation is unsupported in v0.2.3"),
+            return_value=(False, "native Windows mutation is unsupported in v0.2.4"),
         ):
             with self.assertRaisesRegex(ProfileConflict, "native Windows"):
                 preview_profiles("install", self.config, self.agents, self.state, now=100)

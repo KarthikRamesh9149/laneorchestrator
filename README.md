@@ -31,10 +31,10 @@ This is not “one giant prompt.” LaneOrchestrator first decides the lane from
 
 ## Start here
 
-Install the reviewed `v0.2.3` release, then invoke the skill from any workspace:
+Install the reviewed `v0.2.4` release, then invoke the skill from any workspace:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
@@ -151,7 +151,7 @@ For direct integration or source development, use `python3 -m laneorchestrator` 
 
 ## Trust, safety, and release evidence
 
-- The protected annotated [`v0.2.3` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.3) includes deterministic archives and `SHA256SUMS`.
+- The protected annotated [`v0.2.4` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.4) includes deterministic archives and `SHA256SUMS`.
 - The tag-triggered [release workflow](.github/workflows/release.yml) validates the repository, verifies generated assets, and emits GitHub artifact attestations.
 - Read the [security model](docs/security-model.md) and [threat model](docs/threat-model.md) for boundaries and known limitations.
 - Use the [security policy](SECURITY.md) to report a vulnerability privately; do not put sensitive reproduction details in an issue.

@@ -125,7 +125,7 @@ class Acceptance100(unittest.TestCase):
         elif n == 27: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, "yes", 1, "low"))
         elif n == 28: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, True, True, "low"))
         elif n == 29: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, True, 1, 1))
-        elif n == 30: self.assertEqual(self._route("Change a пароль", "normal")["lane"], "terra")
+        elif n == 30: self.assertEqual(self._route("Change a пароль", "normal")["lane"], "sol-plan-terra-sol-review")
 
         # 031-050: capability discovery/ranking, source precedence, and bounds.
         elif n == 31:
@@ -294,7 +294,7 @@ class Acceptance100(unittest.TestCase):
             from laneorchestrator.cli import main
             with mock.patch("sys.stdout", new=io.StringIO()) as output:
                 self.assertEqual(main(["--json", "version"]), 0)
-            self.assertEqual(json.loads(output.getvalue())["data"]["version"], "0.2.3")
+            self.assertEqual(json.loads(output.getvalue())["data"]["version"], "0.2.4")
         elif n == 100:
             from laneorchestrator.cli import main
             with mock.patch.dict(os.environ, {"CODEX_HOME": str(self.root / "isolated-codex-home")}, clear=False), mock.patch("sys.stdout", new=io.StringIO()) as output:

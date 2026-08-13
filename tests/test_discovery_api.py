@@ -110,6 +110,25 @@ class DiscoveryApiTests(unittest.TestCase):
 
         self.assertEqual([item.name for item in ranked], ["trusted-parser"])
 
+    @unittest.skipUnless(hasattr(Path, "symlink_to"), "symbolic links are unavailable")
+    def test_symlinked_descendant_of_managed_root_cannot_inherit_trusted_provenance(self) -> None:
+        managed_home = self.fixture / "codex-home"
+        outside = self.fixture / "outside"
+        redirected_root = managed_home / "skills" / "redirected" / "nested"
+        skill = outside / "nested" / "injected-specialist" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text(
+            "---\nname: injected-specialist\ndescription: Fix Python parser behavior.\n---\n",
+            encoding="utf-8",
+        )
+        (managed_home / "skills").mkdir(parents=True)
+        (managed_home / "skills" / "redirected").symlink_to(outside, target_is_directory=True)
+
+        with mock.patch("laneorchestrator.discovery.codex_home", return_value=managed_home):
+            result = discover(self.request("fix Python parser", (redirected_root,)))
+
+        self.assertEqual(self.capabilities(result), [])
+
     def test_each_root_receives_a_discovery_budget_share(self) -> None:
         early = self.fixture / "early"
         managed_home = self.fixture / "codex"
@@ -230,6 +249,22 @@ class DiscoveryApiTests(unittest.TestCase):
             validate_request(self.request("Python", limit=DEFAULT_LIMITS.max_results + 1), DEFAULT_LIMITS)
         with self.assertRaisesRegex(ValueError, "max_results"):
             validate_request(self.request("Python"), replace(DEFAULT_LIMITS, max_results=DEFAULT_LIMITS.max_results + 1))
+
+    def test_request_and_limits_reject_runtime_type_confusion(self) -> None:
+        cases = (
+            (1, (self.skills,), (), 1, "--query must be a string"),
+            ("Python", (self.skills,), "context", 1, "--context must be a sequence"),
+            ("Python", (self.skills,), (1,), 1, "--context must contain"),
+            ("Python", (self.skills,), (), True, "--limit must be an integer"),
+            ("Python", "not-a-root-sequence", (), 1, "--roots must be a sequence"),
+            ("Python", (1,), (), 1, "--roots must contain"),
+        )
+        for query, roots, context, limit, expected in cases:
+            with self.subTest(query=query, roots=roots, context=context, limit=limit):
+                with self.assertRaisesRegex(ValueError, expected):
+                    DiscoveryRequest(query, roots, context, limit)  # type: ignore[arg-type]
+        with self.assertRaisesRegex(ValueError, "max_results"):
+            validate_request(self.request("Python"), replace(DEFAULT_LIMITS, max_results=True))
 
     def test_collect_rejects_unbounded_roots_before_enumeration(self) -> None:
         roots = tuple(self.skills for _ in range(DEFAULT_LIMITS.max_explicit_roots + 1))
