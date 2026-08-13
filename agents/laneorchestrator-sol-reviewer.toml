@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.3
+# managed-by: laneorchestrator 0.2.4
 name = "laneorchestrator-sol-reviewer"
 description = "Use as a fresh independent final reviewer for high-risk LaneOrchestrator changes after implementation and verification."
 model = "gpt-5.6-sol"

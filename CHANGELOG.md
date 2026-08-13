@@ -2,6 +2,17 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-08-13
+
+### Fixed
+
+- Correct the public compatibility statement to distinguish the verified `v0.2.3` CI matrix from evidence required for later revisions.
+- Document the pinned marketplace update and removal path, including the separate previewed lifecycle for managed profiles and configuration.
+
+### Security
+
+- Apply the audit's bounded release, metadata, routing, and installer hardening before publication; see the `v0.2.4` release notes for the user-facing boundaries.
+
 ## [0.2.3] - 2026-08-13
 
 ### Added

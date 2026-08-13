@@ -25,7 +25,7 @@ Editable Mermaid source is available at [architecture.mmd](assets/architecture.m
 - `laneorchestrator.doctor` and `diagnostics` provide readiness and stable result envelopes.
 - `laneorchestrator.benchmark` evaluates committed policy corpora.
 
-The legacy `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/scripts/catalog.py`, and `scripts/install_agents.py` remain compatibility wrappers through `0.2.3`; they do not own separate routing, discovery, or mutation policy. The guided `setup` command composes the existing exact profile and specialist plans without replacing their lifecycle boundaries.
+The legacy `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/scripts/catalog.py`, and `scripts/install_agents.py` remain compatibility wrappers through `0.2.4`; they do not own separate routing, discovery, or mutation policy. The guided `setup` command composes the existing exact profile and specialist plans without replacing their lifecycle boundaries.
 
 ## Data flow and failure behavior
 

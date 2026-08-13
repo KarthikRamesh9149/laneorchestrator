@@ -4,7 +4,7 @@ LaneOrchestrator is installed as a Codex plugin. From an arbitrary workspace, `$
 
 ## Install
 
-Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.3` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
+Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.4` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
 
 After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. For a complete first-run install, resolve the plugin root and run the interactive setup command:
 

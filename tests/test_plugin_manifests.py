@@ -8,13 +8,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_NAME = "laneorchestrator"
-PLUGIN_VERSION = "0.2.3"
+PLUGIN_VERSION = "0.2.4"
 SKILL_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 README_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 PLUGIN_DEFAULT_PROMPTS = (

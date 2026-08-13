@@ -586,7 +586,7 @@ class PlatformSupportTests(unittest.TestCase):
             supported, reason = platform_mutation_supported()
         self.assertFalse(supported)
         self.assertIn("Windows", reason)
-        self.assertIn("v0.2.3", reason)
+        self.assertIn("v0.2.4", reason)
 
     def test_windows_atomic_mutation_refuses_before_opening_destination(self) -> None:
         destination = Path("C:/state/config.json")

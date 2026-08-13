@@ -2,7 +2,7 @@
 
 ## Runtime contract
 
-LaneOrchestrator's support target is Python 3.9-3.14 with zero runtime dependencies beyond the Python standard library. The package and plugin manifests are versioned together at `0.2.3`, and CLI JSON uses schema version `1`.
+LaneOrchestrator's support target is Python 3.9-3.14 with zero runtime dependencies beyond the Python standard library. The package and plugin manifests are versioned together at `0.2.4`, and CLI JSON uses schema version `1`.
 
 The release CI matrix covers Ubuntu and macOS on Python 3.9 and 3.14, plus an explicit Windows 3.9/3.14 read-only control-plane partition. The `v0.2.3` release commit completed that matrix successfully on 2026-08-12. Later changes still require their own CI evidence; a past green run does not certify an untested revision.
 
@@ -14,6 +14,6 @@ macOS and Linux support the read-only control plane and POSIX mutation controls.
 
 ## Compatibility behavior
 
-The legacy `route.py`, `catalog.py`, and installer scripts are compatibility wrappers through version `0.2.3`. The canonical module interface is `python3 -m laneorchestrator` from a source checkout or resolved installed plugin root; marketplace users in an arbitrary workspace use `$laneorchestrator`. The guided setup command requires POSIX/WSL TTY input and output; its JSON form is read-only. Plugin removal does not remove managed profiles or configuration; lifecycle cleanup remains explicit and previewed.
+The legacy `route.py`, `catalog.py`, and installer scripts are compatibility wrappers through version `0.2.4`. The canonical module interface is `python3 -m laneorchestrator` from a source checkout or resolved installed plugin root; marketplace users in an arbitrary workspace use `$laneorchestrator`. The guided setup command requires POSIX/WSL TTY input and output; its JSON form is read-only. Plugin removal does not remove managed profiles or configuration; lifecycle cleanup remains explicit and previewed.
 
 See [getting started](getting-started.md), [commands](commands.md), and [security model](security-model.md).

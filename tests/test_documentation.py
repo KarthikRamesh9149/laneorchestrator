@@ -120,7 +120,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("172 bundled specialist agents", first_screen)
         self.assertIn("Sol plans → Terra + specialist → Sol reviews", first_screen)
         self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
+            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
             first_screen,
         )
         self.assertNotIn("--ref main", first_screen)

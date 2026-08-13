@@ -294,7 +294,7 @@ class Acceptance100(unittest.TestCase):
             from laneorchestrator.cli import main
             with mock.patch("sys.stdout", new=io.StringIO()) as output:
                 self.assertEqual(main(["--json", "version"]), 0)
-            self.assertEqual(json.loads(output.getvalue())["data"]["version"], "0.2.3")
+            self.assertEqual(json.loads(output.getvalue())["data"]["version"], "0.2.4")
         elif n == 100:
             from laneorchestrator.cli import main
             with mock.patch.dict(os.environ, {"CODEX_HOME": str(self.root / "isolated-codex-home")}, clear=False), mock.patch("sys.stdout", new=io.StringIO()) as output:

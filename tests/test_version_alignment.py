@@ -12,7 +12,7 @@ from scripts.verify_release import verify_release
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 TAG = "v" + VERSION
 TOPICS = (
     "codex", "ai-agents", "agent-routing", "developer-tools", "python", "security", "open-source",
@@ -20,7 +20,7 @@ TOPICS = (
 
 
 class VersionAlignmentTests(unittest.TestCase):
-    def test_v023_is_aligned_across_release_surfaces_and_archives(self) -> None:
+    def test_v024_is_aligned_across_release_surfaces_and_archives(self) -> None:
         self.assertEqual(laneorchestrator.__version__, VERSION)
         self.assertEqual(release_version(ROOT), VERSION)
         for relative in ("plugin.json", ".codex-plugin/plugin.json"):
@@ -32,9 +32,9 @@ class VersionAlignmentTests(unittest.TestCase):
         self.assertEqual(marketplace["plugins"][0]["name"], "laneorchestrator")
         self.assertEqual(marketplace["plugins"][0]["source"], {"path": ".", "source": "local"})
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertIn("## [0.2.3]", changelog)
-        self.assertIn("## [0.2.3] - 2026-08-13", changelog)
-        notes = (ROOT / "docs" / "releases" / "v0.2.3.md").read_text(encoding="utf-8")
+        self.assertIn("## [0.2.4]", changelog)
+        self.assertIn("## [0.2.4] - 2026-08-13", changelog)
+        notes = (ROOT / "docs" / "releases" / "v0.2.4.md").read_text(encoding="utf-8")
         self.assertIn(TAG, notes)
         self.assertIn("SHA256SUMS", notes)
         self.assertNotRegex(notes, re.compile(r"\b[a-f0-9]{64}\b", re.IGNORECASE))
