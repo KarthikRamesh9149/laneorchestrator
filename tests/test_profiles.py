@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 from unittest import mock
 
-from laneorchestrator.config import DEFAULT_ROLES, load_config, serialize_config
+from laneorchestrator.config import ConfigError, DEFAULT_ROLES, load_config, serialize_config
 from laneorchestrator.diagnostics import render_json
 from laneorchestrator.models import EffectiveConfig, RoleConfig
 from laneorchestrator.plans import Operation, approval_digest, create_plan, load_plan
@@ -66,8 +66,8 @@ class ProfileRenderingTests(unittest.TestCase):
             1,
             {
                 **DEFAULT_ROLES,
-                "router": RoleConfig("example-router", "max"),
-                "main_implementer": RoleConfig("example-main", "medium"),
+                "router": RoleConfig("gpt-5.6-sol", "max"),
+                "main_implementer": RoleConfig("gpt-5.6-terra", "medium"),
             },
             "file",
         )
@@ -76,8 +76,14 @@ class ProfileRenderingTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(tuple(first), PROFILE_NAMES)
         self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.2.4\n") for value in first.values()))
-        self.assertIn('model = "example-router"', render_profile("laneorchestrator-router.toml", config))
+        self.assertIn('model = "gpt-5.6-sol"', render_profile("laneorchestrator-router.toml", config))
         self.assertIn('model_reasoning_effort = "medium"', render_profile("laneorchestrator-terra-executor.toml", config))
+
+    def test_render_refuses_a_directly_constructed_reviewer_model_downgrade(self) -> None:
+        roles = dict(DEFAULT_ROLES)
+        roles["independent_reviewer"] = RoleConfig("gpt-5.6-terra", "high")
+        with self.assertRaisesRegex(ConfigError, "control model"):
+            render_profiles(EffectiveConfig(1, roles, "test"))
 
     def test_default_render_matches_checked_in_templates_and_roles_are_isolated(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -86,7 +92,7 @@ class ProfileRenderingTests(unittest.TestCase):
         for name in PROFILE_NAMES:
             self.assertEqual(rendered[name], (root / "agents" / name).read_bytes())
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("different-router", "low")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = render_profiles(EffectiveConfig(1, roles, "file"))
         self.assertNotEqual(changed[PROFILE_NAMES[0]], rendered[PROFILE_NAMES[0]])
         for name in PROFILE_NAMES[1:]:
@@ -203,7 +209,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         self._preview_apply("install")
         before = {name: (self.agents / name).read_bytes() for name in PROFILE_NAMES}
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("configured-router", "ultra")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
         preview, _result = self._preview_apply("update", changed, now=200)
         self.assertGreaterEqual(preview.data["change_count"], 1)
@@ -214,12 +220,12 @@ class ProfileLifecycleTests(unittest.TestCase):
         backup = self.state / "backups" / (PROFILE_NAMES[0] + "." + router["prior_backup_sha256"] + ".bak")
         self.assertEqual(backup.read_bytes(), before[PROFILE_NAMES[0]])
         self.assertEqual(stat.S_IMODE(backup.stat().st_mode), 0o600)
-        self.assertIn('model = "configured-router"', (self.agents / PROFILE_NAMES[0]).read_text())
+        self.assertIn('model_reasoning_effort = "ultra"', (self.agents / PROFILE_NAMES[0]).read_text())
 
     def test_update_preview_does_not_create_backup_directory(self) -> None:
         self._preview_apply("install")
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("preview-only-router", "high")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")
         token, preview = preview_profiles(
             "update", changed, self.agents, self.state, now=200
@@ -369,7 +375,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         lock = self.agents / ".laneorchestrator-state.lock"
         self.assertEqual(stat.S_IMODE(lock.stat().st_mode), 0o600)
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("safe-0755-router", "high")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")
         self._preview_apply("update", changed, now=200)
         self._preview_apply("uninstall", changed, now=300)
@@ -387,12 +393,12 @@ class ProfileLifecycleTests(unittest.TestCase):
     def test_reusing_an_exact_content_addressed_backup_is_safe(self) -> None:
         self._preview_apply("install")
         roles_a = dict(DEFAULT_ROLES)
-        roles_a["router"] = RoleConfig("router-a", "high")
+        roles_a["router"] = RoleConfig("gpt-5.6-sol", "low")
         config_a = EffectiveConfig(1, roles_a, "file")
         self._preview_apply("update", config_a, now=200)
         self._preview_apply("update", self.config, now=300)
         self._preview_apply("update", config_a, now=400)
-        self.assertIn('model = "router-a"', (self.agents / PROFILE_NAMES[0]).read_text())
+        self.assertIn('model_reasoning_effort = "low"', (self.agents / PROFILE_NAMES[0]).read_text())
 
     def test_config_and_receipt_are_rechecked_at_apply(self) -> None:
         (self.state / "config.json").write_bytes(serialize_config(self.config))
@@ -406,7 +412,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         (self.state / "config.json").write_bytes(serialize_config(self.config))
         self._preview_apply("install", now=200)
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("configured-router", "high")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")
         token, _ = preview_profiles("update", changed, self.agents, self.state, now=300)
         receipt_path = self.state / "receipts.json"
@@ -495,7 +501,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         original_receipt = (self.state / "receipts.json").read_bytes()
         original_profiles = {name: (self.agents / name).read_bytes() for name in PROFILE_NAMES}
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("configured-router", "ultra")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
         token, _ = preview_profiles("update", changed, self.agents, self.state, now=200)
         original = profiles_module._write_at_locked
@@ -572,7 +578,7 @@ class ProfileLifecycleTests(unittest.TestCase):
     def test_concurrent_update_and_uninstall_never_leave_mixed_state(self) -> None:
         self._preview_apply("install")
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("configured-router", "ultra")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
         update_token, _ = preview_profiles("update", changed, self.agents, self.state, now=200)
         uninstall_token, _ = preview_profiles("uninstall", self.config, self.agents, self.state, now=200)
@@ -614,7 +620,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         second_receipt.write_bytes((self.state / "receipts.json").read_bytes())
         second_receipt.chmod(0o600)
         roles = dict(DEFAULT_ROLES)
-        roles["router"] = RoleConfig("shared-root-router", "high")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")
         update_token, _ = preview_profiles(
             "update", changed, self.agents, self.state, now=200

@@ -44,6 +44,8 @@ Then give Codex a normal request:
 
 The response begins with a route card—lane, reason, safety boundary, and available roles—before work begins.
 
+Automation can request the same decision as one stable JSON record with `python3 -m laneorchestrator orchestrate --objective "<task>" --json`. The card includes the complete lane workflow, role readiness, a trusted specialist match when eligible, structured model/effort metadata, fallback, and verification requirements.
+
 ### One-command setup (recommended)
 
 After installing the plugin, resolve its installed root (or use a source checkout), then run the setup command from an interactive POSIX terminal or WSL session. It shows one combined, human-readable preview for all four control profiles and the bundled specialist pack, then asks once before writing any profile targets:

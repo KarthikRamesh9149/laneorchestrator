@@ -58,6 +58,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator setup",
     "python3 -m laneorchestrator setup --json",
     'python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low',
+    'python3 -m laneorchestrator orchestrate --objective "<task>" --json',
     "python3 -m laneorchestrator voltagent inventory --json",
     "python3 -m laneorchestrator voltagent install preview --json",
     "python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json",
@@ -147,6 +148,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("Metadata can influence a shortlist", (ROOT / "docs" / "concepts.md").read_text(encoding="utf-8"))
         self.assertIn("artifact attestations", readme)
         self.assertIn("not a promise that every environment or future change is risk-free", readme)
+        self.assertIn("laneorchestrator orchestrate", readme)
+        self.assertIn("structured model/effort metadata", readme)
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []

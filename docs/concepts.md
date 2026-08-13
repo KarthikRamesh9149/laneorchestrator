@@ -4,6 +4,8 @@
 
 A route card records the requested work lane, the evidence used for the decision, selected optional capabilities, verification expectations, and safety boundary. The router remains read-only; a writable executor does not choose its own authority.
 
+The stable JSON form is available through `orchestrate --json`. It combines the route, concrete Sol/Luna/Terra stages, role availability, one trusted ranked specialist when eligible, structured specialist model and effort, fallback, and verification requirements. High-risk work without trusted project context suppresses optional specialist selection automatically.
+
 Task text, repository metadata, skill frontmatter, agent descriptions, and ranking output are untrusted data. Metadata can influence a shortlist but never becomes an instruction or approval.
 
 ## Lanes

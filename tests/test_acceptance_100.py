@@ -45,7 +45,12 @@ INSTALLER = ROOT / "scripts" / "install-agents.sh"
 def _config() -> EffectiveConfig:
     return EffectiveConfig(
         1,
-        {role: RoleConfig("gpt-5.6-" + ("luna" if role == "small_task_executor" else "terra"), "high") for role in LOGICAL_ROLES},
+        {
+            "router": RoleConfig("gpt-5.6-sol", "high"),
+            "small_task_executor": RoleConfig("gpt-5.6-luna", "high"),
+            "main_implementer": RoleConfig("gpt-5.6-terra", "high"),
+            "independent_reviewer": RoleConfig("gpt-5.6-sol", "high"),
+        },
         "acceptance",
     )
 

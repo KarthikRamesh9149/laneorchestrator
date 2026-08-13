@@ -1,6 +1,6 @@
 # Command reference
 
-The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `setup`, `doctor`, `status`, `version`, `configure`, `route`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
+The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `setup`, `doctor`, `status`, `version`, `configure`, `route`, `orchestrate`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
 
 ## Recommended first-run setup
 
@@ -28,11 +28,12 @@ It returns `SETUP_INTERACTIVE_REQUIRED`, the current readiness snapshot, and the
 | `status [--json]` | Inspect effective configuration and profile state. |
 | `version [--json]` | Report package, manifest, and result-schema versions. |
 | `route --objective TEXT [--known-area] [--acceptance-criteria] [--files N] [--risk-assessment low|normal|high|unknown] [--json]` | Return a route decision and role availability result. |
+| `orchestrate --objective TEXT [route options] [--context TEXT] [--agents-root PATH] [--json]` | Return one combined route card with lane workflow, role evidence, trusted specialist metadata, fallback, and verification requirements. |
 | `catalog --query TEXT [--cwd PATH] [--context TEXT] [--skills-root PATH] [--agents-root PATH] [--no-default-roots] [--top-skills N] [--top-agents N] [--unscoped-high-risk] [--json]` | Return bounded capability-index results. |
 | `benchmark [--repeat 2..10] [--json]` | Evaluate the committed routing and capability corpora. |
 | `voltagent inventory\|status [--json]` | Inspect the bundled pinned VoltAgent specialist pack or its installation state. |
 
-`catalog` treats roots and metadata as untrusted input. It does not execute metadata, follow symbolic links, or install a result.
+`orchestrate` and `catalog` treat roots and metadata as untrusted input. They do not execute metadata, follow symbolic links, or install a result. `orchestrate` automatically suppresses an optional specialist for high-risk work when no trusted project context was supplied.
 
 ## Mutating commands
 

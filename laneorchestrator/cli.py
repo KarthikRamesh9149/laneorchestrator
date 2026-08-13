@@ -27,6 +27,7 @@ from .discovery import (
     MAX_CONTEXT_ITEMS,
     MAX_EXPLICIT_ROOTS,
     MAX_QUERY_CHARS,
+    LANE_AGENT_NAMES,
     _collect_agents,
     _collect_skills,
     _legacy_payload,
@@ -38,12 +39,13 @@ from .models import Availability, EffectiveConfig, LOGICAL_ROLES, RoleEvidence, 
 from .plans import PlanError
 from .profiles import ProfileConflict, apply_profiles, ensure_agents_root, preview_profiles
 from .routing import RouteFacts, VALID_RISKS, positive_file_count, recommend_route
+from .orchestration import build_route_card
 from .security import SecurityError
 from .setup import json_status as setup_json_status, render_result as render_setup_result, run_interactive as run_interactive_setup
 from .voltagent import PackError, apply_install as apply_voltagent_install, pack_inventory, pack_status, preview_install as preview_voltagent_install
 
 
-COMMANDS = ("setup", "doctor", "status", "configure", "route", "catalog", "profiles", "voltagent", "benchmark", "version")
+COMMANDS = ("setup", "doctor", "status", "configure", "route", "orchestrate", "catalog", "profiles", "voltagent", "benchmark", "version")
 PROFILE_ACTIONS = ("install", "update", "adopt", "uninstall")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -117,6 +119,15 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--acceptance-criteria", action="store_true")
     route.add_argument("--files", type=positive_file_count, default=2)
     route.add_argument("--risk-assessment", choices=VALID_RISKS, default="unknown")
+
+    orchestrate = _subparser(commands, "orchestrate")
+    orchestrate.add_argument("--objective", required=True)
+    orchestrate.add_argument("--known-area", action="store_true")
+    orchestrate.add_argument("--acceptance-criteria", action="store_true")
+    orchestrate.add_argument("--files", type=positive_file_count, default=2)
+    orchestrate.add_argument("--risk-assessment", choices=VALID_RISKS, default="unknown")
+    orchestrate.add_argument("--context", action="append", default=[])
+    orchestrate.add_argument("--agents-root", action="append", default=[])
 
     catalog = _subparser(commands, "catalog")
     catalog.add_argument("--query", required=True)
@@ -347,6 +358,47 @@ def handle_catalog(args: argparse.Namespace) -> CommandResult:
     return command_result("catalog", data={"catalog": payload})
 
 
+def _orchestration_candidates(args: argparse.Namespace) -> list:
+    """Collect bounded discovery records for the composite read-only command."""
+
+    if len(args.agents_root) > MAX_EXPLICIT_ROOTS:
+        raise DomainError("INVALID_ARGUMENTS", "explicit agent roots must not exceed {0}".format(MAX_EXPLICIT_ROOTS))
+    if len(args.context) > MAX_CONTEXT_ITEMS:
+        raise DomainError("INVALID_ARGUMENTS", "--context may be repeated at most {0} times".format(MAX_CONTEXT_ITEMS))
+    if sum(len(item) for item in args.context) > MAX_CONTEXT_CHARS:
+        raise DomainError("INVALID_ARGUMENTS", "combined --context must not exceed {0} characters".format(MAX_CONTEXT_CHARS))
+    _home, _state, managed_agents_root = _runtime_paths()
+    agent_roots = list(dict.fromkeys(Path(item).expanduser() for item in args.agents_root)) or [managed_agents_root]
+    agents, _agent_warnings, _agent_counters = _collect_agents(agent_roots, DEFAULT_LIMITS)
+    # Only agent profiles carry explicit runtime metadata and therefore can be
+    # emitted as a selected specialist in this contract.
+    return [item for item in agents if item.name not in LANE_AGENT_NAMES]
+
+
+def handle_orchestrate(args: argparse.Namespace) -> CommandResult:
+    """Compose routing, role availability, and trusted specialist evidence."""
+
+    if not args.objective.strip():
+        raise DomainError("INVALID_ARGUMENTS", "--objective must not be blank")
+    if len(args.objective) > MAX_QUERY_CHARS:
+        raise DomainError("INVALID_ARGUMENTS", "--objective must not exceed {0} characters".format(MAX_QUERY_CHARS))
+    _home, state, agents = _runtime_paths()
+    config = load_config(state)
+    decision = recommend_route(RouteFacts(args.objective.strip(), args.known_area, args.acceptance_criteria, args.files, args.risk_assessment))
+    evidence = inspect_role_evidence(config, agents)
+    resolved = resolve_route(decision, config, evidence)
+    card = build_route_card(decision, config, evidence, _orchestration_candidates(args), args.objective, args.context)
+    card["execution"] = {
+        "requested_lane": resolved.data.get("requested_lane"),
+        "requested_role": resolved.data.get("requested_role"),
+        "effective_lane": resolved.data.get("effective_lane"),
+        "effective_role": resolved.data.get("effective_role"),
+        "effective_model": resolved.data.get("effective_model"),
+        "fallback": resolved.data.get("fallback"),
+    }
+    return command_result("orchestrate", data={"route_card": card}, diagnostics=resolved.diagnostics, errors=resolved.errors)
+
+
 def handle_benchmark(args: argparse.Namespace) -> CommandResult:
     return run_benchmark(Path(__file__).absolute().parents[1], args.repeat)
 
@@ -422,6 +474,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         "status": handle_status,
         "configure": handle_configure,
         "route": handle_route,
+        "orchestrate": handle_orchestrate,
         "catalog": handle_catalog,
         "benchmark": handle_benchmark,
         "profiles": handle_profiles,

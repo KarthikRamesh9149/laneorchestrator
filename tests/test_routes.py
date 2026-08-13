@@ -94,6 +94,20 @@ class RouteTests(unittest.TestCase):
                 self.assertEqual(result["lane"], "sol-plan-terra-sol-review")
                 self.assertTrue(result["signals"])
 
+    def test_cli_routes_security_sensitive_normal_risk_objectives_to_sol_review(self) -> None:
+        cases = {
+            "SAML assertion validation": "saml assertion",
+            "signing-key rotation": "signing key",
+            "Prevent path traversal": "path traversal",
+            "Prevent arbitrary file reads": "arbitrary file reads",
+        }
+        for objective, signal in cases.items():
+            with self.subTest(objective=objective):
+                result = route("--objective", objective, "--known-area", "--acceptance-criteria", "--files", "1", "--risk-assessment", "normal")
+                self.assertEqual(result["lane"], "sol-plan-terra-sol-review")
+                self.assertEqual(result["reason"], "high-risk signal")
+                self.assertIn(signal, result["signals"])
+
 
 if __name__ == "__main__":
     unittest.main()

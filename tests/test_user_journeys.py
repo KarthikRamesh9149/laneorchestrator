@@ -210,7 +210,8 @@ class UserJourneyTests(unittest.TestCase):
     def test_managed_update_creates_private_backup(self) -> None:
         self.install_profiles()
         previous = (self.agents / "laneorchestrator-router.toml").read_bytes()
-        preview = self.run_cli("configure", "preview", "--set", "router.model=journey-router", "--json")
+        preview = self.run_cli("configure", "preview", "--set", "router.reasoning_effort=low", "--json")
+        self.assertEqual(preview.returncode, 0, preview.stderr)
         preview_data = self.payload(preview)["data"]
         token = preview_data["token"]
         approval = "approve:" + preview_data["approval_digest"]
@@ -240,7 +241,8 @@ class UserJourneyTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "posix", "profile mutation is POSIX-only")
     def test_safe_uninstall_preserves_unrelated_file_and_configuration(self) -> None:
         self.install_profiles()
-        preview = self.run_cli("configure", "preview", "--set", "router.model=uninstall-router", "--json")
+        preview = self.run_cli("configure", "preview", "--set", "router.reasoning_effort=max", "--json")
+        self.assertEqual(preview.returncode, 0, preview.stderr)
         preview_data = self.payload(preview)["data"]
         token = preview_data["token"]
         approval = "approve:" + preview_data["approval_digest"]

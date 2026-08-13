@@ -248,8 +248,8 @@ class SecurityRegressionTests(unittest.TestCase):
                 isolated = self.root / ("value-state-{0}".format(size))
                 isolated.mkdir(mode=0o700)
                 if size <= 128:
-                    token, _preview = preview_config({"router.model": "x" * size}, isolated, now=100)
-                    self.assertEqual(len(token), 43)
+                    with self.assertRaisesRegex(ConfigError, "control model"):
+                        preview_config({"router.model": "x" * size}, isolated, now=100)
                 elif size <= MAX_VALUE_CHARS:
                     with self.assertRaisesRegex(ConfigError, "invalid model identifier"):
                         preview_config({"router.model": "x" * size}, isolated, now=100)
@@ -322,7 +322,7 @@ class SecurityRegressionTests(unittest.TestCase):
         install, _ = preview_profiles("install", config, self.agents, self.state, now=100)
         apply_profiles("install", install, self.agents, self.state, now=101)
         roles = dict(config.roles)
-        roles["router"] = RoleConfig("race-router", "ultra")
+        roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
         first, _ = preview_profiles("update", changed, self.agents, self.state, now=200)
         second, _ = preview_profiles("update", changed, self.agents, self.state, now=200)

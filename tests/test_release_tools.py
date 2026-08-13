@@ -341,6 +341,7 @@ class ReleaseToolTests(unittest.TestCase):
             benchmark = "laneorchestrator-0.2.4/benchmarks/README.md"
             self.assertIn(benchmark, names)
             self.assertIn("laneorchestrator-0.2.4/docs/benchmarks.md", names)
+            self.assertIn("laneorchestrator-0.2.4/reports/2026-08-13-laneorchestrator-200-scenario-evaluation.md", names)
             self.assertIn("laneorchestrator-0.2.4/scripts/validate.sh", names)
             self.assertIn("laneorchestrator-0.2.4/scripts/private_static_analysis.py", names)
             self.assertIn("laneorchestrator-0.2.4/skills/laneorchestrator/scripts/catalog.py", names)
