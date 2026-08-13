@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import io
 import os
@@ -15,6 +14,7 @@ import sys
 import tarfile
 import unicodedata
 import zipfile
+import zlib
 from pathlib import Path, PurePosixPath
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -56,24 +56,6 @@ _WINDOWS_RESERVED = frozenset(
 
 class ReleaseVerificationError(ValueError):
     """Raised when a release asset does not satisfy the public contract."""
-
-
-class _BoundedDecompressionReader:
-    """Expose at most one bounded decompressed stream to the tar parser."""
-
-    def __init__(self, source: gzip.GzipFile, maximum: int) -> None:
-        self._source = source
-        self._maximum = maximum
-        self._read = 0
-
-    def read(self, size: int = -1) -> bytes:
-        remaining = self._maximum - self._read
-        request = remaining + 1 if size is None or size < 0 else min(size, remaining + 1)
-        data = self._source.read(request)
-        self._read += len(data)
-        if self._read > self._maximum:
-            raise ReleaseVerificationError("tar archive exceeds decompression limit")
-        return data
 
 
 def _read_asset(path: Path, max_bytes: int = MAX_ASSET_BYTES) -> bytes:
@@ -148,24 +130,32 @@ def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     try:
         if len(content) < 10 or content[:10] != b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff":
             raise ReleaseVerificationError("tar gzip header is not deterministic")
-        with gzip.GzipFile(fileobj=io.BytesIO(content), mode="rb") as compressed:
-            bounded = _BoundedDecompressionReader(compressed, MAX_TAR_DECOMPRESSED_BYTES)
-            with tarfile.open(fileobj=bounded, mode="r|") as archive:
-                for member in archive:
-                    if not member.isfile() or member.issym() or member.islnk() or member.linkname:
-                        raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
-                    relative = _validate_name(member.name, prefix)
-                    expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
-                    if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
-                        raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
-                    if member.size < 0 or member.size > MAX_MEMBER_BYTES:
-                        raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
-                    source = archive.extractfile(member)
-                    if source is None:
-                        raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
-                    data = source.read(MAX_MEMBER_BYTES + 1)
-                    _record(records, seen, member.name, data, prefix)
-    except (tarfile.TarError, OSError) as error:
+        decompressor = zlib.decompressobj(wbits=16 + zlib.MAX_WBITS)
+        payload = decompressor.decompress(content, MAX_TAR_DECOMPRESSED_BYTES + 1)
+        if len(payload) > MAX_TAR_DECOMPRESSED_BYTES:
+            raise ReleaseVerificationError("tar archive exceeds decompression limit")
+        if not decompressor.eof or decompressor.unused_data or decompressor.unconsumed_tail:
+            raise ReleaseVerificationError("tar archive has trailing or incomplete gzip data")
+        with tarfile.open(fileobj=io.BytesIO(payload), mode="r:") as archive:
+            archive_end = 0
+            for member in archive:
+                if not member.isfile() or member.issym() or member.islnk() or member.linkname:
+                    raise ReleaseVerificationError("tar member is not a regular file: {0}".format(member.name))
+                relative = _validate_name(member.name, prefix)
+                expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
+                if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
+                    raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
+                if member.size < 0 or member.size > MAX_MEMBER_BYTES:
+                    raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
+                source = archive.extractfile(member)
+                if source is None:
+                    raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
+                data = source.read(MAX_MEMBER_BYTES + 1)
+                archive_end = max(archive_end, member.offset_data + ((member.size + 511) // 512) * 512)
+                _record(records, seen, member.name, data, prefix)
+        if not records or len(payload) - archive_end < 1024 or payload[archive_end:].strip(b"\0"):
+            raise ReleaseVerificationError("tar archive has trailing data")
+    except (tarfile.TarError, OSError, zlib.error) as error:
         raise ReleaseVerificationError("invalid tar archive") from error
     return records
 
@@ -174,7 +164,7 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     records: List[Tuple[str, bytes]] = []
     seen = set()
     try:
-        _zip_entry_count(content)
+        directory_offset = _zip_entry_count(content)
         with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
             if archive.comment:
                 raise ReleaseVerificationError("zip archive has a comment")
@@ -190,6 +180,7 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
                     raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
                 if info.file_size > MAX_MEMBER_BYTES or info.compress_size <= 0 or info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
                     raise ReleaseVerificationError("zip member exceeds resource limit: {0}".format(info.filename))
+                _check_local_zip_header(content, info, directory_offset)
                 data = archive.read(info, pwd=None)
                 _record(records, seen, info.filename, data, prefix)
     except (zipfile.BadZipFile, OSError, RuntimeError) as error:
@@ -197,7 +188,37 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
     return records
 
 
-def _zip_entry_count(content: bytes) -> None:
+def _check_local_zip_header(content: bytes, info: zipfile.ZipInfo, directory_offset: int) -> None:
+    """Bind central-directory metadata to its bounded local file header."""
+
+    offset = info.header_offset
+    if offset < 0 or offset + 30 > directory_offset:
+        raise ReleaseVerificationError("zip member has unsafe local header: {0}".format(info.filename))
+    fields = struct.unpack("<4s5H3L2H", content[offset:offset + 30])
+    signature, version, flags, method, _time, _date, crc, compressed_size, size, name_size, extra_size = fields
+    end = offset + 30 + name_size + extra_size + compressed_size
+    if signature != b"PK\x03\x04" or end > directory_offset:
+        raise ReleaseVerificationError("zip member has unsafe local header: {0}".format(info.filename))
+    encoding = "utf-8" if info.flag_bits & 0x800 else "cp437"
+    try:
+        local_name = content[offset + 30:offset + 30 + name_size].decode(encoding)
+    except UnicodeDecodeError as error:
+        raise ReleaseVerificationError("zip member has invalid local name: {0}".format(info.filename)) from error
+    local_extra = content[offset + 30 + name_size:offset + 30 + name_size + extra_size]
+    if (
+        version != info.extract_version
+        or flags != info.flag_bits
+        or method != info.compress_type
+        or crc != info.CRC
+        or compressed_size != info.compress_size
+        or size != info.file_size
+        or local_name != info.filename
+        or local_extra != info.extra
+    ):
+        raise ReleaseVerificationError("zip member local header differs from central directory: {0}".format(info.filename))
+
+
+def _zip_entry_count(content: bytes) -> int:
     """Bound the central-directory count before constructing ``ZipFile``."""
 
     start = max(0, len(content) - 65557)
@@ -218,6 +239,7 @@ def _zip_entry_count(content: bytes) -> None:
         raise ReleaseVerificationError("zip archive central directory exceeds resource limit")
     if directory_offset + directory_size != offset:
         raise ReleaseVerificationError("zip archive central directory is malformed")
+    return directory_offset
 
 
 def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]:

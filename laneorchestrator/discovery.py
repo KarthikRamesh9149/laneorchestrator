@@ -128,6 +128,19 @@ class DiscoveryRequest:
     limit: int
 
     def __post_init__(self) -> None:
+        if type(self.query) is not str:
+            raise ValueError("--query must be a string")
+        if not isinstance(self.roots, Sequence) or isinstance(self.roots, (str, bytes)):
+            raise ValueError("--roots must be a sequence of paths")
+        if not isinstance(self.context, Sequence) or isinstance(self.context, (str, bytes)):
+            raise ValueError("--context must be a sequence of strings")
+        if type(self.limit) is not int:
+            raise ValueError("--limit must be an integer")
+        for root in self.roots:
+            if not isinstance(root, (str, os.PathLike)):
+                raise ValueError("--roots must contain only paths")
+        if any(type(item) is not str for item in self.context):
+            raise ValueError("--context must contain only strings")
         object.__setattr__(self, "roots", tuple(Path(root).expanduser() for root in self.roots))
         object.__setattr__(self, "context", tuple(self.context))
 
@@ -138,9 +151,20 @@ def tokens(value: str) -> set:
 
 
 def source_for(root: Path) -> str:
-    root_path = Path(os.path.abspath(os.fspath(root.expanduser())))
-    home = Path(os.path.abspath(os.fspath(Path.home())))
-    configured_home = Path(os.path.abspath(os.fspath(codex_home())))
+    """Classify provenance from the resolved location, not a caller path string.
+
+    A path lexically below a managed root can still pass through an intermediate
+    symbolic link to an attacker-controlled directory.  Resolving before the
+    trust comparison prevents that directory from inheriting the managed root's
+    provenance.  Resolution failures are conservatively treated as project
+    content, which is not eligible for automatic selection.
+    """
+    try:
+        root_path = root.expanduser().resolve(strict=False)
+        home = Path.home().resolve(strict=False)
+        configured_home = codex_home().expanduser().resolve(strict=False)
+    except (OSError, RuntimeError):
+        return "project"
     if _is_within(root_path, configured_home / "skills" / ".system"):
         return "system"
     if _is_within(root_path, configured_home / "plugins" / "cache"):
@@ -480,7 +504,7 @@ def _validate_limits(limits: DiscoveryLimits) -> None:
     for item in fields(DiscoveryLimits):
         value = getattr(limits, item.name)
         maximum = defaults[item.name]
-        if not isinstance(value, int) or value < 0 or value > maximum:
+        if type(value) is not int or value < 0 or value > maximum:
             raise ValueError("{0} must be between 0 and {1}".format(item.name, maximum))
 
 

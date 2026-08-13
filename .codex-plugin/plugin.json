@@ -19,6 +19,10 @@
     "developerName": "Karthik Ramesh",
     "category": "Productivity",
     "capabilities": ["Adaptive routing", "Skill selection", "Agent selection", "Verification"],
-    "defaultPrompt": ["Route and implement this task safely.", "Inspect this project and choose the best implementation lane.", "Plan and verify this high-risk change."]
+    "defaultPrompt": [
+      "Use $laneorchestrator to route and implement this task safely.",
+      "Use $laneorchestrator to inspect this project and choose the best implementation lane.",
+      "Use $laneorchestrator to plan and verify this high-risk change."
+    ]
   }
 }

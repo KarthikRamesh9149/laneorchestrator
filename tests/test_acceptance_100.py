@@ -125,7 +125,7 @@ class Acceptance100(unittest.TestCase):
         elif n == 27: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, "yes", 1, "low"))
         elif n == 28: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, True, True, "low"))
         elif n == 29: self.assertRaises(ValueError, validate_route_facts, RouteFacts("x", True, True, 1, 1))
-        elif n == 30: self.assertEqual(self._route("Change a пароль", "normal")["lane"], "terra")
+        elif n == 30: self.assertEqual(self._route("Change a пароль", "normal")["lane"], "sol-plan-terra-sol-review")
 
         # 031-050: capability discovery/ranking, source precedence, and bounds.
         elif n == 31:

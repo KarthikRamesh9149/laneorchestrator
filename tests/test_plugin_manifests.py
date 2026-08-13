@@ -17,6 +17,11 @@ README_COMMANDS = (
     "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.3",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
+PLUGIN_DEFAULT_PROMPTS = (
+    "Use $laneorchestrator to route and implement this task safely.",
+    "Use $laneorchestrator to inspect this project and choose the best implementation lane.",
+    "Use $laneorchestrator to plan and verify this high-risk change.",
+)
 
 
 def _repository_path(value: object) -> bool:
@@ -60,6 +65,13 @@ class PluginManifestTests(unittest.TestCase):
         self.assertEqual(compatibility["version"], PLUGIN_VERSION)
         self.assertEqual(public["repository"], "https://github.com/KarthikRamesh9149/laneorchestrator")
         self.assertEqual(compatibility["repository"], public["repository"])
+
+    def test_plugin_starter_prompts_explicitly_invoke_the_skill(self) -> None:
+        manifest = self.load_json(".codex-plugin/plugin.json")
+        prompts = manifest["interface"]["defaultPrompt"]
+        self.assertEqual(tuple(prompts), PLUGIN_DEFAULT_PROMPTS)
+        self.assertLessEqual(len(prompts), 3)
+        self.assertTrue(all(len(prompt) <= 128 for prompt in prompts))
 
     def test_component_declarations_are_unique_and_contained(self) -> None:
         manifest = self.load_json(".codex-plugin/plugin.json")

@@ -78,6 +78,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("sh scripts/validate.sh", release)
         self.assertIn("attestations: write", release)
         self.assertIn("id-token: write", release)
+        self.assertIn('git merge-base --is-ancestor "${GITHUB_SHA}" origin/main', release)
         self.assertRegex(release, r"actions/attest@[0-9a-f]{40}\s+# v4\.2\.0")
         self.assertIn("subject-checksums:", release)
         self.assertNotIn("release-assets-${{ github.sha }}-${{ github.run_id }}", ci)

@@ -170,6 +170,30 @@ class ReleaseToolTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseVerificationError, "local path"):
             verify_release(local_output, root=self.root)
 
+    def test_verifier_rejects_trailing_gzip_and_tar_payload_data(self) -> None:
+        """Checksums alone must not bless bytes hidden after the source archive."""
+
+        release = build_release(self.root, self.output_one)
+        original = release.tar_path.read_bytes()
+        for suffix in (
+            b"untrusted-trailing-data",
+            b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        ):
+            with self.subTest(suffix=suffix[:4]):
+                release.tar_path.write_bytes(original + suffix)
+                self._rewrite_sums(self.output_one)
+                with self.assertRaisesRegex(ReleaseVerificationError, "trailing"):
+                    verify_release(self.output_one, root=self.root)
+
+        tar_payload = bytearray(gzip.decompress(original))
+        tar_payload[-1024:-1000] = b"hidden-after-end-of-archive"
+        with release.tar_path.open("wb") as output:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as compressed:
+                compressed.write(tar_payload)
+        self._rewrite_sums(self.output_one)
+        with self.assertRaisesRegex(ReleaseVerificationError, "trailing"):
+            verify_release(self.output_one, root=self.root)
+
     def test_secret_scanner_has_bounded_high_confidence_patterns(self) -> None:
         values = (
             "github_pat_" + "a" * 24,
@@ -269,6 +293,18 @@ class ReleaseToolTests(unittest.TestCase):
         self._replace_zip_member(release.zip_path, "laneorchestrator-0.2.3/README.md", b"changed zip only\n")
         self._rewrite_sums(self.output_one)
         with self.assertRaisesRegex(ReleaseVerificationError, "differs"):
+            verify_release(self.output_one, root=self.root)
+
+    def test_verifier_binds_zip_local_headers_to_central_directory(self) -> None:
+        release = build_release(self.root, self.output_one)
+        payload = bytearray(release.zip_path.read_bytes())
+        local_header = payload.index(b"PK\x03\x04")
+        flags_offset = local_header + 6
+        flags = int.from_bytes(payload[flags_offset:flags_offset + 2], "little")
+        payload[flags_offset:flags_offset + 2] = (flags | 0x800).to_bytes(2, "little")
+        release.zip_path.write_bytes(payload)
+        self._rewrite_sums(self.output_one)
+        with self.assertRaisesRegex(ReleaseVerificationError, "local header differs"):
             verify_release(self.output_one, root=self.root)
 
     def test_checksum_parser_rejects_order_duplicates_and_garbage(self) -> None:

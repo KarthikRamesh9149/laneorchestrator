@@ -556,20 +556,23 @@ class CliIntegrationTests(unittest.TestCase):
 
     def test_unexpected_errors_are_generic_unless_debug_and_tokens_are_always_redacted(self) -> None:
         token = "T" * 43
+        approval = "approve:" + "A" * 64
 
         def invoke(debug: bool) -> tuple[int, str, str]:
             stdout = io.StringIO()
             stderr = io.StringIO()
             environment = {"LANEORCHESTRATOR_DEBUG": "1"} if debug else {}
             with mock.patch.object(
-                cli_module, "dispatch", side_effect=RuntimeError("boom " + token)
+                cli_module,
+                "dispatch",
+                side_effect=RuntimeError("boom {0} {1}".format(token, approval)),
             ), mock.patch.dict(os.environ, environment, clear=False), mock.patch(
                 "sys.stdout", stdout
             ), mock.patch("sys.stderr", stderr):
                 if not debug:
                     os.environ.pop("LANEORCHESTRATOR_DEBUG", None)
                 code = cli_module.main(
-                    ("configure", "apply", "--token", token, "--approval", "approve:invalid", "--json")
+                    ("configure", "apply", "--token", token, "--approval", approval, "--json")
                 )
             return code, stdout.getvalue(), stderr.getvalue()
 
@@ -581,6 +584,7 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(debug[0], 3)
         self.assertIn("Traceback", debug[2])
         self.assertNotIn(token, "".join(ordinary[1:] + debug[1:]))
+        self.assertNotIn(approval, "".join(ordinary[1:] + debug[1:]))
 
 
 if __name__ == "__main__":

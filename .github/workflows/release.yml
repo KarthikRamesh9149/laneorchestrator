@@ -56,6 +56,7 @@ jobs:
           test "${GITHUB_REF_NAME}" = "v${version}"
           git cat-file -e "${GITHUB_REF}^{tag}"
           test "$(git rev-parse "${GITHUB_REF}^{}")" = "${GITHUB_SHA}"
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main
       - name: Build and verify release assets
         id: release-assets
         run: |

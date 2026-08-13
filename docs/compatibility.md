@@ -4,7 +4,7 @@
 
 LaneOrchestrator's support target is Python 3.9-3.14 with zero runtime dependencies beyond the Python standard library. The package and plugin manifests are versioned together at `0.2.3`, and CLI JSON uses schema version `1`.
 
-The configured release CI matrix is Ubuntu and macOS on Python 3.9 and 3.14, plus an explicit Windows 3.9/3.14 read-only control-plane partition. This configuration has not yet supplied live run evidence for the expanded matrix; local validation in this checkout used Python 3.9 only. Python 3.14 and Windows runner results remain required release evidence before publication.
+The release CI matrix covers Ubuntu and macOS on Python 3.9 and 3.14, plus an explicit Windows 3.9/3.14 read-only control-plane partition. The `v0.2.3` release commit completed that matrix successfully on 2026-08-12. Later changes still require their own CI evidence; a past green run does not certify an untested revision.
 
 ## Operating systems
 

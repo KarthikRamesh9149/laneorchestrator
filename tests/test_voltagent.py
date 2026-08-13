@@ -74,3 +74,33 @@ class VoltAgentPackTests(unittest.TestCase):
         (self.agents / name).write_bytes(content)
         with self.assertRaises(PackError):
             preview_install(self.agents, self.state, now=1_000)
+
+    def test_exact_preview_refuses_content_drift_before_apply(self) -> None:
+        token, preview = preview_install(self.agents, self.state, now=1_000)
+        apply_install(
+            token,
+            self.agents,
+            self.state,
+            approval="approve:" + str(preview.data["approval_digest"]),
+            now=1_001,
+        )
+        exact_token, exact_preview = preview_install(self.agents, self.state, now=1_002)
+        name = next(iter(render_pack()))
+        (self.agents / name).write_text("drift\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(PackError, "state changed after preview"):
+            apply_install(
+                exact_token,
+                self.agents,
+                self.state,
+                approval="approve:" + str(exact_preview.data["approval_digest"]),
+                now=1_003,
+            )
+
+    def test_consumed_install_plan_preserves_replay_diagnostic(self) -> None:
+        token, preview = preview_install(self.agents, self.state, now=1_000)
+        approval = "approve:" + str(preview.data["approval_digest"])
+        apply_install(token, self.agents, self.state, approval=approval, now=1_001)
+
+        with self.assertRaisesRegex(PackError, "already used"):
+            apply_install(token, self.agents, self.state, approval=approval, now=1_002)
