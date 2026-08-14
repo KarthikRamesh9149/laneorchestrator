@@ -114,12 +114,20 @@ class DocumentationTests(unittest.TestCase):
 
     def test_readme_first_screen_has_a_clear_install_and_standalone_message(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        first_screen = "\n".join(readme.splitlines()[:100])
+        first_screen = readme.split("\n## What it does—and how the agents work together", 1)[0]
         self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
         self.assertIn("analyzes your prompt and repository context", first_screen)
         self.assertIn("GPT‑5.6 Luna, Terra, or Sol", first_screen)
         self.assertIn("172 bundled specialist agents", first_screen)
-        self.assertIn("Sol plans → Terra + specialist → Sol reviews", first_screen)
+        self.assertIn("```mermaid", first_screen)
+        self.assertIn("LANEORCHESTRATOR", first_screen)
+        self.assertIn("Assesses scope, complexity, and risk", first_screen)
+        self.assertIn("GPT-5.6 LUNA", first_screen)
+        self.assertIn("GPT-5.6 TERRA", first_screen)
+        self.assertIn("GPT-5.6 SOL", first_screen)
+        self.assertIn("Optional specialist expertise", first_screen)
+        self.assertIn("VERIFIED HANDOFF", first_screen)
+        self.assertIn("Specialists add expertise but cannot change the selected lane", first_screen)
         self.assertIn(
             "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
             first_screen,
@@ -131,8 +139,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("172 namespaced profiles", first_screen)
         self.assertIn("Activate the bundled specialists", first_screen)
         self.assertIn("voltagent inventory --json", first_screen)
-        self.assertIn("Luna executes", first_screen)
-        self.assertIn("Terra + specialist execute", first_screen)
+        self.assertIn("Focused execution", first_screen)
+        self.assertIn("Independent review", first_screen)
         self.assertIn("preview and waits for your explicit approval", first_screen)
         self.assertIn("docs/assets/demo.cast", first_screen)
         self.assertEqual(first_screen.count("[!["), 4)

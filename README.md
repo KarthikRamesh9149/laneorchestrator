@@ -9,14 +9,37 @@
 
 LaneOrchestrator is an intelligent control plane for Codex. It analyzes your prompt and repository context, evaluates complexity and risk, routes the work to GPT‑5.6 Luna, Terra, or Sol, and selects the right expertise from 172 bundled specialist agents. It orchestrates who plans, implements, and reviews—so you do not have to choose models or agents manually.
 
-```text
-Your task → prompt + repository context → complexity & risk → route card
-                                                              │
-              ┌───────────────────────────────────────────────┼──────────────────────────────────────────────┐
-              │                                               │                                              │
-        Luna executes                              Terra + specialist execute              Sol plans → Terra + specialist → Sol reviews
-        bounded work                                     normal work                                      high-risk work
+```mermaid
+flowchart TB
+    TASK["YOUR TASK<br/>Prompt + repository context"] --> ROUTER{"LANEORCHESTRATOR<br/>Assesses scope, complexity, and risk<br/>Creates an auditable route card"}
+
+    ROUTER -->|"Bounded + low risk"| LUNA["GPT-5.6 LUNA<br/>Focused execution<br/>One known change"]
+    ROUTER -->|"Normal work"| TERRA["GPT-5.6 TERRA<br/>Implementation<br/>Optional specialist expertise"]
+    ROUTER -->|"High-risk work"| PLAN["GPT-5.6 SOL<br/>Plan"]
+
+    PLAN --> IMPLEMENT["GPT-5.6 TERRA<br/>Implement<br/>Optional specialist expertise"]
+    IMPLEMENT --> REVIEW["GPT-5.6 SOL<br/>Independent review"]
+
+    LUNA --> DONE["VERIFIED HANDOFF<br/>Tests + evidence + summary"]
+    TERRA --> DONE
+    REVIEW --> DONE
+
+    classDef task fill:#0F172A,stroke:#334155,color:#F8FAFC,stroke-width:2px;
+    classDef router fill:#4F46E5,stroke:#818CF8,color:#FFFFFF,stroke-width:3px;
+    classDef luna fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:2px;
+    classDef terra fill:#CCFBF1,stroke:#0D9488,color:#134E4A,stroke-width:2px;
+    classDef sol fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:2px;
+    classDef done fill:#DCFCE7,stroke:#16A34A,color:#14532D,stroke-width:3px;
+
+    class TASK task;
+    class ROUTER router;
+    class LUNA luna;
+    class TERRA,IMPLEMENT terra;
+    class PLAN,REVIEW sol;
+    class DONE done;
 ```
+
+> Specialists add expertise but cannot change the selected lane. If Luna is unavailable, bounded work may fall back to Terra; required Terra or Sol roles fail closed.
 
 ## What ships in the box
 
