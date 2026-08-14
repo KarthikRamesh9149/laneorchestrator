@@ -107,17 +107,21 @@ On first use, the skill runs `doctor` to check readiness. The recommended `setup
 
 ## What it does—and how the agents work together
 
-```text
-                 LaneOrchestrator control plane (read-only)
-task + repo ────────────────────────┬──────────────────────────────────┐
-                                   classify                            verify
-                                      │                                   │
-                         ┌────────────┼────────────┐                      │
-                         │            │            │                      │
-                       Luna         Terra      Sol → Terra → Sol ─────────┘
-                         │            │            │
-                    bounded edit   specialist    specialist implements
-                                   assists here  after Sol plans
+```mermaid
+flowchart LR
+    CLASSIFY["1 · CLASSIFY<br/>Task + repository evidence<br/>Choose the lane"] --> MATCH["2 · MATCH<br/>Optional specialist<br/>Cannot change the lane"]
+    MATCH --> EXECUTE["3 · EXECUTE<br/>Luna · Terra · Sol → Terra → Sol<br/>Stay inside the lane"]
+    EXECUTE --> VERIFY["4 · VERIFY<br/>Tests + evidence<br/>Handoff with proof"]
+
+    classDef classify fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:2px;
+    classDef match fill:#CCFBF1,stroke:#0D9488,color:#134E4A,stroke-width:2px;
+    classDef execute fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:2px;
+    classDef verify fill:#DCFCE7,stroke:#16A34A,color:#14532D,stroke-width:2px;
+
+    class CLASSIFY classify;
+    class MATCH match;
+    class EXECUTE execute;
+    class VERIFY verify;
 ```
 
 1. **Classify first.** Unknown risk never selects Luna. The router reads repository evidence and returns a visible route card.
