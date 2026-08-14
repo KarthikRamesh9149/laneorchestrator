@@ -158,6 +158,16 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("not a promise that every environment or future change is risk-free", readme)
         self.assertIn("laneorchestrator orchestrate", readme)
         self.assertIn("structured model/effort metadata", readme)
+        for flow_step in (
+            "1 · CLASSIFY",
+            "2 · MATCH",
+            "3 · EXECUTE",
+            "4 · VERIFY",
+            "Optional specialist",
+            "Cannot change the lane",
+            "Handoff with proof",
+        ):
+            self.assertIn(flow_step, readme)
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []
