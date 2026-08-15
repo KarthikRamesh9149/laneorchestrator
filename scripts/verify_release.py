@@ -268,7 +268,14 @@ def _parse_sums(content: bytes, expected_names: Sequence[str]) -> Dict[str, str]
 
 def _check_content(name: str, content: bytes) -> None:
     if name in RELEASE_BINARY_FILES:
-        _check_demo_gif(name, content)
+        if name == "docs/assets/laneorchestrator-demo.gif":
+            _check_demo_gif(name, content)
+        elif name == "docs/assets/laneorchestrator-product-demo.gif":
+            _check_product_gif(name, content)
+        elif name == "docs/assets/laneorchestrator-product-demo.mp4":
+            _check_product_mp4(name, content)
+        else:  # Keep additions fail-closed until they have an explicit validator.
+            raise ReleaseVerificationError("release binary is not validated: {0}".format(name))
         text = content.decode("latin-1")
     else:
         try:
@@ -306,6 +313,31 @@ def _check_demo_gif(name: str, content: bytes) -> None:
     duration = sum(int.from_bytes(content[index + 4:index + 6], "little") for index in controls)
     if duration != 2_000 or b"NETSCAPE2.0" not in content:
         raise ReleaseVerificationError("release GIF has unexpected playback metadata: {0}".format(name))
+
+
+def _check_product_gif(name: str, content: bytes) -> None:
+    if len(content) > 1_048_576 or content[:6] != b"GIF89a" or content[-1:] != b"\x3b":
+        raise ReleaseVerificationError("release product GIF is malformed: {0}".format(name))
+    if int.from_bytes(content[6:8], "little") != 400 or int.from_bytes(content[8:10], "little") != 500:
+        raise ReleaseVerificationError("release product GIF has unexpected dimensions: {0}".format(name))
+    controls = [index for index in range(len(content)) if content.startswith(b"\x21\xf9\x04", index)]
+    duration = sum(int.from_bytes(content[index + 4:index + 6], "little") for index in controls)
+    if len(controls) != 120 or duration not in range(1_495, 1_506) or b"NETSCAPE2.0" not in content:
+        raise ReleaseVerificationError("release product GIF has unexpected playback metadata: {0}".format(name))
+
+
+def _check_product_mp4(name: str, content: bytes) -> None:
+    if len(content) > 1_048_576 or len(content) < 32 or content[4:8] != b"ftyp":
+        raise ReleaseVerificationError("release product MP4 is malformed: {0}".format(name))
+    if content.find(b"moov", 8) < 0 or content.find(b"mdat", 8) < 0:
+        raise ReleaseVerificationError("release product MP4 is missing required boxes: {0}".format(name))
+    sample = content.find(b"avc1", 32)
+    if sample < 0 or sample + 32 > len(content):
+        raise ReleaseVerificationError("release product MP4 is missing its video sample: {0}".format(name))
+    if int.from_bytes(content[sample + 28:sample + 30], "big") != 1080:
+        raise ReleaseVerificationError("release product MP4 has unexpected dimensions: {0}".format(name))
+    if int.from_bytes(content[sample + 30:sample + 32], "big") != 1350:
+        raise ReleaseVerificationError("release product MP4 has unexpected dimensions: {0}".format(name))
 
 
 def verify_release(dist_dir: Path, root: Path = None) -> None:

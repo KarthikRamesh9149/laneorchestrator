@@ -208,7 +208,7 @@ class ReleaseToolTests(unittest.TestCase):
                     _check_content("README.md", value.encode("ascii"))
 
     def test_verifier_accepts_only_the_declared_bounded_demo_gif(self) -> None:
-        name = next(iter(RELEASE_BINARY_FILES))
+        name = "docs/assets/laneorchestrator-demo.gif"
         content = (ROOT / name).read_bytes()
         _check_content(name, content)
         with self.assertRaisesRegex(ReleaseVerificationError, "not UTF-8"):
@@ -222,6 +222,22 @@ class ReleaseToolTests(unittest.TestCase):
             with self.subTest(prefix=mutation[:12]):
                 with self.assertRaisesRegex(ReleaseVerificationError, "GIF"):
                     _check_content(name, mutation)
+
+    def test_verifier_accepts_only_the_declared_product_tour_media(self) -> None:
+        gif_name = "docs/assets/laneorchestrator-product-demo.gif"
+        mp4_name = "docs/assets/laneorchestrator-product-demo.mp4"
+        self.assertIn(gif_name, RELEASE_BINARY_FILES)
+        self.assertIn(mp4_name, RELEASE_BINARY_FILES)
+        gif = (ROOT / gif_name).read_bytes()
+        mp4 = (ROOT / mp4_name).read_bytes()
+        _check_content(gif_name, gif)
+        _check_content(mp4_name, mp4)
+        with self.assertRaisesRegex(ReleaseVerificationError, "not UTF-8"):
+            _check_content("docs/assets/undeclared.mp4", mp4)
+        with self.assertRaisesRegex(ReleaseVerificationError, "product GIF"):
+            _check_content(gif_name, b"BAD89a" + gif[6:])
+        with self.assertRaisesRegex(ReleaseVerificationError, "product MP4"):
+            _check_content(mp4_name, mp4[:4] + b"bad!" + mp4[8:])
 
     def test_fresh_trusted_archive_extracts_and_runs_the_complete_validator(self) -> None:
         if os.environ.get("LANEORCHESTRATOR_EXTRACTED_VALIDATION") == "1":

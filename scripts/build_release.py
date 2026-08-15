@@ -57,7 +57,11 @@ RELEASE_EXECUTABLES = frozenset((
     "scripts/install_agents.py",
     "scripts/validate.sh",
 ))
-RELEASE_BINARY_FILES = frozenset(("docs/assets/laneorchestrator-demo.gif",))
+RELEASE_BINARY_FILES = frozenset((
+    "docs/assets/laneorchestrator-demo.gif",
+    "docs/assets/laneorchestrator-product-demo.gif",
+    "docs/assets/laneorchestrator-product-demo.mp4",
+))
 _VERSION = re.compile(r'^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', re.MULTILINE)
 _WINDOWS_RESERVED = frozenset(
     ("con", "prn", "aux", "nul", "clock$")

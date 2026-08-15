@@ -25,6 +25,7 @@ MAX_DOCUMENT_BYTES = 1024 * 1024
 MAX_DOCUMENT_TOTAL_BYTES = 12 * 1024 * 1024
 MAX_DOCUMENT_ENTRIES = 512
 MAX_DOCUMENT_DEPTH = 32
+MEDIA_LIMITS = {".gif": 5 * 1024 * 1024, ".mp4": 10 * 1024 * 1024}
 
 
 class DocumentationError(ValueError):
@@ -118,8 +119,9 @@ def check_docs(root: Path) -> List[str]:
     try:
         for path in _public_files(root):
             relative = path.relative_to(root).as_posix()
+            suffix = path.suffix.lower()
             try:
-                content = read_regular_nofollow(path, MAX_DOCUMENT_BYTES)
+                content = read_regular_nofollow(path, MEDIA_LIMITS.get(suffix, MAX_DOCUMENT_BYTES))
             except SecurityError as error:
                 errors.append("{0}: cannot read ({1})".format(relative, error))
                 continue
@@ -127,6 +129,14 @@ def check_docs(root: Path) -> List[str]:
             if total_bytes > MAX_DOCUMENT_TOTAL_BYTES:
                 errors.append("documentation: total byte limit exceeded")
                 break
+            if suffix == ".gif":
+                if content[:6] not in {b"GIF87a", b"GIF89a"}:
+                    errors.append("{0}: invalid GIF signature".format(relative))
+                continue
+            if suffix == ".mp4":
+                if len(content) < 12 or content[4:8] != b"ftyp":
+                    errors.append("{0}: invalid MP4 signature".format(relative))
+                continue
             try:
                 text = content.decode("utf-8")
             except UnicodeDecodeError:

@@ -41,6 +41,8 @@ REQUIRED = (
     "docs/roadmap.md",
     "docs/assets/demo.cast",
     "docs/assets/laneorchestrator-demo.gif",
+    "docs/assets/laneorchestrator-product-demo.gif",
+    "docs/assets/laneorchestrator-product-demo.mp4",
     "docs/assets/architecture.mmd",
     "docs/assets/social-preview.svg",
     "docs/transcripts/quickstart.txt",
@@ -72,7 +74,9 @@ DOCUMENTED_LOCAL_COMMANDS = (
 def public_text_files() -> Iterable[Path]:
     yield ROOT / "README.md"
     yield from sorted(path for path in (ROOT / "docs").rglob("*.md") if "superpowers" not in path.parts)
-    yield from sorted(path for path in (ROOT / "docs" / "assets").glob("*") if path.suffix != ".gif")
+    yield from sorted(
+        path for path in (ROOT / "docs" / "assets").glob("*") if path.suffix not in {".gif", ".mp4"}
+    )
     yield from sorted((ROOT / "docs" / "transcripts").glob("*"))
     yield ROOT / "CHANGELOG.md"
     yield ROOT / "CONTRIBUTING.md"
@@ -119,6 +123,12 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("analyzes your prompt and repository context", first_screen)
         self.assertIn("GPT‑5.6 Luna, Terra, or Sol", first_screen)
         self.assertIn("172 bundled specialist agents", first_screen)
+        preview = "docs/assets/laneorchestrator-product-demo.gif"
+        full_video = "docs/assets/laneorchestrator-product-demo.mp4"
+        self.assertIn(preview, first_screen)
+        self.assertIn(full_video, first_screen)
+        self.assertLess(first_screen.index(preview), first_screen.index("```mermaid"))
+        self.assertIn("15-second product tour", first_screen)
         self.assertIn("```mermaid", first_screen)
         self.assertIn("LANEORCHESTRATOR", first_screen)
         self.assertIn("Assesses scope, complexity, and risk", first_screen)
@@ -452,6 +462,17 @@ class DocumentationTests(unittest.TestCase):
         renderer = ROOT / "scripts" / "render_demo_gif.py"
         self.assertTrue(renderer.is_file())
         self.assertIn("Deterministic walkthrough", renderer.read_text(encoding="utf-8"))
+
+    def test_readme_product_tour_assets_are_bounded_and_linked(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        preview = ROOT / "docs/assets/laneorchestrator-product-demo.gif"
+        video = ROOT / "docs/assets/laneorchestrator-product-demo.mp4"
+        self.assertIn('<a href="docs/assets/laneorchestrator-product-demo.mp4">', readme)
+        self.assertIn('src="docs/assets/laneorchestrator-product-demo.gif"', readme)
+        self.assertEqual(preview.read_bytes()[:6], b"GIF89a")
+        self.assertLessEqual(preview.stat().st_size, 1_048_576)
+        self.assertLessEqual(video.stat().st_size, 1_048_576)
+        self.assertIn(b"ftyp", video.read_bytes()[:32])
 
     def test_issue_forms_and_security_policy_route_sensitive_reports_privately(self) -> None:
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
