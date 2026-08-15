@@ -9,6 +9,14 @@
 
 LaneOrchestrator is an intelligent control plane for Codex. It analyzes your prompt and repository context, evaluates complexity and risk, routes the work to GPT‑5.6 Luna, Terra, or Sol, and selects the right expertise from 172 bundled specialist agents. It orchestrates who plans, implements, and reviews—so you do not have to choose models or agents manually.
 
+<p align="center">
+  <a href="docs/assets/laneorchestrator-product-demo.mp4">
+    <img src="docs/assets/laneorchestrator-product-demo.gif" alt="LaneOrchestrator product tour: invoke the skill in Codex, route the task by risk, select from 172 specialist agents, and verify the handoff" width="400">
+  </a>
+</p>
+
+<p align="center"><strong>15-second product tour:</strong> invoke <code>$laneorchestrator</code> in Codex, then watch the model route, specialist selection, and verified handoff happen under the hood. <a href="docs/assets/laneorchestrator-product-demo.mp4">Watch the full-resolution MP4.</a></p>
+
 ```mermaid
 flowchart TB
     TASK["YOUR TASK<br/>Prompt + repository context"] --> ROUTER{"LANEORCHESTRATOR<br/>Assesses scope, complexity, and risk<br/>Creates an auditable route card"}
