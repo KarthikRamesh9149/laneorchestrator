@@ -63,6 +63,35 @@ class AdaptiveIntegrationTests(unittest.TestCase):
                     self.assertEqual(spawn_settings(selected)["model"], model, name)
                     self.assertEqual(spawn_settings(selected)["reasoning_effort"], effort, name)
 
+    def test_setup_review_contains_every_exact_destination_and_complete_profile(self):
+        from laneorchestrator.setup import build_preview
+        preview = build_preview(self.state, self.agents, now=100)
+        artifact = Path(preview.review_path)
+        self.assertEqual(artifact.stat().st_mode & 0o777, 0o600)
+        review = json.loads(artifact.read_text())
+        self.assertEqual(review["fingerprint"], preview.fingerprint)
+        profiles = {**render_profiles(self.config), **render_pack()}
+        actual = {item["destination"]: item["proposed_content"] for item in review["changes"]}
+        self.assertEqual(actual, {str(self.agents / name): content.decode() for name, content in profiles.items()})
+        self.assertFalse(any(self.agents.glob("*.toml")))
+
+    def test_schema_one_migrates_on_approved_preset_change_without_losing_preferences(self):
+        from laneorchestrator.config import preview_config, apply_config
+        destination = self.state / "config.json"
+        destination.write_text(json.dumps({"schema_version": 1, "roles": {
+            "router": {"model": "gpt-5.6-sol", "reasoning_effort": "medium"}}}))
+        destination.chmod(0o600)
+        before = destination.read_bytes()
+        token, preview = preview_config({"preset": "all-astra"}, self.state, now=100)
+        self.assertEqual(destination.read_bytes(), before)
+        apply_config(token, self.state, approval="approve:" + preview.data["approval_digest"], now=101)
+        config = load_config(self.state)
+        self.assertEqual(config.schema_version, 2)
+        self.assertEqual(config.preset, "all-astra")
+        self.assertEqual(config.roles["router"].model, "gpt-5.6-sol")
+        self.assertEqual(config.roles["router"].reasoning_effort, "medium")
+        self.assertEqual(render_profiles(config), render_profiles(self.config))
+
     def apply(self, action):
         token, preview = preview_install(self.agents, self.state, now=100, action=action)
         result = apply_install(token, self.agents, self.state, now=101, action=action, approval="approve:" + preview.data["approval_digest"])
