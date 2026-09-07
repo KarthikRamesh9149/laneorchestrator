@@ -256,12 +256,18 @@ def archive_members(root: Path) -> List[Path]:
     return members
 
 
-def _read_member(path: Path) -> bytes:
+def member_byte_limit(relative_name: str) -> int:
+    """Only the declared full launch film has a larger bounded allowance."""
+    return 10 * 1024 * 1024 if relative_name == "docs/assets/laneorchestrator-product-demo.mp4" else MAX_MEMBER_BYTES
+
+
+def _read_member(path: Path, relative_name: str = "") -> bytes:
+    limit = member_byte_limit(relative_name)
     try:
         before = os.lstat(path)
         if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
             raise ReleaseError("source member is unsafe")
-        if before.st_size > MAX_MEMBER_BYTES:
+        if before.st_size > limit:
             raise ReleaseError("source member exceeds size limit")
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(path, flags)
@@ -271,17 +277,17 @@ def _read_member(path: Path) -> bytes:
         opened = os.fstat(descriptor)
         if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino) or not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
             raise ReleaseError("source member changed while opening")
-        if opened.st_size > MAX_MEMBER_BYTES:
+        if opened.st_size > limit:
             raise ReleaseError("source member exceeds size limit")
-        content = os.read(descriptor, MAX_MEMBER_BYTES + 1)
-        while len(content) <= MAX_MEMBER_BYTES:
-            chunk = os.read(descriptor, MAX_MEMBER_BYTES + 1 - len(content))
+        content = os.read(descriptor, limit + 1)
+        while len(content) <= limit:
+            chunk = os.read(descriptor, limit + 1 - len(content))
             if not chunk:
                 break
             content += chunk
     finally:
         os.close(descriptor)
-    if len(content) > MAX_MEMBER_BYTES:
+    if len(content) > limit:
         raise ReleaseError("source member exceeds size limit")
     return content
 
@@ -290,7 +296,7 @@ def _captured_members(root: Path) -> List[Tuple[str, bytes]]:
     result: List[Tuple[str, bytes]] = []
     total = 0
     for path in archive_members(root):
-        content = _read_member(path)
+        content = _read_member(path, _relative_name(Path(root).resolve(), path))
         total += len(content)
         if total > MAX_TOTAL_BYTES:
             raise ReleaseError("release exceeds total size limit")

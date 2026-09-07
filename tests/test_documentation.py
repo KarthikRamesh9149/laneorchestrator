@@ -429,7 +429,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn('src="docs/assets/laneorchestrator-product-demo.gif"', readme)
         self.assertEqual(preview.read_bytes()[:6], b"GIF89a")
         self.assertLessEqual(preview.stat().st_size, 1_048_576)
-        self.assertLessEqual(video.stat().st_size, 1_048_576)
+        self.assertLessEqual(video.stat().st_size, 10_485_760)
         self.assertIn(b"ftyp", video.read_bytes()[:32])
 
     def test_issue_forms_and_security_policy_route_sensitive_reports_privately(self) -> None:

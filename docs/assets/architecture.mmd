@@ -1,11 +1,13 @@
 flowchart TD
-    A[Task and repository evidence] --> B[Read-only Sol router]
+    A[Task and repository evidence] --> B[Astra coordinator]
     B --> C[Bounded capability index]
-    B --> D{Risk and scope}
-    D -->|Verified one-file low risk| E[Luna executor]
-    D -->|Normal or uncertain work| F[Terra executor]
-    D -->|High-risk work| G[Sol plan]
-    G --> F
-    E --> H[Verification evidence]
+    B --> D{Complexity and uncertainty}
+    D -->|Small and clearly scoped| E[Luna or Terra / high]
+    D -->|Routine implementation| F[Sol or Terra / chosen thinking]
+    D -->|Demanding work| G[Astra / chosen thinking]
+    E --> H[Explicit host-validated dispatch]
     F --> H
-    H --> I[Fresh Sol review for high-risk work]
+    G --> H
+    C --> H
+    H --> I[Relevant verification]
+    I --> J[Independent review for consequential work]

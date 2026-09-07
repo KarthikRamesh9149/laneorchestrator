@@ -10,7 +10,7 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - Per-task model and thinking support for all four core profiles and 172 bundled specialists.
 - Exact legacy specialist upgrades, recognized partial-state recovery and reviewed uninstall.
 - Opt-in live implementation smoke checks and separate fixture review, with sanitized evidence and explicit runtime-observation limits.
-- Astra README tour and reproducible landscape/social launch media production tools.
+- One 65-second Astra film combining Codex desktop and CLI demo recreations, a README GIF preview, and reproducible media production tools.
 
 ### Changed
 

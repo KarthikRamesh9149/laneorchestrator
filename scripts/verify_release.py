@@ -21,6 +21,7 @@ from typing import Dict, Iterable, List, Sequence, Tuple
 try:
     from scripts.build_release import (
         MAX_MEMBER_BYTES,
+        member_byte_limit,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
         RELEASE_BINARY_FILES,
@@ -32,6 +33,7 @@ try:
 except ModuleNotFoundError:  # Direct ``python scripts/verify_release.py`` execution.
     from build_release import (  # type: ignore
         MAX_MEMBER_BYTES,
+        member_byte_limit,
         MAX_MEMBERS,
         MAX_TOTAL_BYTES,
         RELEASE_BINARY_FILES,
@@ -117,7 +119,7 @@ def _record(records: List[Tuple[str, bytes]], seen: set, name: str, content: byt
     if identity in seen:
         raise ReleaseVerificationError("duplicate archive member: {0}".format(name))
     seen.add(identity)
-    if len(content) > MAX_MEMBER_BYTES:
+    if len(content) > member_byte_limit(relative):
         raise ReleaseVerificationError("archive member exceeds size limit: {0}".format(name))
     records.append((relative, content))
     if len(records) > MAX_MEMBERS or sum(len(item[1]) for item in records) > MAX_TOTAL_BYTES:
@@ -145,12 +147,12 @@ def _tar_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
                 expected_mode = 0o755 if relative in RELEASE_EXECUTABLES else 0o644
                 if member.mode != expected_mode or member.mtime != 0 or member.uid != 0 or member.gid != 0 or member.uname or member.gname or member.pax_headers:
                     raise ReleaseVerificationError("tar member has unsafe metadata: {0}".format(member.name))
-                if member.size < 0 or member.size > MAX_MEMBER_BYTES:
+                if member.size < 0 or member.size > member_byte_limit(relative):
                     raise ReleaseVerificationError("tar member exceeds size limit: {0}".format(member.name))
                 source = archive.extractfile(member)
                 if source is None:
                     raise ReleaseVerificationError("tar member cannot be read: {0}".format(member.name))
-                data = source.read(MAX_MEMBER_BYTES + 1)
+                data = source.read(member_byte_limit(relative) + 1)
                 archive_end = max(archive_end, member.offset_data + ((member.size + 511) // 512) * 512)
                 _record(records, seen, member.name, data, prefix)
         if not records or len(payload) - archive_end < 1024 or payload[archive_end:].strip(b"\0"):
@@ -178,7 +180,7 @@ def _zip_members(content: bytes, prefix: str) -> List[Tuple[str, bytes]]:
                 expected_mode = 0o100000 | (0o755 if relative in RELEASE_EXECUTABLES else 0o644)
                 if info.create_system != 3 or mode != expected_mode or info.compress_type != zipfile.ZIP_DEFLATED:
                     raise ReleaseVerificationError("zip member has unsafe metadata: {0}".format(info.filename))
-                if info.file_size > MAX_MEMBER_BYTES or info.compress_size <= 0 or info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
+                if info.file_size > member_byte_limit(relative) or info.compress_size <= 0 or info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
                     raise ReleaseVerificationError("zip member exceeds resource limit: {0}".format(info.filename))
                 _check_local_zip_header(content, info, directory_offset)
                 data = archive.read(info, pwd=None)
@@ -318,25 +320,25 @@ def _check_demo_gif(name: str, content: bytes) -> None:
 def _check_product_gif(name: str, content: bytes) -> None:
     if len(content) > 1_048_576 or content[:6] != b"GIF89a" or content[-1:] != b"\x3b":
         raise ReleaseVerificationError("release product GIF is malformed: {0}".format(name))
-    if int.from_bytes(content[6:8], "little") != 400 or int.from_bytes(content[8:10], "little") != 500:
+    if int.from_bytes(content[6:8], "little") != 1200 or int.from_bytes(content[8:10], "little") != 675:
         raise ReleaseVerificationError("release product GIF has unexpected dimensions: {0}".format(name))
     controls = [index for index in range(len(content)) if content.startswith(b"\x21\xf9\x04", index)]
     duration = sum(int.from_bytes(content[index + 4:index + 6], "little") for index in controls)
-    if len(controls) != 120 or duration not in range(1_495, 1_506) or b"NETSCAPE2.0" not in content:
+    if len(controls) != 20 or duration != 2_000 or b"NETSCAPE2.0" not in content:
         raise ReleaseVerificationError("release product GIF has unexpected playback metadata: {0}".format(name))
 
 
 def _check_product_mp4(name: str, content: bytes) -> None:
-    if len(content) > 1_048_576 or len(content) < 32 or content[4:8] != b"ftyp":
+    if len(content) > 10_485_760 or len(content) < 32 or content[4:8] != b"ftyp":
         raise ReleaseVerificationError("release product MP4 is malformed: {0}".format(name))
     if content.find(b"moov", 8) < 0 or content.find(b"mdat", 8) < 0:
         raise ReleaseVerificationError("release product MP4 is missing required boxes: {0}".format(name))
     sample = content.find(b"avc1", 32)
     if sample < 0 or sample + 32 > len(content):
         raise ReleaseVerificationError("release product MP4 is missing its video sample: {0}".format(name))
-    if int.from_bytes(content[sample + 28:sample + 30], "big") != 1080:
+    if int.from_bytes(content[sample + 28:sample + 30], "big") != 1920:
         raise ReleaseVerificationError("release product MP4 has unexpected dimensions: {0}".format(name))
-    if int.from_bytes(content[sample + 30:sample + 32], "big") != 1350:
+    if int.from_bytes(content[sample + 30:sample + 32], "big") != 1080:
         raise ReleaseVerificationError("release product MP4 has unexpected dimensions: {0}".format(name))
 
 

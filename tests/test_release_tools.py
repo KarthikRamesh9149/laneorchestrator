@@ -223,6 +223,19 @@ class ReleaseToolTests(unittest.TestCase):
                 with self.assertRaisesRegex(ReleaseVerificationError, "GIF"):
                     _check_content(name, mutation)
 
+    def test_larger_media_allowance_is_limited_to_the_exact_launch_film(self) -> None:
+        from scripts.build_release import member_byte_limit, MAX_MEMBER_BYTES, _read_member
+        declared = "docs/assets/laneorchestrator-product-demo.mp4"
+        self.assertEqual(member_byte_limit(declared), 10 * 1024 * 1024)
+        for name in ("README.md", "docs/assets/other.mp4", "other/" + declared,
+                     declared.upper(), "docs/assets/laneorchestrator-product-demo.gif"):
+            self.assertEqual(member_byte_limit(name), MAX_MEMBER_BYTES)
+        oversized = self.work / "oversized"
+        oversized.write_bytes(b"x" * (MAX_MEMBER_BYTES + 1))
+        with self.assertRaisesRegex(ReleaseError, "size limit"):
+            _read_member(oversized)
+        self.assertEqual(len(_read_member(oversized, declared)), MAX_MEMBER_BYTES + 1)
+
     def test_verifier_accepts_only_the_declared_product_tour_media(self) -> None:
         gif_name = "docs/assets/laneorchestrator-product-demo.gif"
         mp4_name = "docs/assets/laneorchestrator-product-demo.mp4"
