@@ -1,43 +1,38 @@
-# Required GitHub launch settings
+# GitHub repository settings
 
-This is the exact post-code-gate contract. Inspect the live GitHub API before relying on it. Apply it only after the release commit passes the pre-public evidence gates. If the account plan cannot protect a private repository, make the explicitly authorized visibility change first, then apply and verify both rulesets immediately before creating any release tag.
+This maintainer reference records the settings inspected on 2026-09-07. Inspect GitHub again before changing them; a document is not proof of current enforcement.
 
-## Repository metadata
+## Public repository
 
-- Description: `Secure, evidence-driven model and agent routing for Codex.`
-- Homepage: `https://github.com/KarthikRamesh9149/laneorchestrator#readme`
-- Topics: `codex`, `ai-agents`, `agent-routing`, `developer-tools`, `python`, `security`, `open-source`
-- Discussions: enable at publication, not during candidate preparation.
+- Default branch: `main`; completed maintenance should leave only `main` on the upstream repository.
+- Issues and Discussions are enabled. Bug and feature forms route support questions and private security reports separately.
+- The homepage points to the README. The description should describe Astra-led task-specific model and specialist selection.
+- CI and security workflows run on changes; the release workflow supplies separate release evidence.
 
-## Single-main ruleset
+## Main protection
 
-Create exactly one active ruleset named `protect-main`, targeting only `main`. Do not create another branch as part of this step.
+The active `protect-main` ruleset targets `refs/heads/main`. It blocks deletion and non-fast-forward updates, requires an up-to-date branch for its required checks, and has no bypass actors.
 
-- Require these current CI status checks with their expected source bound to the `GitHub Actions` app, never `Any source`:
-  - `POSIX Python 3.9 on ubuntu-latest` — expected source: `GitHub Actions` app.
-  - `POSIX Python 3.14 on ubuntu-latest` — expected source: `GitHub Actions` app.
-  - `POSIX Python 3.9 on macos-latest` — expected source: `GitHub Actions` app.
-  - `POSIX Python 3.14 on macos-latest` — expected source: `GitHub Actions` app.
-  - `Windows read-only control plane Python 3.9` — expected source: `GitHub Actions` app.
-  - `Windows read-only control plane Python 3.14` — expected source: `GitHub Actions` app.
-  - `Verify candidate distribution` — expected source: `GitHub Actions` app.
-  - `private-static-analysis` — expected source: `GitHub Actions` app.
-  - `public-codeql` — expected source: `GitHub Actions` app.
-- Require the branch to be up to date before the checks pass.
-- force pushes: block.
-- deletions: block.
-- Do not require a separate branch or code-owner approval for this single-maintainer ruleset. `CODEOWNERS` is policy metadata and becomes enforceable only if a later ruleset explicitly requires it.
-- Bypass: no routine bypass actor. Any emergency owner bypass must be recorded with the reason and followed by a fresh validation run.
+Required check contexts are bound to the GitHub Actions integration:
 
-## Release-tag ruleset
+- `POSIX Python 3.9 on ubuntu-latest`
+- `POSIX Python 3.14 on ubuntu-latest`
+- `POSIX Python 3.9 on macos-latest`
+- `POSIX Python 3.14 on macos-latest`
+- `Windows read-only control plane Python 3.9`
+- `Windows read-only control plane Python 3.14`
+- `Verify candidate distribution`
+- `private-static-analysis`
+- `public-codeql`
 
-Create exactly one active ruleset named `protect-release-tags`, targeting `v*.*.*` tags.
+The security workflow conditionally selects the private or public analysis path; a skipped inapplicable job is not a failed analysis. Check the applicable job and its result. The inspected ruleset does not require a separate code-owner approval. `CODEOWNERS` is ownership metadata, not evidence that someone independently reviewed a change.
 
-- Block tag deletion and tag updates. Do not allow a routine bypass actor.
-- Require an annotated tag and the `Release evidence / quality-gates` workflow before release assets are accepted.
-- Keep GitHub artifact attestations enabled for the repository. The release workflow must retain `attestations: write` and `id-token: write`, and consumers must verify the attestation against this repository and workflow before trusting `SHA256SUMS`.
-- A bad release uses a new patch version; never move or reuse a release tag.
+## Release tags
 
-## Post-apply verification
+The active `protect-release-tags` ruleset targets `refs/tags/v*.*.*`, blocks deletion and non-fast-forward updates, and has no bypass actors. Annotated tags, version parity, successful release gates and artifact attestations are release-process requirements described in [RELEASING.md](../RELEASING.md); do not claim that these are all enforced by the two tag rules themselves.
 
-After applying the settings, use the GitHub UI or API and `git ls-remote --heads --tags origin` to verify the exact metadata, Discussions state, sole `main` target, every required check's `GitHub Actions` expected-source binding (never `Any source`), force-push/deletion blocks, bypass configuration, protected release-tag update/deletion blocks, release-workflow attestation permissions, and remote branch/tag state. Record that evidence in the operational release runbook; do not infer it from this file or a detached local checkout.
+Never move an existing published release tag to add Astra changes. Prepare a new version and verify its release assets separately.
+
+## Before reporting completion
+
+Verify the actual default branch, remote branches, CI at the intended commit, ruleset enforcement and public metadata through GitHub. Preserve unmerged work before deleting a branch. Do not disable protections or use an administrative bypass merely to finish maintenance faster.

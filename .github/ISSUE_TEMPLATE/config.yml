@@ -3,3 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/KarthikRamesh9149/laneorchestrator/security/advisories/new
     about: Report vulnerabilities privately through GitHub Security Advisories. Do not include secrets, tokens, private paths, private repository content, or exploit details in public issues; follow SECURITY.md.
+  - name: Usage question
+    url: https://github.com/KarthikRamesh9149/laneorchestrator/discussions
+    about: Ask installation and usage questions. Remove secrets and private data; use SECURITY.md for vulnerabilities.

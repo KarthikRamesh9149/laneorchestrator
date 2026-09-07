@@ -4,6 +4,8 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ## [Unreleased]
 
+- Rebuild the Astra source quickstart, task-oriented documentation index, adaptive examples, migration recipes and contributor/support guidance. Keep the old fixed-lane examples explicitly isolated as compatibility references.
+
 ### Added
 
 - Astra-led task assessment and host-validated model/thinking selection, with adaptive, all-Astra and manual presets.
