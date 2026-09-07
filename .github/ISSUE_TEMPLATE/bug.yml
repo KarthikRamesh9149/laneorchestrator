@@ -40,3 +40,23 @@ body:
       placeholder: Python 3.13.5
     validations:
       required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source version and commit
+      description: Release tag or main, plus the Git commit. The source Astra version still reports package version 0.2.4.
+    validations:
+      required: true
+  - type: input
+    id: codex
+    attributes:
+      label: Codex client and version
+      description: Desktop or CLI; include the version and whether this was a new task after installation.
+    validations:
+      required: true
+  - type: textarea
+    id: dispatch
+    attributes:
+      label: Model selection and readiness
+      description: For routing issues, include selected model/thinking and sanitized doctor or status output. Mark runtime-observed settings unknown if unavailable.

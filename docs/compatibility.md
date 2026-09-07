@@ -8,7 +8,7 @@ The release CI matrix covers Ubuntu and macOS on Python 3.9 and 3.14, plus an ex
 
 ## Operating systems
 
-macOS and Linux support the read-only control plane and POSIX mutation controls. On Windows, use WSL for Windows mutation. Native Windows supports read-only control-plane commands only; profile and configuration mutation are disabled because equivalent reparse-point protections are not verified.
+macOS and Linux support the read-only control plane and POSIX mutation controls. On Windows, use WSL for profile and configuration mutation. Native Windows supports read-only control-plane commands only; profile and configuration mutation are disabled because equivalent reparse-point protections are not verified.
 
 `CODEX_HOME`, when supplied, must be an absolute, resolved, user-owned, non-symlink directory. A Codex client with Plugin Marketplace support is required for the marketplace installation workflow.
 
@@ -17,3 +17,9 @@ macOS and Linux support the read-only control plane and POSIX mutation controls.
 The legacy `route.py`, `catalog.py`, and installer scripts are compatibility wrappers through version `0.2.4`. The canonical module interface is `python3 -m laneorchestrator` from a source checkout or resolved installed plugin root; marketplace users in an arbitrary workspace use `$laneorchestrator`. The guided setup command requires POSIX/WSL TTY input and output; its JSON form is read-only. Plugin removal does not remove managed profiles or configuration; lifecycle cleanup remains explicit and previewed.
 
 See [getting started](getting-started.md), [commands](commands.md), and [security model](security-model.md).
+
+## Source installation
+
+The current Astra workflow is available on `main`; the `v0.2.4` release predates it. The source quickstart uses a local marketplace registered from a known checkout. It requires Codex support for local plugin marketplaces and explicit model/effort dispatch. Check the active host rather than assuming every Codex client exposes the same capabilities.
+
+Model-neutral profiles must be loaded into a new task before they can accept per-task settings. The Python version, installed plugin files and disk profile status do not establish model entitlement or runtime-observed execution. See [upgrading](upgrading.md) and [live validation](live-validation.md).

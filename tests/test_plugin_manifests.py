@@ -14,7 +14,7 @@ SKILL_COMMANDS = (
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 README_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
+    "codex plugin marketplace add .",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 PLUGIN_DEFAULT_PROMPTS = (
@@ -125,10 +125,10 @@ class PluginManifestTests(unittest.TestCase):
         self.assertIn(README_COMMANDS[1], readme)
         self.assertNotIn("--ref main", readme)
         self.assertNotIn("sh scripts/install-agents.sh", readme)
-        self.assertIn("doctor", readme)
+        self.assertIn("doctor --json", (ROOT / "docs/getting-started.md").read_text(encoding="utf-8"))
         self.assertIn("preview", readme)
         self.assertIn("bound token", readme)
-        self.assertIn("172 namespaced profiles", readme)
+        self.assertIn("172 specialists", readme)
         self.assertIn("Plugin removal", readme)
 
 

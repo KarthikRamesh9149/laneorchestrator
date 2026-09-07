@@ -7,7 +7,7 @@
 [![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-LaneOrchestrator is an intelligent control plane for Codex. Astra analyzes your prompt and repository context, evaluates complexity and risk, and chooses the specialist, model, and thinking level for each task. It draws on 172 bundled specialist agents and orchestrates who investigates, implements, and reviews—so you can focus on the result.
+LaneOrchestrator is a Codex skill and a local control plane for agent orchestration. Astra analyzes your prompt and repository context, evaluates complexity and risk, and chooses the specialist, model, and thinking level for each task. It draws on 172 bundled specialist agents and orchestrates who investigates, implements, and reviews—so you can focus on the result.
 
 <p align="center">
   <a href="docs/assets/laneorchestrator-product-demo.mp4">
@@ -57,56 +57,34 @@ LaneOrchestrator separates expertise from execution settings. A frontend special
 
 ## Start here
 
-The published stable release is `v0.2.4`. The Astra workflow described here is the next source version; it is not included in that existing release. Install the published release with:
+**Use `main` for the Astra workflow described on this page.** It contains the latest source changes, not a new tagged release. The published `v0.2.4` predates Astra; these changes are **not included in that existing release**. See [release channels and upgrades](docs/upgrading.md) before upgrading an existing installation.
+
+You need Git, Python 3.9–3.14, a Codex client with plugin support, and access to the models selected by your host. Run setup on macOS, Linux, or WSL. Start in a directory where you keep source projects:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4
+git clone --branch main https://github.com/KarthikRamesh9149/laneorchestrator.git
+cd laneorchestrator
+codex plugin marketplace add .
 codex plugin add laneorchestrator@laneorchestrator
-```
-
-For the Astra source version, use the current checkout and complete the setup below. Give Codex a normal request:
-
-> `$laneorchestrator route and implement this task safely`
-
-The response briefly explains the selected expertise, model, thinking, and verification, then continues the authorized task.
-
-Automation can request the same decision as one stable JSON record with `python3 -m laneorchestrator orchestrate --objective "<task>" --json`. The schema-2 card includes scope evidence, profile readiness, specialist metadata, the adaptive policy, and verification requirements. It explicitly waits for Astra’s model/effort decision. The CLI validates decisions; the Codex host performs the model reasoning and agent execution.
-
-### One-command setup (recommended)
-
-After installing the plugin, resolve its installed root (or use a source checkout), then run the setup command from an interactive POSIX terminal or WSL session. It shows one combined, human-readable preview for all four control profiles and the bundled specialist pack, then asks once before writing any profile targets:
-
-```sh
 python3 -m laneorchestrator setup
 ```
 
-The preview names the destination, control roles, all **172 specialists**, pinned upstream commit, exact change counts, expiry, a combined fingerprint, and a private review file containing the full proposed profile content and destinations. The confirmation covers **176 profiles** (4 control profiles plus 172 specialists). Only `y` or `yes` confirms; Enter, `n`, interruptions, pipes, and redirected input cancel or refuse safely. Setup never prints raw plan tokens or approval digests. It applies the four control profiles first, then the specialist pack. If the specialist stage fails, the valid control installation is retained and rerunning setup resumes after the conflict is resolved.
+Review the proposed profile files and confirm once. Setup activates the four control profiles and 172 specialists. **No separate Volt download is required.** Open a new Codex task in the repository you want to change so the host can load the new profiles. Then describe the work:
 
-For automation or a noninteractive readiness check, use the read-only form:
+> `$laneorchestrator Add notification preferences to settings. Save per user and restore them after reload.`
 
-```sh
-python3 -m laneorchestrator setup --json
-```
+Astra inspects the code, explains its specialist/model/thinking choice, implements through the selected agent, and reports verification. You do not need to name a model. A consequential change receives a fresh independent review.
 
-It never prompts or mutates profile targets. It returns `SETUP_INTERACTIVE_REQUIRED` with the interactive command and current readiness. Native Windows reports WSL guidance; the existing read-only commands remain available there.
+**Success looks like:** setup finishes without unresolved readiness failures; a new Codex task can use the skill and loaded profiles; its handoff names the changes and the checks actually run. See the [complete first-task guide](docs/getting-started.md) for readiness checks and [troubleshooting](docs/troubleshooting.md) if a step fails.
 
-**No separate Volt download is required.** The plugin already contains the pinned, MIT-licensed VoltAgent source pack: **172 namespaced profiles** ready to activate when you choose.
+<details>
+<summary>Activate the bundled specialists separately</summary>
 
-### Activate the bundled specialists (advanced manual path)
+For partial installation or automation, use the [advanced profile lifecycle](docs/commands.md#mutating-commands). The [migration guide](docs/upgrading.md) covers old profiles with fixed model settings. Installation and migration are separate from authorizing normal work in your project.
 
-Plugin installation downloads the pack; it deliberately does **not** write 172 profiles into your global Codex directory without review. Inspect what is included, create an exact installation preview, then approve that one preview:
+</details>
 
-```sh
-python3 -m laneorchestrator voltagent inventory --json
-python3 -m laneorchestrator voltagent install preview --json
-python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
-```
-
-Activation creates only `laneorchestrator-voltagent-*` profiles. Installation refuses profile collisions, partial installs, drift, unsafe filesystem objects, expired plans, and replayed approvals. The explicit `voltagent update` flow migrates the exact old Terra/high pack and recovers recognized partial states; `voltagent uninstall` removes only recognized managed content. Both use preview/apply approval. User-edited and unrelated profiles are preserved.
-
-On first use, the skill runs `doctor` to check readiness. The recommended `setup` command handles a fresh or resumable installation in one confirmation. If you choose the advanced manual path, or the host does not expose the required control profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
-
-![LaneOrchestrator walkthrough: task evidence, route card, bundled specialists, and high-risk verification](docs/assets/laneorchestrator-demo.gif)
+![LaneOrchestrator walkthrough: automatic selection, implementation and review](docs/assets/laneorchestrator-demo.gif)
 
 ## What it does—and how the agents work together
 
@@ -220,13 +198,14 @@ Read-only control-plane commands are supported on native Windows. Use WSL for pr
 
 ### How do I update or remove it?
 
-Review a newer protected release tag before changing your marketplace source. Plugin removal does not remove managed profiles or configuration; use the explicit lifecycle guidance in [getting started](docs/getting-started.md) and [configuration and recovery](docs/configuration.md).
+Follow [release channels, migration and removal](docs/upgrading.md). Updating a plugin and updating the host-loaded agent profiles are separate steps. Plugin removal does not remove managed profiles or configuration.
 
 ## Learn more and contribute
 
+- Browse the [documentation index](docs/README.md) for guides by task.
 - Start with [getting started](docs/getting-started.md), then see the [command reference](docs/commands.md), [concepts](docs/concepts.md), and [specialist catalog](docs/commands.md#read-only-commands).
 - Explore [small](docs/examples/small-change.md), [normal](docs/examples/normal-feature.md), and [high-risk](docs/examples/high-risk-change.md) route examples.
-- See [live execution evidence](docs/live-validation.md) and [Astra media production](docs/media-production.md) for reproducibility and limitations.
+- See [live execution evidence](docs/live-validation.md) and [launch media production](docs/media-production.md) for reproducibility and limitations.
 - Review [configuration and recovery](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [architecture](docs/architecture.md), and [benchmarks](docs/benchmarks.md).
 - Contributions should preserve the control-plane boundary and leave fresh verification evidence. Run `sh scripts/validate.sh` before opening a pull request; [CONTRIBUTING.md](CONTRIBUTING.md) explains the contribution, evidence, and rollback expectations.
 

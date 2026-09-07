@@ -20,15 +20,21 @@ python3 -m laneorchestrator setup --json
 
 It returns `SETUP_INTERACTIVE_REQUIRED`, the current readiness snapshot, and the command to run interactively. Native Windows returns WSL guidance. The explicit preview/apply commands below remain the advanced path for operators who need separate lifecycle control.
 
+## Everyday use versus integration
+
+Use `$laneorchestrator` in Codex for a task that should actually be implemented. The commands here inspect state, validate selections or manage local files. None is a replacement for the host’s agent execution.
+
 ## Read-only commands
 
 | Command | Purpose |
 | --- | --- |
+| `policy [--json]` | Return adaptive presets and model-selection constraints. |
+| `select --decision PATH --host-models PATH --task-kind KIND [--json]` | Validate a host-supported selection; does not launch an agent. |
 | `doctor [--json]` | Inspect runtime, configuration, filesystem, and profile readiness. |
 | `status [--json]` | Inspect effective configuration and profile state. |
 | `version [--json]` | Report package, manifest, and result-schema versions. |
 | `route --objective TEXT [--known-area] [--acceptance-criteria] [--files N] [--risk-assessment low|normal|high|unknown] [--json]` | Return a route decision and role availability result. |
-| `orchestrate --objective TEXT [route options] [--context TEXT] [--agents-root PATH] [--json]` | Return one combined route card with lane workflow, role evidence, trusted specialist metadata, fallback, and verification requirements. |
+| `orchestrate --objective TEXT [route options] [--context TEXT] [--agents-root PATH] [--json]` | Return a schema-2 scope card pending Astra selection; use `--legacy` for the fixed-lane contract. |
 | `catalog --query TEXT [--cwd PATH] [--context TEXT] [--skills-root PATH] [--agents-root PATH] [--no-default-roots] [--top-skills N] [--top-agents N] [--unscoped-high-risk] [--json]` | Return bounded capability-index results. |
 | `benchmark [--repeat 2..10] [--json]` | Evaluate the committed routing and capability corpora. |
 | `voltagent inventory\|status [--json]` | Inspect the bundled pinned VoltAgent specialist pack or its installation state. |
@@ -56,3 +62,26 @@ Task kinds are `investigation`, `small`, `routine`, `demanding`, and `review`. O
 `configure preview --set preset=all-astra` previews a persistent preset change. Schema-1 configurations remain readable; reviewed updates write schema 2. Model preferences no longer trigger installed-profile drift.
 
 `voltagent update preview` and `voltagent uninstall preview` expose complete reviewed specialist changes. Their corresponding `apply --token <bound-token> --approval approve:<approval-digest>` phases are bound to that exact action. Update supports the exact legacy pack and recovery of known partial states; user edits are refused.
+
+## Legacy compatibility example
+
+This returns the older deterministic route payload, not an adaptive execution:
+
+```sh
+python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low
+```
+
+For the adaptive scope card, an integration can run:
+
+```sh
+python3 -m laneorchestrator orchestrate --objective "<task>" --json
+```
+
+See the [dispatch contract](../skills/laneorchestrator/references/dispatch.md) for decision-file shape and explicit launch settings. Success from `select` means `validated_for_dispatch`, not completed work.
+
+For a fresh specialist-only installation, these are complete command forms. Apply only after reviewing the exact preview:
+
+```sh
+python3 -m laneorchestrator voltagent install preview --json
+python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
+```

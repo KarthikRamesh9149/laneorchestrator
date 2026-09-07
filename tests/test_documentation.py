@@ -27,6 +27,9 @@ UNSAFE_SVG = re.compile(
 
 REQUIRED = (
     "README.md",
+    "docs/README.md",
+    "docs/upgrading.md",
+    "docs/examples/parallel-specialists.md",
     "docs/getting-started.md",
     "docs/concepts.md",
     "docs/configuration.md",
@@ -67,6 +70,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator benchmark --json",
     "python3 -m unittest tests.test_acceptance_100 -v",
     "python3 scripts/healthcheck.py",
+    "python3 scripts/check_docs.py",
     "sh scripts/validate.sh",
 )
 
@@ -117,25 +121,27 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual([name for name in REQUIRED if not (ROOT / name).is_file()], [])
 
     def test_readme_preserves_layout_and_explains_astra_selection(self):
-        readme = (ROOT / "README.md").read_text()
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
         first = readme.split("\n## What it does—and how the agents work together", 1)[0]
         self.assertEqual(first.count("[!["), 4)
         for text in ("Astra-led orchestration", "172 bundled specialist agents", "docs/assets/laneorchestrator-product-demo.gif", "docs/assets/laneorchestrator-product-demo.mp4", "```mermaid", "Assesses scope, complexity, and risk", "No separate Volt download is required.", "Activate the bundled specialists"):
             self.assertIn(text, first)
         self.assertLess(first.index("docs/assets/laneorchestrator-product-demo.gif"), first.index("```mermaid"))
-        self.assertIn("--ref v0.2.4", first)
+        self.assertIn("--ref v0.2.4", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
         self.assertIn("not included in that existing release", first)
-        self.assertNotIn("--ref main", first)
+        self.assertIn("git clone --branch main", first)
+        self.assertIn("codex plugin marketplace add .", first)
+        self.assertIn("docs/upgrading.md", first)
         self.assertNotRegex(readme, LOCAL_PATH)
 
     def test_readme_explains_adaptive_work_and_evidence_boundaries(self):
-        readme = (ROOT / "README.md").read_text()
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for heading in ("## What it does", "## Adaptive model and thinking", "## Trust, safety, and release evidence", "## FAQ"):
             self.assertIn(heading, readme)
         for text in ("Luna or Terra", "Sol or Terra", "Sol/high, Terra/medium, Sol/medium", "fresh independent review", "per-task model and thinking", "artifact attestations", "1 · ASSESS", "2 · SELECT", "3 · EXECUTE", "4 · VERIFY"):
             self.assertIn(text, readme)
         self.assertNotIn("Every bundled profile uses the static", readme)
-        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs/concepts.md").read_text())
+        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs/concepts.md").read_text(encoding="utf-8"))
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []
@@ -204,6 +210,9 @@ class DocumentationTests(unittest.TestCase):
                 if command == "python3 -m laneorchestrator --help":
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertIn("usage: laneorchestrator", result.stdout)
+                    continue
+                if command == "python3 scripts/check_docs.py":
+                    self.assertEqual(result.returncode, 0, result.stderr)
                     continue
                 if command == "python3 scripts/healthcheck.py":
                     self.assertEqual(result.returncode, 0, result.stderr)
@@ -358,7 +367,7 @@ class DocumentationTests(unittest.TestCase):
                     cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
-                text = (ROOT / "docs" / "examples" / name).read_text(encoding="utf-8")
+                text = (ROOT / "docs" / "examples" / "legacy" / name).read_text(encoding="utf-8")
                 matches = re.findall(r"```json\n(.*?)```", text, re.DOTALL)
                 self.assertEqual(len(matches), 1, name)
                 self.assertEqual(json.loads(matches[0]), json.loads(result.stdout)["data"]["route"], name)

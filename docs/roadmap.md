@@ -1,18 +1,23 @@
 # Roadmap
 
-This roadmap is an engineering direction, not a delivery promise.
+This is an engineering direction, not a delivery-date or model-performance promise.
 
-## Before public release
+## Available on main
 
-- Verify the complete supported Python and platform matrix from the release commit.
-- Complete the security, marketplace, archive, checksum, benchmark, and documentation gates in the [release guide](../RELEASING.md).
-- Obtain the required owner authorization before changing repository visibility.
+- Astra-led, task-specific model and thinking selection.
+- Model-neutral core and specialist profiles with reviewed migration.
+- Configuration previews, profile lifecycle controls and isolated execution evidence.
+- A source quickstart, adaptive workflow examples and recovery documentation.
 
-## After public release
+The published `v0.2.4` tag predates these Astra changes. See [release channels](upgrading.md).
 
-- Use clean-install reports and reproducible issues to prioritize setup and recovery improvements.
-- Review benchmark corpus and policy changes with a documented rationale in the changelog.
-- Consider native Windows mutation only after equivalent reparse-point protections are implemented and verified.
-- Keep optional capability discovery bounded, source-aware, and separate from router authority.
+## Next priorities
 
-The project does not promise adoption figures, release dates, or third-party integrations. See [support](../SUPPORT.md) for feedback channels.
+1. Package the Astra source changes into a new reviewed release with fresh platform and distribution evidence.
+2. Improve clean-install and migration usability from actual user reports.
+3. Expand execution evidence to cover host-loaded named profiles and routing quality, keeping accepted settings separate from runtime observations.
+4. Improve discovery relevance using versioned, reviewed evaluation cases.
+
+Native Windows mutation remains deferred until equivalent filesystem protections are implemented and verified. Broader model support depends on what the active Codex host exposes.
+
+Use [Discussions](https://github.com/KarthikRamesh9149/laneorchestrator/discussions) to describe a workflow problem and [contributing](../CONTRIBUTING.md) for scoped fixes.

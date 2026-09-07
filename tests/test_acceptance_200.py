@@ -428,7 +428,7 @@ class Acceptance200(unittest.TestCase):
                 lambda: self.assertEqual(len({path.name for path in profile_paths}), 172),
                 lambda: self.assertTrue(all(path.is_file() and not path.is_symlink() for path in profile_paths)),
                 lambda: self.assertIn("# LaneOrchestrator v" + __version__, (ROOT / "docs" / "releases" / ("v" + __version__ + ".md")).read_text(encoding="utf-8")),
-                lambda: self.assertIn("--ref v" + __version__, (ROOT / "README.md").read_text(encoding="utf-8")),
+                lambda: self.assertIn("--ref v" + __version__, (ROOT / "docs" / "upgrading.md").read_text(encoding="utf-8")),
                 lambda: self.assertIn("VoltAgent", (ROOT / "NOTICE").read_text(encoding="utf-8")),
                 lambda: self.assertIn("private advisory", (ROOT / "SECURITY.md").read_text(encoding="utf-8").casefold()),
                 lambda: self._assert_setup_json_is_read_only(),
