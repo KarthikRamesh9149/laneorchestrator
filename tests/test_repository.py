@@ -125,13 +125,12 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)))
         self.assertTrue(all(name.startswith("laneorchestrator-") for name in names))
 
-    def test_high_risk_model_unavailability_fails_closed(self) -> None:
-        skill = (ROOT / "skills" / "laneorchestrator" / "SKILL.md").read_text(encoding="utf-8")
-        router = (ROOT / "agents" / "laneorchestrator-router.toml").read_text(encoding="utf-8")
-        for policy in (skill, router):
-            self.assertIn("If Terra", policy)
-            self.assertIn("If Sol", policy)
-            self.assertIn("pause", policy)
+    def test_dispatch_requires_host_evidence_and_independent_review(self):
+        dispatch = (ROOT / "skills/laneorchestrator/references/dispatch.md").read_text()
+        skill = (ROOT / "skills/laneorchestrator/SKILL.md").read_text()
+        self.assertIn("never an agent's self-description", dispatch)
+        self.assertIn("A launch error requires reassessment", dispatch)
+        self.assertIn("fresh independent reviewer", skill)
 
 
 if __name__ == "__main__":

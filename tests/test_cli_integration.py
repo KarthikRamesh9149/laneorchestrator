@@ -112,7 +112,7 @@ class CliIntegrationTests(unittest.TestCase):
             encoding="utf-8",
         )
         result = self.run_cli(
-            "orchestrate", "--objective", "Rotate OAuth credentials", "--risk-assessment", "low",
+            "orchestrate", "--legacy", "--objective", "Rotate OAuth credentials", "--risk-assessment", "low",
             "--agents-root", os.fspath(agents), "--json",
         )
 
@@ -137,7 +137,7 @@ class CliIntegrationTests(unittest.TestCase):
             encoding="utf-8",
         )
         result = self.run_cli(
-            "orchestrate", "--objective", "Implement a FastAPI endpoint", "--risk-assessment", "normal",
+            "orchestrate", "--legacy", "--objective", "Implement a FastAPI endpoint", "--risk-assessment", "normal",
             "--context", "FastAPI service", "--json",
         )
 
@@ -156,14 +156,15 @@ class CliIntegrationTests(unittest.TestCase):
             (agents / filename).write_bytes(content)
 
         result = self.run_cli(
-            "orchestrate", "--objective", "Build a FastAPI async endpoint",
+            "orchestrate", "--legacy", "--objective", "Build a FastAPI async endpoint",
             "--risk-assessment", "normal", "--context", "FastAPI service", "--json",
         )
 
         self.assertEqual(result.returncode, 1)
         specialist = self.payload(result)["data"]["route_card"]["selected_specialist"]
         self.assertEqual(specialist["name"], PACK_PREFIX + "fastapi-developer")
-        self.assertEqual(specialist["model"], "gpt-5.6-terra")
+        self.assertIsNone(specialist["model"])
+        self.assertEqual(specialist["model_binding"], "per-task")
 
     def test_catalog_does_not_accept_an_unmanaged_profile_as_a_control_plane_role(self) -> None:
         agents = self.home / "agents"
@@ -479,10 +480,10 @@ class CliIntegrationTests(unittest.TestCase):
             0,
         )
         updated = self._profile_preview_apply("update")
-        self.assertGreaterEqual(updated["data"]["change_count"], 1)
+        self.assertEqual(updated["data"]["change_count"], 0)
         router = self.home / "agents" / "laneorchestrator-router.toml"
-        self.assertIn('model = "gpt-5.6-sol"', router.read_text(encoding="utf-8"))
-        self.assertIn('model_reasoning_effort = "ultra"', router.read_text(encoding="utf-8"))
+        self.assertNotIn('\nmodel = ', router.read_text(encoding="utf-8"))
+        self.assertNotIn('\nmodel_reasoning_effort = ', router.read_text(encoding="utf-8"))
 
         unrelated = self.home / "agents" / "third-party.toml"
         unrelated.write_text("third party\n", encoding="utf-8")

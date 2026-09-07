@@ -43,7 +43,7 @@ class RouteCardTests(unittest.TestCase):
         self.assertEqual(specialist["reasoning_effort"], "high")
         self.assertEqual(specialist["source"], "user")
         self.assertEqual(specialist["availability"], "AVAILABLE")
-        self.assertEqual(card["workflow"]["routing"]["model"], "gpt-5.6-sol")
+        self.assertEqual(card["workflow"]["routing"]["model"], "gpt-6-astra")
         self.assertEqual(card["workflow"]["implementation"]["model"], "gpt-5.6-terra")
         self.assertIsNone(card["workflow"]["independent_review"])
         self.assertIsNone(card["fallback"])

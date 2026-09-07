@@ -19,7 +19,7 @@ README_COMMANDS = (
 )
 PLUGIN_DEFAULT_PROMPTS = (
     "Use $laneorchestrator to route and implement this task safely.",
-    "Use $laneorchestrator to inspect this project and choose the best implementation lane.",
+    "Use $laneorchestrator to inspect this project and choose the implementation model and thinking.",
     "Use $laneorchestrator to plan and verify this high-risk change.",
 )
 
@@ -105,19 +105,19 @@ class PluginManifestTests(unittest.TestCase):
 
     def test_skill_documents_exact_public_commands_and_safe_first_run(self) -> None:
         skill = (ROOT / "skills/laneorchestrator/SKILL.md").read_text(encoding="utf-8")
-        self.assertEqual(re.findall(r"^codex plugin .+$", skill, re.MULTILINE), list(SKILL_COMMANDS))
-        self.assertLess(skill.index("python3 -m laneorchestrator doctor --json"), skill.index("python3 -m laneorchestrator profiles install preview --json"))
-        self.assertIn("profiles install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
-        self.assertIn("never apply", skill.lower())
-        self.assertIn("pinned MIT-licensed VoltAgent specialist pack", skill)
-        self.assertIn("voltagent install preview --json", skill)
-        self.assertIn("voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json", skill)
-        self.assertIn("missing Terra", skill)
-        self.assertIn("required Sol", skill)
-        self.assertIn("ancestor of this `SKILL.md`", skill)
-        self.assertIn("plugin root as the working directory", skill)
-        self.assertIn("private local planning state", skill)
-        self.assertIn("does not apply profile or configuration changes", skill)
+        lifecycle = (ROOT / "skills/laneorchestrator/references/lifecycle.md").read_text(encoding="utf-8")
+        self.assertIn("python3 -m laneorchestrator doctor --json", skill)
+        self.assertIn("[lifecycle.md](references/lifecycle.md)", skill)
+        self.assertIn("profiles install preview --json", lifecycle)
+        self.assertIn("profiles install apply --token <bound-token> --approval approve:<approval-digest> --json", lifecycle)
+        self.assertIn("voltagent install preview --json", lifecycle)
+        self.assertIn("voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json", lifecycle)
+        self.assertIn("exact reviewed preview", lifecycle)
+        self.assertIn("Never pipe a confirmation", lifecycle)
+        self.assertIn("root as the working directory", skill)
+        self.assertIn("Unknown scope means investigate first", skill)
+        self.assertIn("An Astra implementer cannot approve its own work", skill)
+        self.assertIn("Ordinary use does not create project metadata directories", skill)
 
     def test_readme_uses_only_the_supported_marketplace_and_token_flow(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

@@ -1,81 +1,76 @@
 # LaneOrchestrator
 
-> **A risk-aware control plane for Codex—with 172 bundled specialist agents.**
+> **Astra-led orchestration for Codex—with 172 bundled specialist agents.**
 
 [![CI](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/KarthikRamesh9149/laneorchestrator/actions/workflows/ci.yml)
 [![Python 3.9–3.14](https://img.shields.io/badge/Python-3.9--3.14-blue.svg)](docs/compatibility.md)
 [![Runtime dependencies: 0](https://img.shields.io/badge/runtime%20dependencies-0-blue.svg)](docs/compatibility.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-LaneOrchestrator is an intelligent control plane for Codex. It analyzes your prompt and repository context, evaluates complexity and risk, routes the work to GPT‑5.6 Luna, Terra, or Sol, and selects the right expertise from 172 bundled specialist agents. It orchestrates who plans, implements, and reviews—so you do not have to choose models or agents manually.
+LaneOrchestrator is an intelligent control plane for Codex. Astra analyzes your prompt and repository context, evaluates complexity and risk, and chooses the specialist, model, and thinking level for each task. It draws on 172 bundled specialist agents and orchestrates who investigates, implements, and reviews—so you can focus on the result.
 
 <p align="center">
   <a href="docs/assets/laneorchestrator-product-demo.mp4">
-    <img src="docs/assets/laneorchestrator-product-demo.gif" alt="LaneOrchestrator product tour: invoke the skill in Codex, route the task by risk, select from 172 specialist agents, and verify the handoff" width="400">
+    <img src="docs/assets/laneorchestrator-product-demo.gif" alt="LaneOrchestrator product tour: Astra chooses specialist expertise, model and thinking, followed by verification and independent review" width="840">
   </a>
 </p>
 
-<p align="center"><strong>15-second product tour:</strong> invoke <code>$laneorchestrator</code> in Codex, then watch the model route, specialist selection, and verified handoff happen under the hood. <a href="docs/assets/laneorchestrator-product-demo.mp4">Watch the full-resolution MP4.</a></p>
+<p align="center"><strong>78-second product demo:</strong> three automatic routing examples: Astra handles complex recovery logic, Astra coordinates and reviews Sol’s implementation, and Astra delegates to Terra specialists in the CLI. The GIF is a short preview; the MP4 contains the complete demo. <a href="docs/assets/laneorchestrator-product-demo.mp4">Watch the full-resolution MP4.</a></p>
 
 ```mermaid
 flowchart TB
-    TASK["YOUR TASK<br/>Prompt + repository context"] --> ROUTER{"LANEORCHESTRATOR<br/>Assesses scope, complexity, and risk<br/>Creates an auditable route card"}
-
-    ROUTER -->|"Bounded + low risk"| LUNA["GPT-5.6 LUNA<br/>Focused execution<br/>One known change"]
-    ROUTER -->|"Normal work"| TERRA["GPT-5.6 TERRA<br/>Implementation<br/>Optional specialist expertise"]
-    ROUTER -->|"High-risk work"| PLAN["GPT-5.6 SOL<br/>Plan"]
-
-    PLAN --> IMPLEMENT["GPT-5.6 TERRA<br/>Implement<br/>Optional specialist expertise"]
-    IMPLEMENT --> REVIEW["GPT-5.6 SOL<br/>Independent review"]
-
-    LUNA --> DONE["VERIFIED HANDOFF<br/>Tests + evidence + summary"]
-    TERRA --> DONE
-    REVIEW --> DONE
-
+    TASK["YOUR TASK<br/>Prompt + repository context"] --> ROUTER{"ASTRA LEADS<br/>Assesses scope, complexity, and risk<br/>Chooses expertise + model + thinking"}
+    ROUTER --> MATCH["172 SPECIALISTS<br/>The right expertise for the work<br/>Every profile supports per-task model selection"]
+    MATCH -->|"Small + clearly scoped"| SMALL["LUNA or TERRA<br/>High thinking<br/>Astra chooses the model"]
+    MATCH -->|"Routine implementation"| ROUTINE["SOL or TERRA<br/>Thinking chosen by Astra<br/>Based on the implementation task"]
+    MATCH -->|"Demanding work"| ASTRA["GPT-6 ASTRA<br/>Implementation and investigation<br/>Thinking matched to complexity"]
+    SMALL --> VERIFY["VERIFY THE RESULT<br/>Relevant checks + evidence<br/>Fresh review for consequential changes"]
+    ROUTINE --> VERIFY
+    ASTRA --> VERIFY
+    VERIFY --> DONE["COMPLETED WORK<br/>Changes + verification + remaining limitations"]
     classDef task fill:#0F172A,stroke:#334155,color:#F8FAFC,stroke-width:2px;
     classDef router fill:#4F46E5,stroke:#818CF8,color:#FFFFFF,stroke-width:3px;
-    classDef luna fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:2px;
-    classDef terra fill:#CCFBF1,stroke:#0D9488,color:#134E4A,stroke-width:2px;
-    classDef sol fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:2px;
+    classDef small fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:2px;
+    classDef routine fill:#CCFBF1,stroke:#0D9488,color:#134E4A,stroke-width:2px;
+    classDef astra fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:2px;
     classDef done fill:#DCFCE7,stroke:#16A34A,color:#14532D,stroke-width:3px;
-
     class TASK task;
     class ROUTER router;
-    class LUNA luna;
-    class TERRA,IMPLEMENT terra;
-    class PLAN,REVIEW sol;
+    class MATCH,ROUTINE routine;
+    class SMALL small;
+    class ASTRA,VERIFY astra;
     class DONE done;
 ```
 
-> Specialists add expertise but cannot change the selected lane. If Luna is unavailable, bounded work may fall back to Terra; required Terra or Sol roles fail closed.
+> A specialist supplies expertise. Astra chooses its model and thinking for each task. Missing or unsupported settings require reassessment; the skill never claims a model ran just because a route card names it.
 
 ## What ships in the box
 
 | Layer | Included | Why it matters |
 | --- | --- | --- |
-| **Control plane** | A Sol router and reviewer, plus Luna and Terra executors | The lane decision stays separate from the agent that changes code. |
+| **Control plane** | An Astra coordinator, bounded and general executors, and an independent reviewer | Model and thinking choices follow the task; review stays independent from implementation. |
 | **Specialist pack** | **172 MIT-licensed VoltAgent profiles**, bundled in this plugin | Codex can draw on focused expertise without the user finding and wiring every profile themselves. |
 | **Safety boundary** | Read-only routing, bounded discovery, previews, bound tokens, and explicit approval | Specialists add capability; they do not gain authority to change the lane, overwrite profiles, or bypass review. |
 | **Portable interface** | `$laneorchestrator` for Codex and a standard-library JSON CLI | Useful in everyday chat-driven work and repeatable automation. |
 
-This is not “one giant prompt.” LaneOrchestrator first decides the lane from scope, risk, acceptance criteria, and availability. It then uses relevant specialist profiles as help within that lane.
+LaneOrchestrator separates expertise from execution settings. A frontend specialist can use Terra/medium for a familiar component change and Sol/high for a more involved integration. Astra makes that choice from the task and the capabilities exposed by the current Codex host.
 
 ## Start here
 
-Install the reviewed `v0.2.4` release, then invoke the skill from any workspace:
+The published stable release is `v0.2.4`. The Astra workflow described here is the next source version; it is not included in that existing release. Install the published release with:
 
 ```sh
 codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
-Then give Codex a normal request:
+For the Astra source version, use the current checkout and complete the setup below. Give Codex a normal request:
 
 > `$laneorchestrator route and implement this task safely`
 
-The response begins with a route card—lane, reason, safety boundary, and available roles—before work begins.
+The response briefly explains the selected expertise, model, thinking, and verification, then continues the authorized task.
 
-Automation can request the same decision as one stable JSON record with `python3 -m laneorchestrator orchestrate --objective "<task>" --json`. The card includes the complete lane workflow, role readiness, a trusted specialist match when eligible, structured model/effort metadata, fallback, and verification requirements.
+Automation can request the same decision as one stable JSON record with `python3 -m laneorchestrator orchestrate --objective "<task>" --json`. The schema-2 card includes scope evidence, profile readiness, specialist metadata, the adaptive policy, and verification requirements. It explicitly waits for Astra’s model/effort decision. The CLI validates decisions; the Codex host performs the model reasoning and agent execution.
 
 ### One-command setup (recommended)
 
@@ -85,7 +80,7 @@ After installing the plugin, resolve its installed root (or use a source checkou
 python3 -m laneorchestrator setup
 ```
 
-The preview names the destination, control roles, all **172 specialists**, pinned upstream commit, exact change counts, expiry, and a combined fingerprint. The confirmation covers **176 profiles** (4 control profiles plus 172 specialists). Only `y` or `yes` confirms; Enter, `n`, interruptions, pipes, and redirected input cancel or refuse safely. Setup never prints raw plan tokens or approval digests. It applies the four control profiles first, then the specialist pack. If the specialist stage fails, the valid control installation is retained and rerunning setup resumes after the conflict is resolved.
+The preview names the destination, control roles, all **172 specialists**, pinned upstream commit, exact change counts, expiry, a combined fingerprint, and a private review file containing the full proposed profile content and destinations. The confirmation covers **176 profiles** (4 control profiles plus 172 specialists). Only `y` or `yes` confirms; Enter, `n`, interruptions, pipes, and redirected input cancel or refuse safely. Setup never prints raw plan tokens or approval digests. It applies the four control profiles first, then the specialist pack. If the specialist stage fails, the valid control installation is retained and rerunning setup resumes after the conflict is resolved.
 
 For automation or a noninteractive readiness check, use the read-only form:
 
@@ -107,7 +102,7 @@ python3 -m laneorchestrator voltagent install preview --json
 python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json
 ```
 
-Activation creates only `laneorchestrator-voltagent-*` profiles. It refuses profile collisions, partial installs, drift, unsafe filesystem objects, expired plans, and replayed approvals. Your existing profiles are left alone.
+Activation creates only `laneorchestrator-voltagent-*` profiles. Installation refuses profile collisions, partial installs, drift, unsafe filesystem objects, expired plans, and replayed approvals. The explicit `voltagent update` flow migrates the exact old Terra/high pack and recovers recognized partial states; `voltagent uninstall` removes only recognized managed content. Both use preview/apply approval. User-edited and unrelated profiles are preserved.
 
 On first use, the skill runs `doctor` to check readiness. The recommended `setup` command handles a fresh or resumable installation in one confirmation. If you choose the advanced manual path, or the host does not expose the required control profiles, it shows a preview and waits for your explicit approval before applying anything. See the deterministic [90-second cast source](docs/assets/demo.cast) and its [matching transcript](docs/transcripts/quickstart.txt) for the first-run flow. They are illustrative, not a live-install recording or embedded player.
 
@@ -117,27 +112,25 @@ On first use, the skill runs `doctor` to check readiness. The recommended `setup
 
 ```mermaid
 flowchart LR
-    CLASSIFY["1 · CLASSIFY<br/>Task + repository evidence<br/>Choose the lane"] --> MATCH["2 · MATCH<br/>Optional specialist<br/>Cannot change the lane"]
-    MATCH --> EXECUTE["3 · EXECUTE<br/>Luna · Terra · Sol → Terra → Sol<br/>Stay inside the lane"]
-    EXECUTE --> VERIFY["4 · VERIFY<br/>Tests + evidence<br/>Handoff with proof"]
-
+    ASSESS["1 · ASSESS<br/>Astra inspects the task<br/>Resolve unknown scope"] --> SELECT["2 · SELECT<br/>Expertise + model + thinking<br/>Supported by this host"]
+    SELECT --> EXECUTE["3 · EXECUTE<br/>Explicit launch settings<br/>Bounded task ownership"]
+    EXECUTE --> VERIFY["4 · VERIFY<br/>Proportionate checks<br/>Independent review when required"]
     classDef classify fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:2px;
     classDef match fill:#CCFBF1,stroke:#0D9488,color:#134E4A,stroke-width:2px;
     classDef execute fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:2px;
     classDef verify fill:#DCFCE7,stroke:#16A34A,color:#14532D,stroke-width:2px;
-
-    class CLASSIFY classify;
-    class MATCH match;
+    class ASSESS classify;
+    class SELECT match;
     class EXECUTE execute;
     class VERIFY verify;
 ```
 
-1. **Classify first.** Unknown risk never selects Luna. The router reads repository evidence and returns a visible route card.
-2. **Select specialists second.** Discovery treats agent metadata as untrusted data, not instructions. It can identify relevant profiles, but the profiles cannot rewrite the route.
-3. **Execute within the lane.** Luna is for one known low-risk change. Terra handles normal engineering. High-risk work requires Sol planning, Terra implementation, and fresh Sol review.
-4. **Verify before handoff.** Required roles fail closed when unavailable. Optional specialists can be absent without breaking standalone use.
+1. **Inspect first.** Astra reads relevant repository evidence and resolves unknown scope before authorizing an implementation packet.
+2. **Choose expertise and execution settings.** All 172 specialists support per-task model and thinking choices. Catalog descriptions cannot grant permissions or waive review.
+3. **Launch explicitly.** The chosen model and thinking are passed to the host’s actual agent launch. Old profiles with fixed settings must be migrated and reloaded first.
+4. **Verify before handoff.** Check the changed behavior proportionately. Consequential changes receive a fresh independent review, including when Astra wrote the implementation.
 
-The difference is important: a `security-auditor` can contribute security expertise, but it cannot decide that a credential change is low risk. A `fastapi-developer` can help implement an endpoint, but it cannot replace the high-risk review path when the task changes authentication or a public contract.
+A `security-auditor` can contribute security expertise with the model and thinking Astra selects. Its metadata cannot reclassify a consequential change as low risk or authorize an external action. The host’s permissions and the user’s scope continue to apply.
 
 ## 172 specialists, organized for real work
 
@@ -153,34 +146,38 @@ The bundle is a pinned snapshot of the [VoltAgent Awesome Codex Subagents collec
 | **Security and trust** | `security-auditor`, `penetration-tester`, `compliance-auditor`, `gdpr-ccpa-compliance`, `model-risk-manager` | Add focused analysis inside the mandatory high-risk lane. |
 | **Product and quality** | `product-manager`, `ui-designer`, `accessibility-tester`, `qa-expert`, `test-automator` | Turn product intent into an accessible, testable outcome. |
 
-Every bundled profile uses the static **Terra / High** runtime setting. That makes the relationship easy to reason about: specialists deepen Terra’s capability; the LaneOrchestrator control plane owns the decision to use Luna, Terra, or Sol review.
+Every generated managed profile omits fixed model and thinking settings. **The expertise stays; the execution settings change with the task.** Astra selects among combinations supported by the active host, including Astra itself. The raw upstream source and MIT attribution remain intact.
 
 ## See it in practice
 
 | You ask | LaneOrchestrator does | Specialists that may help |
 | --- | --- | --- |
-| “Fix this copy and align one CSS label.” | Selects Luna only when the change is one known file with explicit acceptance criteria. | Usually none; this is intentionally small. |
-| “Add filtering to our FastAPI reporting endpoint and tests.” | Routes normal multi-file engineering to Terra, then checks the available evidence. | `fastapi-developer`, `api-designer`, `test-automator`. |
-| “Change OAuth token storage and update the public API.” | Requires Sol planning, Terra implementation, and a fresh Sol review. | `security-auditor`, `api-designer`, `penetration-tester`—within that high-risk path. |
-| “Plan a Kubernetes rollout with rollback evidence.” | Uses Terra for the implementation path and keeps operational risk explicit. | `kubernetes-specialist`, `sre-engineer`, `deployment-engineer`. |
+| “Fix this README typo.” | Astra chooses Luna/high or Terra/high after confirming the small scope; checks the diff. | Usually a core executor is enough. |
+| “Add filtering to our FastAPI reporting endpoint.” | Astra chooses Sol or Terra and an appropriate thinking level, then verifies the changed behavior. | `fastapi-developer`, `api-designer`, `test-automator`. |
+| “Track down this intermittent state-management bug.” | Astra investigates and may choose Astra for difficult implementation. | `react-specialist`, `debugger`. |
+| “Change OAuth token storage and update the public API.” | Astra scopes the consequential change, selects implementation settings, and requires a fresh independent reviewer. | `security-auditor`, `api-designer`, `penetration-tester`. |
 
-The specialist names are discoverable through the catalog, but their descriptions remain metadata. Do not treat a matching agent description as permission to broaden the request or take an external action.
+These examples illustrate decisions, not measured model performance. Specialist names are discoverable through the catalog; a match does not broaden the request.
 
-## The three lanes
+## Adaptive model and thinking
 
-| Lane | Use when | Example | If it cannot run |
+| Task | Model choice | Thinking | Decision owner |
 | --- | --- | --- | --- |
-| **Luna** | One known, low-risk file with explicit acceptance criteria | Change a CSS label or fix a README typo | Falls back to Terra when Luna is unavailable. |
-| **Terra** | Normal features, integrations, multi-file work, or uncertainty | Add report filtering across a small feature area | Pauses when the required Terra profile is unavailable. |
-| **Sol → Terra → Sol** | Security, credentials, migrations, persistent data, public contracts, or high blast radius | Rotate OAuth credentials or change an authentication flow | Pauses when planning or independent review is unavailable. |
+| **Coordination** | Astra by default | High starting point | Astra, with user overrides |
+| **Small, clearly scoped changes** | Luna or Terra | High | Astra |
+| **Routine implementation** | Sol or Terra | Any level supported by the chosen model | Astra, based on complexity and uncertainty |
+| **Demanding implementation** | Prefer Astra | Matched to the task | Astra |
+| **Investigation and review** | Task-appropriate model; prefer Sol or Astra for review | Matched to the task | Astra |
 
-These lanes are guardrails, not a claim that keywords alone understand a task. Review the generated route card and repository evidence before acting on it.
+Routine work can use **Sol/high, Terra/medium, Sol/medium**, or another supported combination. Thinking is not inferred from the model name. The `astra-adaptive` preset follows this table; `all-astra` uses Astra throughout while still varying thinking; `manual` follows explicit selections. User overrides take precedence, but unsupported host combinations are rejected.
+
+The legacy `route` command and `orchestrate --legacy` retain the historical fixed-lane contract for existing integrations. The skill uses the adaptive orchestration and selection path.
 
 ## Built to stay in your control
 
 - **Standalone by default.** The four control profiles are enough to route work; activating specialists is optional.
 - **No automatic global installation.** The 172 profiles are bundled with the plugin, but activation is an explicit, reviewable mutation.
-- **No silent route downgrade.** Missing Terra or Sol roles pause the affected work. Luna may fall back to Terra only where the route permits it.
+- **No silent model substitution.** Unsupported settings require reassessment. Requested, accepted, and runtime-observed settings are separate evidence.
 - **Untrusted metadata stays untrusted.** Discovery is bounded, source-aware, and no-follow; prompt-injection text in metadata cannot change the control plane.
 - **Every mutation has evidence.** Profile and configuration changes use a preview, a short-lived bound token, and a matching approval value.
 
@@ -205,17 +202,17 @@ No. LaneOrchestrator includes the 172-profile VoltAgent specialist pack in the p
 
 Yes. They are included in the plugin and verified as a pinned upstream source tree. Activation is separate because it writes custom-agent files into the Codex home directory. That separation prevents a plugin installation from silently changing a user’s global agent setup.
 
-### Will specialists override Luna, Terra, or Sol?
+### Can any specialist use Astra or another model?
 
-No. Specialists are optional Terra/High profiles. The control plane decides the lane first; a specialist can help within that boundary but cannot make a high-risk task look low risk, bypass Sol review, or authorize a mutation.
+Yes. All 172 generated specialists support per-task model and thinking selection. Astra chooses the combination from the active host’s supported options. Expertise never grants permission to broaden scope or bypass independent review.
 
-### Can LaneOrchestrator change files or configuration without asking?
+### Does it ask again before every edit?
 
-No. Routing and discovery are read-only. Profile and configuration lifecycle operations start with a preview; an apply must use the reviewed plan’s unexpired bound token and matching explicit approval.
+No. The skill continues normal repository work the user has already authorized. Profile installation and configuration lifecycle changes have their own exact preview-and-approval flow. Host permissions still apply.
 
 ### What if a model or profile is unavailable?
 
-Luna can fall back to Terra for eligible small work. Required Terra or Sol roles cause the relevant route to pause rather than silently choosing a weaker path.
+Astra reassesses the affected task and reports the limitation. The adaptive path does not silently substitute a model or pretend a profile is loaded. When model or thinking observations are unavailable, execution evidence says unknown.
 
 ### Does it work on Windows?
 
@@ -229,6 +226,7 @@ Review a newer protected release tag before changing your marketplace source. Pl
 
 - Start with [getting started](docs/getting-started.md), then see the [command reference](docs/commands.md), [concepts](docs/concepts.md), and [specialist catalog](docs/commands.md#read-only-commands).
 - Explore [small](docs/examples/small-change.md), [normal](docs/examples/normal-feature.md), and [high-risk](docs/examples/high-risk-change.md) route examples.
+- See [live execution evidence](docs/live-validation.md) and [Astra media production](docs/media-production.md) for reproducibility and limitations.
 - Review [configuration and recovery](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [architecture](docs/architecture.md), and [benchmarks](docs/benchmarks.md).
 - Contributions should preserve the control-plane boundary and leave fresh verification evidence. Run `sh scripts/validate.sh` before opening a pull request; [CONTRIBUTING.md](CONTRIBUTING.md) explains the contribution, evidence, and rollback expectations.
 

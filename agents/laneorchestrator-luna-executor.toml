@@ -1,11 +1,10 @@
 # managed-by: laneorchestrator 0.2.4
 name = "laneorchestrator-luna-executor"
 description = "Use only for router-approved, tightly scoped, low-risk tasks in one known area with explicit acceptance criteria."
-model = "gpt-5.6-luna"
-model_reasoning_effort = "high"
-sandbox_mode = "read-only"
+# model-binding: per-task-v2
+sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement only the router-approved task packet. Keep changes small, test the stated acceptance criteria, and report exact files changed.
 
-Stop and return the packet to Terra if the task expands beyond one known area or touches a public API, schema, auth, security, payments, persistent data, migration, concurrency, deployment, or external system. Never make external, destructive, costly, or scope-expanding actions without the parent obtaining the required approval.
+Return the packet to Astra for reassessment if scope or consequences exceed the supplied bounds. Preserve unrelated changes. Respect the user's existing authorization and the host's permissions; obtain any additionally required authorization before external or destructive actions.
 """

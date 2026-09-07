@@ -33,10 +33,10 @@ from .security import (
 )
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_CONFIG_BYTES = 64 * 1024
 MAX_VALUE_CHARS = 256
-TOP_LEVEL_FIELDS = frozenset(("schema_version", "roles"))
+TOP_LEVEL_FIELDS = frozenset(("schema_version", "roles", "preset"))
 ROLE_FIELDS = frozenset(("model", "reasoning_effort"))
 SECRET_KEY_RE = re.compile(r"(?:^|[_\-.])(?:api[_\-.]?key|token|password|secret)(?:$|[_\-.])", re.IGNORECASE)
 CONFIG_NAME = "config.json"
@@ -46,18 +46,13 @@ MAX_CONFIG_SETS = 8
 MAX_CONFIG_NESTING = 64
 
 DEFAULT_ROLES = {
-    "router": RoleConfig("gpt-5.6-sol", "high"),
+    "router": RoleConfig("gpt-6-astra", "high"),
     "small_task_executor": RoleConfig("gpt-5.6-luna", "high"),
     "main_implementer": RoleConfig("gpt-5.6-terra", "high"),
     "independent_reviewer": RoleConfig("gpt-5.6-sol", "high"),
 }
 
-# These are control-plane identities, not user-tunable execution preferences.
-# The runtime may fall back from Luna to Terra when the small executor is
-# unavailable, but a configuration file must never silently redefine a lane or
-# weaken the independent Sol review boundary. Reasoning effort remains a
-# configuration preference in schema v1.
-CONTROL_ROLE_REQUIREMENTS = DEFAULT_ROLES
+# Model preferences are validated against the current host at task dispatch.
 
 
 class ConfigError(ValueError):
@@ -151,13 +146,10 @@ def _exact_fields(payload: Mapping[str, object], allowed: frozenset, label: str)
 
 
 def _validate_control_model(role: str, model: object) -> None:
-    """Keep schema-v1 logical roles bound to their published lane identities."""
+    """Roles describe responsibility; task dispatch validates host support."""
 
-    required = CONTROL_ROLE_REQUIREMENTS[role]
-    if model != required.model:
-        raise ConfigError(
-            "control model for {0} must be {1}".format(role, required.model)
-        )
+    if role not in LOGICAL_ROLES or not is_valid_model_id(model):
+        raise ConfigError("invalid role or model identifier")
 
 
 def _role_config(role: str, value: object) -> RoleConfig:
@@ -182,14 +174,14 @@ def validate_config_payload(payload: object) -> EffectiveConfig:
     _validate_safe_values(payload)
     document = _mapping(payload, "configuration")
     _exact_fields(document, TOP_LEVEL_FIELDS, "configuration")
-    missing = sorted(TOP_LEVEL_FIELDS - set(document))
+    missing = sorted({"schema_version", "roles"} - set(document))
     if missing:
         raise ConfigError("missing configuration field: {0}".format(missing[0]))
     schema_version = document["schema_version"]
     if (
         isinstance(schema_version, bool)
         or not isinstance(schema_version, int)
-        or schema_version != SCHEMA_VERSION
+        or schema_version not in (1, SCHEMA_VERSION)
     ):
         raise ConfigError("schema_version must be {0}".format(SCHEMA_VERSION))
     role_payloads = _mapping(document["roles"], "roles")
@@ -200,7 +192,12 @@ def validate_config_payload(payload: object) -> EffectiveConfig:
     for role in LOGICAL_ROLES:
         if role in role_payloads:
             roles[role] = _role_config(role, role_payloads[role])
-    return EffectiveConfig(SCHEMA_VERSION, roles, "file")
+    preset = document.get("preset", "astra-adaptive")
+    if preset not in ("astra-adaptive", "all-astra", "manual") or not isinstance(preset, str):
+        raise ConfigError("invalid model selection preset")
+    if schema_version == 1 and "preset" in document:
+        raise ConfigError("preset requires configuration schema 2")
+    return EffectiveConfig(schema_version, roles, "file", preset)
 
 
 def load_config(state_root: Path) -> EffectiveConfig:
@@ -235,6 +232,8 @@ def serialize_config(config: EffectiveConfig) -> bytes:
             for role in LOGICAL_ROLES
         },
     }
+    if config.schema_version == 2:
+        payload["preset"] = config.preset
     validate_config_payload(payload)
     return (json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
 
@@ -349,6 +348,11 @@ def _validate_updates(updates: Mapping[str, str]) -> Mapping[str, str]:
     for key, value in updates.items():
         if not isinstance(key, str) or not isinstance(value, str):
             raise ConfigError("configuration settings must be strings")
+        if key == "preset":
+            if value not in ("astra-adaptive", "all-astra", "manual"):
+                raise ConfigError("invalid model selection preset")
+            validated[key] = value
+            continue
         role, separator, field = key.partition(".")
         if separator != "." or role not in LOGICAL_ROLES or field not in ROLE_FIELDS:
             raise ConfigError("setting must use ROLE.model or ROLE.reasoning_effort")
@@ -381,13 +385,15 @@ def preview_config(
     )
     roles = dict(current.roles)
     for key, value in changes.items():
+        if key == "preset":
+            continue
         role, field = key.split(".", 1)
         existing = roles[role]
         roles[role] = RoleConfig(
             value if field == "model" else existing.model,
             value if field == "reasoning_effort" else existing.reasoning_effort,
         )
-    proposed = serialize_config(EffectiveConfig(SCHEMA_VERSION, roles, "file"))
+    proposed = serialize_config(EffectiveConfig(SCHEMA_VERSION, roles, "file", changes.get("preset", current.preset)))
     destination = state / CONFIG_NAME
     operations = (
         Operation(os.fspath(state), root_hash, root_hash, None),
@@ -413,6 +419,10 @@ def preview_config(
             "approval_digest": approval_digest(load_plan(token, CONFIG_PLAN_KIND, plans_root, now=now)),
             "phase": "preview",
             "settings": sorted(changes),
+            "proposed_values": dict(changes),
+            "before_content": None if before is None else before.decode("utf-8"),
+            "proposed_content": proposed.decode("utf-8"),
+            "profile_binding": "per-task; model preferences do not rewrite profiles",
             "token": token,
         },
     )

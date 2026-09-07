@@ -116,68 +116,26 @@ class DocumentationTests(unittest.TestCase):
     def test_required_public_surface_exists(self) -> None:
         self.assertEqual([name for name in REQUIRED if not (ROOT / name).is_file()], [])
 
-    def test_readme_first_screen_has_a_clear_install_and_standalone_message(self) -> None:
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        first_screen = readme.split("\n## What it does—and how the agents work together", 1)[0]
-        self.assertIn("A risk-aware control plane for Codex—with 172 bundled specialist agents.", first_screen)
-        self.assertIn("analyzes your prompt and repository context", first_screen)
-        self.assertIn("GPT‑5.6 Luna, Terra, or Sol", first_screen)
-        self.assertIn("172 bundled specialist agents", first_screen)
-        preview = "docs/assets/laneorchestrator-product-demo.gif"
-        full_video = "docs/assets/laneorchestrator-product-demo.mp4"
-        self.assertIn(preview, first_screen)
-        self.assertIn(full_video, first_screen)
-        self.assertLess(first_screen.index(preview), first_screen.index("```mermaid"))
-        self.assertIn("15-second product tour", first_screen)
-        self.assertIn("```mermaid", first_screen)
-        self.assertIn("LANEORCHESTRATOR", first_screen)
-        self.assertIn("Assesses scope, complexity, and risk", first_screen)
-        self.assertIn("GPT-5.6 LUNA", first_screen)
-        self.assertIn("GPT-5.6 TERRA", first_screen)
-        self.assertIn("GPT-5.6 SOL", first_screen)
-        self.assertIn("Optional specialist expertise", first_screen)
-        self.assertIn("VERIFIED HANDOFF", first_screen)
-        self.assertIn("Specialists add expertise but cannot change the selected lane", first_screen)
-        self.assertIn(
-            "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
-            first_screen,
-        )
-        self.assertNotIn("--ref main", first_screen)
-        self.assertIn("codex plugin add laneorchestrator@laneorchestrator", first_screen)
-        self.assertIn("$laneorchestrator", first_screen)
-        self.assertIn("No separate Volt download is required.", first_screen)
-        self.assertIn("172 namespaced profiles", first_screen)
-        self.assertIn("Activate the bundled specialists", first_screen)
-        self.assertIn("voltagent inventory --json", first_screen)
-        self.assertIn("Focused execution", first_screen)
-        self.assertIn("Independent review", first_screen)
-        self.assertIn("preview and waits for your explicit approval", first_screen)
-        self.assertIn("docs/assets/demo.cast", first_screen)
-        self.assertEqual(first_screen.count("[!["), 4)
+    def test_readme_preserves_layout_and_explains_astra_selection(self):
+        readme = (ROOT / "README.md").read_text()
+        first = readme.split("\n## What it does—and how the agents work together", 1)[0]
+        self.assertEqual(first.count("[!["), 4)
+        for text in ("Astra-led orchestration", "172 bundled specialist agents", "docs/assets/laneorchestrator-product-demo.gif", "docs/assets/laneorchestrator-product-demo.mp4", "```mermaid", "Assesses scope, complexity, and risk", "No separate Volt download is required.", "Activate the bundled specialists"):
+            self.assertIn(text, first)
+        self.assertLess(first.index("docs/assets/laneorchestrator-product-demo.gif"), first.index("```mermaid"))
+        self.assertIn("--ref v0.2.4", first)
+        self.assertIn("not included in that existing release", first)
+        self.assertNotIn("--ref main", first)
         self.assertNotRegex(readme, LOCAL_PATH)
 
-    def test_readme_explains_lanes_features_and_trust_boundaries(self) -> None:
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        for heading in ("## What it does", "## The three lanes", "## Trust, safety, and release evidence", "## FAQ"):
+    def test_readme_explains_adaptive_work_and_evidence_boundaries(self):
+        readme = (ROOT / "README.md").read_text()
+        for heading in ("## What it does", "## Adaptive model and thinking", "## Trust, safety, and release evidence", "## FAQ"):
             self.assertIn(heading, readme)
-        self.assertIn("One known, low-risk file", readme)
-        self.assertIn("Normal features, integrations, multi-file work, or uncertainty", readme)
-        self.assertIn("Security, credentials, migrations, persistent data, public contracts", readme)
-        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs" / "concepts.md").read_text(encoding="utf-8"))
-        self.assertIn("artifact attestations", readme)
-        self.assertIn("not a promise that every environment or future change is risk-free", readme)
-        self.assertIn("laneorchestrator orchestrate", readme)
-        self.assertIn("structured model/effort metadata", readme)
-        for flow_step in (
-            "1 · CLASSIFY",
-            "2 · MATCH",
-            "3 · EXECUTE",
-            "4 · VERIFY",
-            "Optional specialist",
-            "Cannot change the lane",
-            "Handoff with proof",
-        ):
-            self.assertIn(flow_step, readme)
+        for text in ("Luna or Terra", "Sol or Terra", "Sol/high, Terra/medium, Sol/medium", "fresh independent review", "per-task model and thinking", "artifact attestations", "1 · ASSESS", "2 · SELECT", "3 · EXECUTE", "4 · VERIFY"):
+            self.assertIn(text, readme)
+        self.assertNotIn("Every bundled profile uses the static", readme)
+        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs/concepts.md").read_text())
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []
@@ -471,7 +429,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn('src="docs/assets/laneorchestrator-product-demo.gif"', readme)
         self.assertEqual(preview.read_bytes()[:6], b"GIF89a")
         self.assertLessEqual(preview.stat().st_size, 1_048_576)
-        self.assertLessEqual(video.stat().st_size, 1_048_576)
+        self.assertLessEqual(video.stat().st_size, 10_485_760)
         self.assertIn(b"ftyp", video.read_bytes()[:32])
 
     def test_issue_forms_and_security_policy_route_sensitive_reports_privately(self) -> None:

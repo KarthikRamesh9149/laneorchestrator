@@ -1,6 +1,6 @@
 # Command reference
 
-The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `setup`, `doctor`, `status`, `version`, `configure`, `route`, `orchestrate`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
+The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `policy`, `select`, `setup`, `doctor`, `status`, `version`, `configure`, `route`, `orchestrate`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
 
 ## Recommended first-run setup
 
@@ -41,6 +41,18 @@ It returns `SETUP_INTERACTIVE_REQUIRED`, the current readiness snapshot, and the
 
 `profiles ACTION preview [--json]` and `profiles ACTION apply --token <bound-token> --approval approve:<approval-digest> [--json]` use `ACTION` from `install`, `update`, `adopt`, or `uninstall`. The placeholders are intentionally neither a usable token nor a human-approval event and cannot be used to apply a change.
 
-`voltagent install preview [--json]` prepares the exact 172-profile installation. `voltagent install apply --token <bound-token> --approval approve:<approval-digest> [--json]` installs it only after review. The bundled upstream source is integrity-pinned and MIT-attributed; profiles are namespaced and run as Terra/High specialists. Installation refuses partial packs, drift, collisions, and unsafe plan state.
+`voltagent install preview [--json]` prepares the exact 172-profile installation. `voltagent install apply --token <bound-token> --approval approve:<approval-digest> [--json]` installs it only after review. The bundled upstream source is integrity-pinned and MIT-attributed; profiles are namespaced with model and thinking selected per task. Installation refuses partial packs, drift, collisions, and unsafe plan state.
 
 Native Windows supports read-only commands only in this release. Use WSL for configuration or profile mutation. See [compatibility](compatibility.md) and [troubleshooting](troubleshooting.md).
+
+## Adaptive selection
+
+`policy --json` returns the configured selection preset and task preferences. `orchestrate --json` returns a schema-2 scope card with an explicit pending-decision status. `orchestrate --legacy` preserves the old schema-1 fixed-lane card.
+
+`select --decision <decision.json> --host-models <host-models.json> --task-kind routine --json` validates Astra's decision and returns explicit `model`, `reasoning_effort`, and fresh-context spawn settings. The decision file contains `model`, `reasoning_effort`, and `reason`. The host file maps model IDs to supported thinking levels. Both files are bounded, regular, non-symlink JSON. The CLI cannot authenticate arbitrary caller-supplied host evidence; the invoking host must obtain it from its active capabilities.
+
+Task kinds are `investigation`, `small`, `routine`, `demanding`, and `review`. Optional `--preset` selects `astra-adaptive`, `all-astra`, or `manual`. `--user-override` reflects an actual explicit user choice; it is not a workaround for unsupported settings. A validation success means ready for dispatch, never executed.
+
+`configure preview --set preset=all-astra` previews a persistent preset change. Schema-1 configurations remain readable; reviewed updates write schema 2. Model preferences no longer trigger installed-profile drift.
+
+`voltagent update preview` and `voltagent uninstall preview` expose complete reviewed specialist changes. Their corresponding `apply --token <bound-token> --approval approve:<approval-digest>` phases are bound to that exact action. Update supports the exact legacy pack and recovery of known partial states; user edits are refused.

@@ -4,7 +4,7 @@ LaneOrchestrator is installed as a Codex plugin. From an arbitrary workspace, `$
 
 ## Install
 
-Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.4` release tag. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
+Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.4` release tag. That published release predates Astra; the adaptive behavior described here is currently on the source feature branch. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
 
 After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. For a complete first-run install, resolve the plugin root and run the interactive setup command:
 
@@ -27,9 +27,11 @@ python3 -m laneorchestrator doctor --json
 python3 -m laneorchestrator status --json
 ```
 
-The version output contains matching package and manifest versions plus `schema_version: 1`. `doctor` reports environmental findings; `status` reports configuration and profile state without changing it. In a source checkout without a discoverable Codex CLI, `doctor --json` deliberately exits with a structured not-ready result: `ok: false`, no unstructured error, and a `CODEX_CLI` diagnostic. The installed `$laneorchestrator` workflow stops on that failed readiness check. A direct `route --json` command may still compute a local decision from its supplied facts, but it cannot prove host readiness; it cannot execute or authorize that route.
+The version output contains matching package and manifest versions plus `schema_version: 1`. `doctor` reports environmental findings; `status` reports configuration and profile state without changing it. In a source checkout without a discoverable Codex CLI, `doctor --json` deliberately exits with a structured not-ready result: `ok: false`, no unstructured error, and a `CODEX_CLI` diagnostic. The installed `$laneorchestrator` workflow stops the affected work when a required capability cannot be established, while treating unknown model entitlement separately. A direct `route --json` command may still compute a local decision from its supplied facts, but it cannot prove host readiness; it cannot execute or authorize that route.
 
 ## First route
+
+In the adaptive source version, invoke `$laneorchestrator` with the task. Astra inspects scope, chooses expertise and model/thinking, validates the pair against the active host, and dispatches the authorized work. The following CLI example preserves the legacy route contract for compatibility.
 
 This bounded source-checkout example is suitable for inspecting route behavior in an environment where the four bundled profiles are available. A host integration must use the resolved installed plugin root for the same direct command:
 

@@ -1,5 +1,7 @@
 # Benchmarks
 
+These deterministic benchmarks measure the preserved legacy routing and catalog behavior. They do not measure Astra decision quality or demonstrate live agent execution.
+
 The committed benchmark is a regression evaluation for the current routing and capability-ranking policy. It does not establish that lexical ranking replaces repository-aware routing.
 
 ## Corpus and measurement

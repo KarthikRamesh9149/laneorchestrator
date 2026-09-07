@@ -104,6 +104,13 @@ def build_parser() -> argparse.ArgumentParser:
     _subparser(commands, "status")
     _subparser(commands, "version")
     _subparser(commands, "setup")
+    _subparser(commands, "policy")
+    select = _subparser(commands, "select")
+    select.add_argument("--decision", required=True)
+    select.add_argument("--host-models", required=True)
+    select.add_argument("--task-kind", choices=("investigation", "small", "routine", "demanding", "review"), required=True)
+    select.add_argument("--preset", choices=("astra-adaptive", "all-astra", "manual"))
+    select.add_argument("--user-override", action="store_true")
 
     configure = _subparser(commands, "configure")
     configure_phases = configure.add_subparsers(dest="phase", required=True, parser_class=_Parser)
@@ -128,6 +135,7 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--risk-assessment", choices=VALID_RISKS, default="unknown")
     orchestrate.add_argument("--context", action="append", default=[])
     orchestrate.add_argument("--agents-root", action="append", default=[])
+    orchestrate.add_argument("--legacy", action="store_true", help="Return the deprecated fixed-lane v1 card")
 
     catalog = _subparser(commands, "catalog")
     catalog.add_argument("--query", required=True)
@@ -157,12 +165,13 @@ def build_parser() -> argparse.ArgumentParser:
     volt_actions = voltagent.add_subparsers(dest="voltagent_action", required=True, parser_class=_Parser)
     _subparser(volt_actions, "inventory")
     _subparser(volt_actions, "status")
-    install = _subparser(volt_actions, "install")
-    install_phases = install.add_subparsers(dest="phase", required=True, parser_class=_Parser)
-    _subparser(install_phases, "preview")
-    install_apply = _subparser(install_phases, "apply")
-    install_apply.add_argument("--token", required=True)
-    install_apply.add_argument("--approval", required=True)
+    for action in ("install", "update", "uninstall"):
+        install = _subparser(volt_actions, action)
+        install_phases = install.add_subparsers(dest="phase", required=True, parser_class=_Parser)
+        _subparser(install_phases, "preview")
+        install_apply = _subparser(install_phases, "apply")
+        install_apply.add_argument("--token", required=True)
+        install_apply.add_argument("--approval", required=True)
     return parser
 
 
@@ -384,6 +393,12 @@ def handle_orchestrate(args: argparse.Namespace) -> CommandResult:
         raise DomainError("INVALID_ARGUMENTS", "--objective must not exceed {0} characters".format(MAX_QUERY_CHARS))
     _home, state, agents = _runtime_paths()
     config = load_config(state)
+    if not getattr(args, "legacy", False):
+        from .orchestration import build_adaptive_card
+        facts = RouteFacts(args.objective.strip(), args.known_area, args.acceptance_criteria, args.files, args.risk_assessment)
+        evidence = inspect_role_evidence(config, agents)
+        card = build_adaptive_card(facts, config, evidence, _orchestration_candidates(args), args.context)
+        return command_result("orchestrate", data={"route_card": card})
     decision = recommend_route(RouteFacts(args.objective.strip(), args.known_area, args.acceptance_criteria, args.files, args.risk_assessment))
     evidence = inspect_role_evidence(config, agents)
     resolved = resolve_route(decision, config, evidence)
@@ -425,11 +440,11 @@ def handle_voltagent(args: argparse.Namespace) -> CommandResult:
     if args.phase == "preview":
         ensure_private_directory(state)
         ensure_agents_root(agents)
-        _token, result = preview_voltagent_install(agents, state)
+        _token, result = preview_voltagent_install(agents, state, action=args.voltagent_action)
         return result
     if _TOKEN_RE.fullmatch(args.token) is None:
         raise DomainError("PLAN_INVALID", "plan token has invalid syntax")
-    return apply_voltagent_install(args.token, agents, state, approval=args.approval)
+    return apply_voltagent_install(args.token, agents, state, approval=args.approval, action=args.voltagent_action)
 
 
 def _manifest_version() -> str:
@@ -467,8 +482,39 @@ def _plan_error(error: BaseException) -> DomainError:
     return DomainError("PLAN_INVALID", "plan could not be validated")
 
 
+def handle_policy(args: argparse.Namespace) -> CommandResult:
+    from .adaptive import policy
+
+    result = policy()
+    _home, state, _agents = _runtime_paths()
+    result["preset"] = load_config(state).preset
+    return command_result("policy", data=result)
+
+
+def handle_select(args: argparse.Namespace) -> CommandResult:
+    from .adaptive import spawn_settings, validate_selection
+    from .config import parse_config_bytes
+    from .security import read_regular_nofollow
+
+    decision = parse_config_bytes(read_regular_nofollow(Path(args.decision), 64 * 1024))
+    models = parse_config_bytes(read_regular_nofollow(Path(args.host_models), 64 * 1024))
+    _home, state, _agents = _runtime_paths()
+    selection = validate_selection(decision, models, task_kind=args.task_kind,
+                                   preset=args.preset or load_config(state).preset, user_override=args.user_override)
+    return command_result("select", data={
+        "schema_version": 2,
+        "selection": selection,
+        "spawn_settings": spawn_settings(selection),
+        "status": "validated_for_dispatch",
+        "host_catalog_provenance": "caller_supplied; host must verify origin and freshness",
+        "runtime_observed": False,
+    })
+
+
 def dispatch(args: argparse.Namespace) -> CommandResult:
     handlers = {
+        "policy": handle_policy,
+        "select": handle_select,
         "setup": handle_setup,
         "doctor": handle_doctor,
         "status": handle_status,

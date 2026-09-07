@@ -6,13 +6,13 @@ LaneOrchestrator separates routing authority from writable implementation. The c
 task + repository evidence
           |
           v
-read-only Sol router ----> bounded route card ----> optional capability index
+read-only Astra coordinator ----> bounded route card ----> optional capability index
           |                                            (untrusted metadata)
           v
-Luna executor or Terra executor
+model-neutral executor + explicit model and thinking
           |
           v
-verification evidence ----> fresh read-only Sol review for high-risk work
+verification evidence ----> fresh independent review for high-risk work
 ```
 
 Editable Mermaid source is available at [architecture.mmd](assets/architecture.mmd). The [social preview](assets/social-preview.svg) is a standalone XML asset with no script, external reference, or third-party logo.
@@ -21,7 +21,7 @@ Editable Mermaid source is available at [architecture.mmd](assets/architecture.m
 
 - `laneorchestrator.routing` derives a conservative route from explicit facts. Unknown risk and recognized high-risk signals avoid Luna.
 - `laneorchestrator.discovery` produces a bounded capability index. It does not execute descriptions or turn them into instructions.
-- `laneorchestrator.orchestration` composes routing, role evidence, and trusted structured specialist metadata into the schema-v1 route card returned by `orchestrate`.
+- `laneorchestrator.orchestration` composes routing, role evidence, and trusted structured specialist metadata into the schema-2 scope card returned by `orchestrate`; Astra supplies the semantic model/effort decision and `adaptive` validates host-supported selections.
 - `laneorchestrator.config`, `plans`, and `profiles` own schema validation, preview tokens, and safe lifecycle operations.
 - `laneorchestrator.doctor` and `diagnostics` provide readiness and stable result envelopes.
 - `laneorchestrator.benchmark` evaluates committed policy corpora.
@@ -30,6 +30,6 @@ The legacy `skills/laneorchestrator/scripts/route.py`, `skills/laneorchestrator/
 
 ## Data flow and failure behavior
 
-Capability descriptions and ranking results remain data. The read-only router may select a candidate for later inspection under the host's instruction hierarchy, but cannot delegate authority to metadata. Luna and optional specialists may fall back to Terra. Missing Terra pauses implementation; missing Sol pauses required high-risk planning or review.
+Capability descriptions and ranking results remain data. The read-only router may select a candidate for later inspection under the host's instruction hierarchy, but cannot delegate authority to metadata. Adaptive tasks use explicit host-supported model/effort selections. Missing settings require reassessment; legacy fixed-lane fallbacks remain isolated to compatibility commands.
 
 Profile and configuration changes are previewed against an exact state and only applied with a reviewed, unexpired bound token and matching explicit `approve:<approval_digest>` value. Native Windows read-only commands are supported, while mutation is disabled; see [compatibility](compatibility.md) and [security model](security-model.md).

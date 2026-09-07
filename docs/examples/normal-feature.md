@@ -1,6 +1,8 @@
 # Normal feature example
 
-Objective: add export filtering to a report endpoint across three known files with explicit acceptance criteria. This generated `data.route` decision uses the current routing policy.
+> Legacy `route` compatibility example. The default `orchestrate` workflow now asks Astra to choose the model and thinking level; see [routing concepts](../concepts.md).
+
+Objective: add export filtering to a report endpoint across three known files with explicit acceptance criteria. This generated `data.route` decision uses the legacy routing policy.
 
 ```json
 {
@@ -19,4 +21,4 @@ Objective: add export filtering to a report endpoint across three known files wi
 }
 ```
 
-Terra is the normal writable implementation lane. Keep the route bounded, run focused checks, and use the repository validator before handoff. If the work reveals a public-contract, data, auth, or security boundary, return it for a new assessment. See [high-risk change](high-risk-change.md).
+In this legacy policy, Terra is the default writable implementation lane. The adaptive policy lets Astra choose Sol or Terra and any supported thinking level. Keep the route bounded, run focused checks, and use the repository validator before handoff. If the work reveals a public-contract, data, auth, or security boundary, return it for a new assessment. See [high-risk change](high-risk-change.md).

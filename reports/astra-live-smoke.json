@@ -1,0 +1,68 @@
+{
+  "scope": "CLI explicit settings and rendered specialist instructions",
+  "desktop_profile_reload_verified": false,
+  "cases": [
+    {
+      "case": "small",
+      "requested_model": "gpt-5.6-luna",
+      "requested_reasoning_effort": "high",
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "profile_sha256": "38119e471e0b2d74819fb9715105b585db4ecb723ac0c1bc7a6c627880686346",
+      "launch_exit_code": 0,
+      "checks_passed": true,
+      "elapsed_seconds": 72.58
+    },
+    {
+      "case": "routine-terra",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "medium",
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "profile_sha256": "38119e471e0b2d74819fb9715105b585db4ecb723ac0c1bc7a6c627880686346",
+      "launch_exit_code": 0,
+      "checks_passed": true,
+      "elapsed_seconds": 66.66
+    },
+    {
+      "case": "routine-sol",
+      "requested_model": "gpt-5.6-sol",
+      "requested_reasoning_effort": "medium",
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "profile_sha256": "38119e471e0b2d74819fb9715105b585db4ecb723ac0c1bc7a6c627880686346",
+      "launch_exit_code": 0,
+      "checks_passed": true,
+      "elapsed_seconds": 57.08
+    },
+    {
+      "case": "astra",
+      "requested_model": "gpt-6-astra",
+      "requested_reasoning_effort": "high",
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "profile_sha256": "38119e471e0b2d74819fb9715105b585db4ecb723ac0c1bc7a6c627880686346",
+      "launch_exit_code": 0,
+      "checks_passed": true,
+      "elapsed_seconds": 98.87
+    }
+  ],
+  "independent_review": {
+    "requested_model": "gpt-5.6-sol",
+    "requested_reasoning_effort": "high",
+    "runtime_observed_model": null,
+    "runtime_observed_reasoning_effort": null,
+    "separate_process": true,
+    "launch_exit_code": 0,
+    "completed": true,
+    "fixture_unchanged": true,
+    "verdict": "approve",
+    "verdict_source": "reviewer final output, manually inspected"
+  },
+  "date": "2026-09-07",
+  "limitations": [
+    "Does not verify native named-agent profile reload",
+    "Actual backend model and effort are not exposed by captured events",
+    "Functional smoke fixture, not a performance or decision-quality benchmark"
+  ]
+}

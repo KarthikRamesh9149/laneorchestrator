@@ -4,9 +4,9 @@ Readiness: doctor checks configuration and required profiles
 Setup: preview 4 control profiles + 172 bundled specialists
 Human review: Install these 176 profiles? [y/N]
 Approval: one TTY-only yes binds the exact in-memory plans
-Readiness: doctor and specialist status verify the installation
-Route card: Lane Terra
-Why: multi-file work or uncertain scope uses the default implementation lane
-Safety: workspace execution only
+Readiness: doctor and specialist status verify disk installation; host reload is separate
+Route card: Astra selects Sol / medium for routine implementation
+Why: known implementation with moderate cross-file complexity
+Verification: focused checks, independent review for consequential changes
 
 This deterministic illustrative transcript matches the cast source. It contains no live profile state, token, or installation result.

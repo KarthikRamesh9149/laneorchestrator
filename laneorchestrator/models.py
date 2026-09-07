@@ -54,6 +54,7 @@ class EffectiveConfig:
     schema_version: int
     roles: Mapping[str, RoleConfig]
     source: str
+    preset: str = "astra-adaptive"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
