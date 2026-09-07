@@ -15,7 +15,7 @@ LaneOrchestrator is an intelligent control plane for Codex. Astra analyzes your 
   </a>
 </p>
 
-<p align="center"><strong>65-second product demo:</strong> a cinematic opening, recreated Codex desktop and CLI workflows, and a LaneOrchestrator closing reveal. The GIF is a short preview; the MP4 contains the complete demo. <a href="docs/assets/laneorchestrator-product-demo.mp4">Watch the full-resolution MP4.</a></p>
+<p align="center"><strong>78-second product demo:</strong> three automatic routing examples: Astra handles complex recovery logic, Astra coordinates and reviews Sol’s implementation, and Astra delegates to Terra specialists in the CLI. The GIF is a short preview; the MP4 contains the complete demo. <a href="docs/assets/laneorchestrator-product-demo.mp4">Watch the full-resolution MP4.</a></p>
 
 ```mermaid
 flowchart TB
