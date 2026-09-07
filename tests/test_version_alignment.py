@@ -53,11 +53,11 @@ class VersionAlignmentTests(unittest.TestCase):
         self.assertEqual(codeowners.strip(), "* @KarthikRamesh9149")
         self.assertNotRegex(codeowners, r"[/@].+\s+.+")
         settings = (ROOT / "docs" / "github-settings.md").read_text(encoding="utf-8")
-        self.assertIn("Secure, evidence-driven model and agent routing for Codex.", settings)
+        self.assertIn("Astra-led orchestration for Codex: automatic model and thinking selection with 172 specialist agents.", settings)
         self.assertIn("https://github.com/KarthikRamesh9149/laneorchestrator#readme", settings)
         for topic in TOPICS:
             self.assertIn("`{0}`".format(topic), settings)
-        self.assertIn("Discussions: enable", settings)
+        self.assertIn("Issues and Discussions are enabled", settings)
         self.assertIn("only `main`", settings)
         self.assertIn("inspect the live github api", settings.lower())
         for check in (
@@ -71,8 +71,8 @@ class VersionAlignmentTests(unittest.TestCase):
                 r"`{0}` — expected source: `GitHub Actions` app\.".format(re.escape(check)),
             )
         self.assertIn("never `Any source`", settings)
-        self.assertIn("force pushes: block", settings)
-        self.assertIn("deletions: block", settings)
+        self.assertIn("blocks deletion and non-fast-forward updates", settings)
+        self.assertIn("has no bypass actors", settings)
         self.assertIn("post-apply verification", settings.lower())
         self.assertIn("every required check's `GitHub Actions` expected-source binding", settings)
 
