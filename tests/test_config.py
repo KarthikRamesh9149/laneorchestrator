@@ -60,10 +60,12 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(validate_config_payload(payload).roles[role].model, model)
 
     def test_configuration_preview_exposes_actual_preferences_without_applying(self):
-        _, preview = preview_config({"independent_reviewer.model": "gpt-6-astra"}, self.state_root.resolve(), now=100)
+        # The managed state leaf needs an owned parent, including on Linux /tmp.
+        state = self.state_root.resolve() / "state"
+        _, preview = preview_config({"independent_reviewer.model": "gpt-6-astra"}, state, now=100)
         self.assertEqual(preview.data["proposed_values"]["independent_reviewer.model"], "gpt-6-astra")
         self.assertIn('"model":"gpt-6-astra"', preview.data["proposed_content"])
-        self.assertFalse((self.state_root / "config.json").exists())
+        self.assertFalse((state / "config.json").exists())
 
     def test_rejects_unknown_fields_and_unknown_roles(self) -> None:
         for payload in (
