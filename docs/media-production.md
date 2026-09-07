@@ -1,6 +1,6 @@
 # Astra launch media
 
-The launch deliverable is one 65-second film at 1920×1080 and 30 fps. It combines a cinematic opening, recreated Codex desktop and CLI workflows, and a closing Astra reveal. The interfaces are deliberately labeled **DEMO RE-CREATION**. They illustrate how the skill is used; they are not recordings of a desktop session or proof of a successful model run. See [live validation](live-validation.md) for separate execution evidence.
+The launch deliverable is one 65-second film at 1920×1080 and 30 fps. It combines a cinematic opening, recreated Codex desktop and CLI workflows, and a closing LaneOrchestrator reveal. The interfaces are deliberately labeled **DEMO RE-CREATION**. They illustrate how the skill is used; they are not recordings of a desktop session or proof of a successful model run. See [live validation](live-validation.md) for separate execution evidence.
 
 The [production renderer](../scripts/render_astra_launch.py) uses the existing dark purple/cyan identity, native-style typography, progressive task and code displays, camera pushes, and an original synthesized score. Its MP4 uses H.264 video, stereo AAC audio and fast-start metadata. Separate SRT captions and an uncompressed audio master are generated alongside it.
 

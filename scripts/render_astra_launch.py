@@ -15,8 +15,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 BG=(8,9,14); WHITE='#F7F7FA'; GRAY='#A1A1AA'; PURPLE='#BCA4FF'; CYAN='#79E4DF'; GREEN='#88D7A4'
-SCENES=[(0,3,'One prompt.','intro'),(3,8,'Astra takes the lead.','reveal'),(8,14,'Start with the task.','prompt'),(14,20,'Astra reads the context.','assess'),(20,26,'Expertise. Model. Thinking.','select'),(26,33,'The specialist gets to work.','implement'),(33,39,'Verify the result.','verify'),(39,45,'Change the task. Change the model.','models'),(45,56,'The same skill. In your terminal.','cli'),(56,60,'172 specialists. Your choice of model.','network'),(60,65,'LaneOrchestrator. Led by Astra.','end')]
-SOCIAL=[(0,3,'Astra takes the lead.','reveal'),(3,8,'Start with the task.','prompt'),(8,14,'Expertise. Model. Thinking.','select'),(14,19,'Verify the result.','verify'),(19,25,'The same skill. In your terminal.','cli'),(25,30,'LaneOrchestrator. Led by Astra.','end')]
+SCENES=[(0,3,'LaneOrchestrator.','intro'),(3,8,'Your task. The right model.','reveal'),(8,14,'Start with the task.','prompt'),(14,20,'Astra reads the context.','assess'),(20,26,'Expertise. Model. Thinking.','select'),(26,33,'The specialist gets to work.','implement'),(33,39,'Verify the result.','verify'),(39,45,'Change the task. Change the model.','models'),(45,56,'The same skill. In your terminal.','cli'),(56,60,'172 specialists. Your choice of model.','network'),(60,65,'LaneOrchestrator. Led by Astra.','end')]
+SOCIAL=[(0,3,'Your task. The right model.','reveal'),(3,8,'Start with the task.','prompt'),(8,14,'Expertise. Model. Thinking.','select'),(14,19,'Verify the result.','verify'),(19,25,'The same skill. In your terminal.','cli'),(25,30,'LaneOrchestrator. Led by Astra.','end')]
 TOUR=[(0,4,'Start with the task.','prompt'),(4,8,'Astra reads the context.','assess'),(8,12,'Expertise. Model. Thinking.','select'),(12,16,'Verify the result.','verify'),(16,20,'The same skill. In your terminal.','cli')]
 
 def clamp(v):return max(0.,min(1.,v))
@@ -88,7 +88,7 @@ def desktop(stage,u,w,h):
     pill(d,w-214,23,'Astra  ·  High',PURPLE,18)
     d.line((side,77,w,77),fill='#333336')
     text(d,(x,108),'CODEX  /  LANEORCHESTRATOR',14,GRAY,True)
-    prompt='Add status filtering to CSV exports. Preserve commas, quotes and multiline text.'
+    prompt='Use Astra for CSV export filtering. Preserve commas, quotes and multiline text.'
     bx=x+60 if not mobile else x;bw=cw-60 if not mobile else cw
     d.rounded_rectangle((bx,150,bx+bw,274),18,fill='#303033')
     text(d,(bx+24,171),'$laneorchestrator',25,CYAN,True)
@@ -113,18 +113,18 @@ def desktop(stage,u,w,h):
             y=414+i*52
             if u>i*.15:check(d,x+10,y+12);text(d,(x+34,y),row,22,GRAY)
         d.rounded_rectangle((x,599,x+cw,664),12,fill='#28252F')
-        text(d,(x+19,618),'Known scope  /  routine implementation',22,PURPLE)
+        text(d,(x+19,618),'Known scope  /  requested model: Astra',22,PURPLE)
     elif stage=='select':
         text(d,(x,351),'Selected for this task',25,WHITE,True)
         y=407
         d.rounded_rectangle((x,y,x+cw,y+211),18,fill='#29262F',outline='#5E5078',width=2)
         text(d,(x+25,y+22),'Python specialist',27,WHITE,True)
-        text(d,(x+25,y+77),'TERRA',55,WHITE,True)
-        pill(d,x+260,y+87,'Medium thinking',CYAN,23)
-        text(d,(x+25,y+163),'Two files. Existing pattern. Focused verification.',20,GRAY)
+        text(d,(x+25,y+77),'ASTRA',55,WHITE,True)
+        pill(d,x+260,y+87,'High thinking',CYAN,23)
+        text(d,(x+25,y+163),'Astra requested. High thinking for CSV edge cases.',20,GRAY)
         text(d,(x,651),'Astra chooses both model and thinking.',23,PURPLE)
     elif stage=='implement':
-        text(d,(x,353),'Python specialist  ·  Terra / medium',24,CYAN,True)
+        text(d,(x,353),'Python specialist  ·  Astra / high',24,CYAN,True)
         y=408
         d.rounded_rectangle((x,y,x+cw,y+238),14,fill='#171C1A',outline='#364A3E')
         text(d,(x+22,y+17),'csv_export.py',19,GRAY,mono=True)
@@ -156,7 +156,7 @@ def terminal(u,w,h):
     for i,c in enumerate(('#F06C66','#F0C05C','#65C46F')):d.ellipse((22+i*23,22,34+i*23,34),fill=c)
     center(d,'Codex CLI',21,w,19,GRAY,False)
     d.line((0,61,w,61),fill='#2A2B33')
-    rows=[('› $laneorchestrator add CSV export filtering',WHITE),('',WHITE),('Astra  /  High',PURPLE),('Inspecting reports.py, csv_export.py and tests…',GRAY),('',WHITE),('Selected: Python specialist',WHITE),('Model:    gpt-5.6-terra',CYAN),('Thinking: medium',CYAN),('Reason:   bounded scope; established export pattern',GRAY),('',WHITE),('✓ Updated csv_export.py and reports.py',GREEN),('✓ Export formatting checks',GREEN),('✓ Status filtering checks',GREEN),('✓ Input preservation checks',GREEN),('',WHITE),('Ready for handoff.',WHITE)]
+    rows=[('› $laneorchestrator use Astra for CSV export filtering',WHITE),('',WHITE),('Astra  /  High',PURPLE),('Inspecting reports.py, csv_export.py and tests…',GRAY),('',WHITE),('Selected: Python specialist',WHITE),('Model:    gpt-6-astra',CYAN),('Thinking: high',CYAN),('Reason:   Astra requested; high for CSV edge cases',GRAY),('',WHITE),('✓ Updated csv_export.py and reports.py',GREEN),('✓ Export formatting checks',GREEN),('✓ Status filtering checks',GREEN),('✓ Input preservation checks',GREEN),('',WHITE),('Ready for handoff.',WHITE)]
     visible=max(1,int(clamp(u/.83)*len(rows)))
     fs=24 if w<1000 else 25
     for i,(row,color) in enumerate(rows[:visible]):
@@ -185,14 +185,14 @@ def frame(t,scenes=SCENES,vertical=False):
         cx=w/2;cy=h*.46
         orb(d,cx,cy,310 if vertical else 330,t)
         if kind=='intro':
-            center(d,'ONE PROMPT.',h*.32,w,88 if vertical else 128)
+            center(d,'LaneOrchestrator',h*.32,w,77 if vertical else 126)
             count=int(172*ease((u-.2)/.65))
             center(d,str(count)+' specialists.',h*.54,w,55 if vertical else 74,PURPLE)
         elif kind=='reveal':
-            size=(155 if vertical else 240)+int(25*(1-ease(u*2)))
-            center(d,'ASTRA',h*.32,w,size)
-            center(d,'Choose the model.',h*.56,w,42 if vertical else 54,PURPLE,False)
-            if u>.28:center(d,'Choose the thinking.',h*.56+75,w,42 if vertical else 54,CYAN,False)
+            size=(77 if vertical else 126)+int(6*(1-ease(u*2)))
+            center(d,'LaneOrchestrator',h*.32,w,size)
+            center(d,'Astra chooses the model.',h*.56,w,42 if vertical else 54,PURPLE,False)
+            if u>.28:center(d,'And the thinking for your task.',h*.56+75,w,42 if vertical else 54,CYAN,False)
         elif kind=='network':
             names=['Python','Frontend','Security','Data','Architecture','Testing','API','UX','DevOps','Database','Mobile','Research']
             for i,name in enumerate(names):
