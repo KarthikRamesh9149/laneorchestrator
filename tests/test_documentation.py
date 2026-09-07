@@ -121,13 +121,13 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual([name for name in REQUIRED if not (ROOT / name).is_file()], [])
 
     def test_readme_preserves_layout_and_explains_astra_selection(self):
-        readme = (ROOT / "README.md").read_text()
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
         first = readme.split("\n## What it does—and how the agents work together", 1)[0]
         self.assertEqual(first.count("[!["), 4)
         for text in ("Astra-led orchestration", "172 bundled specialist agents", "docs/assets/laneorchestrator-product-demo.gif", "docs/assets/laneorchestrator-product-demo.mp4", "```mermaid", "Assesses scope, complexity, and risk", "No separate Volt download is required.", "Activate the bundled specialists"):
             self.assertIn(text, first)
         self.assertLess(first.index("docs/assets/laneorchestrator-product-demo.gif"), first.index("```mermaid"))
-        self.assertIn("--ref v0.2.4", (ROOT / "docs/upgrading.md").read_text())
+        self.assertIn("--ref v0.2.4", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
         self.assertIn("not included in that existing release", first)
         self.assertIn("git clone --branch main", first)
         self.assertIn("codex plugin marketplace add .", first)
@@ -135,13 +135,13 @@ class DocumentationTests(unittest.TestCase):
         self.assertNotRegex(readme, LOCAL_PATH)
 
     def test_readme_explains_adaptive_work_and_evidence_boundaries(self):
-        readme = (ROOT / "README.md").read_text()
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for heading in ("## What it does", "## Adaptive model and thinking", "## Trust, safety, and release evidence", "## FAQ"):
             self.assertIn(heading, readme)
         for text in ("Luna or Terra", "Sol or Terra", "Sol/high, Terra/medium, Sol/medium", "fresh independent review", "per-task model and thinking", "artifact attestations", "1 · ASSESS", "2 · SELECT", "3 · EXECUTE", "4 · VERIFY"):
             self.assertIn(text, readme)
         self.assertNotIn("Every bundled profile uses the static", readme)
-        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs/concepts.md").read_text())
+        self.assertIn("Metadata can influence a shortlist", (ROOT / "docs/concepts.md").read_text(encoding="utf-8"))
 
     def test_relative_markdown_links_resolve(self) -> None:
         failures: List[str] = []
