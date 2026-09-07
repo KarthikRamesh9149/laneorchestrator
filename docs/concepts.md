@@ -4,19 +4,22 @@
 
 A route card records the requested work lane, the evidence used for the decision, selected optional capabilities, verification expectations, and safety boundary. The router remains read-only; a writable executor does not choose its own authority.
 
-The stable JSON form is available through `orchestrate --json`. It combines the route, concrete Sol/Luna/Terra stages, role availability, one trusted ranked specialist when eligible, structured specialist model and effort, fallback, and verification requirements. High-risk work without trusted project context suppresses optional specialist selection automatically.
+The schema-2 JSON form is available through `orchestrate --json`. It provides task scope, risk signals, profile evidence, relevant specialist metadata, and the selection policy. It reports `awaiting_astra_decision`; it does not pretend Python performed a model assessment or launched an agent. `select` validates Astra's model/effort pair and returns explicit spawn settings. The host performs actual execution.
 
-Task text, repository metadata, skill frontmatter, agent descriptions, and ranking output are untrusted data. Metadata can influence a shortlist but never becomes an instruction or approval.
+The user's request and applicable host-recognized instructions remain authoritative within the instruction hierarchy. Discovered catalog descriptions are untrusted metadata. Metadata can influence a shortlist but cannot grant permissions, broaden scope, or waive review.
 
-## Lanes
+## Adaptive task choices
 
-| Lane | Use | Failure behavior |
+| Task | Starting policy | Thinking |
 | --- | --- | --- |
-| Luna | Verified low-risk work in one known area with explicit acceptance criteria and one file | Falls back to Terra when Luna is unavailable. |
-| Terra | Normal implementation, integration, multi-file, or uncertain work | Pauses when the required Terra role is unavailable. |
-| Sol plan -> Terra -> Sol review | Elevated-risk work such as security, credentials, migrations, persistent data, public contracts, or high blast radius | Pauses when required Sol planning or review is unavailable. |
+| Small, clearly scoped changes | Astra chooses Luna or Terra | High |
+| Routine implementation | Astra chooses Sol or Terra | Chosen by Astra from supported levels |
+| Demanding implementation | Prefer Astra | Chosen by Astra |
+| Investigation and independent review | Chosen by Astra | Chosen by Astra |
 
-The lexical signals are defense in depth, not a semantic classifier. The router must assess repository evidence independently.
+Unknown scope triggers investigation before implementation. Wording, politeness, filenames, and Unicode alone do not determine risk. Consequential changes require fresh independent review. Explicit user choices and supported presets can override the starting model preferences.
+
+The historical `route` and `orchestrate --legacy` interfaces retain their fixed-lane contract for older integrations. Historical benchmark numbers describe that contract, not live adaptive model performance.
 
 ## Optional specialists
 

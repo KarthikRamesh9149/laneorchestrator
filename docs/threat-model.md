@@ -12,10 +12,10 @@ Task text, copied third-party text, repository files, capability metadata, paths
 
 - The router is read-only; writable executors do not classify their own authority.
 - Unknown risk does not select Luna. High-risk lexical signals provide an additional conservative check.
-- Required Terra and Sol roles fail closed when absent; only Luna and optional specialists can fall back to Terra.
+- Astra selects model and thinking separately from specialist expertise. The host catalog validates combinations; unavailable settings require a new explicit decision, never a silent substitution. Consequential implementations receive independent review.
 - Discovery limits files, directories, bytes, depth, and results, and skips symbolic links.
 - Profile and configuration mutation use exact-state previews, short-lived bound tokens, matching explicit approvals, no-follow validation, and atomic publication within the documented POSIX boundary.
-- The bundled VoltAgent profiles are checked-in, MIT-attributed content pinned to one upstream commit and tree digest. They are activated only through the same approval-bound mutation model, are namespaced to avoid ownership confusion, and are optional Terra/High specialists rather than routing authorities.
+- The bundled VoltAgent profiles are checked-in, MIT-attributed content pinned to one upstream commit and tree digest. They are activated only through the same approval-bound mutation model, are namespaced to avoid ownership confusion, and are optional model-neutral specialists rather than routing authorities.
 
 ## Limits and non-goals
 

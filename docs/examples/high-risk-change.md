@@ -1,5 +1,7 @@
 # High-risk change example
 
+> Legacy `route` compatibility example. The default `orchestrate` workflow now asks Astra to choose the model and thinking level; see [routing concepts](../concepts.md).
+
 Objective: rotate OAuth client credentials. This generated `data.route` decision shows explicit high-risk handling without including credentials or a live environment.
 
 ```json

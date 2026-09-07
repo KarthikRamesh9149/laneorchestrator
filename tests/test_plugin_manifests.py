@@ -19,7 +19,7 @@ README_COMMANDS = (
 )
 PLUGIN_DEFAULT_PROMPTS = (
     "Use $laneorchestrator to route and implement this task safely.",
-    "Use $laneorchestrator to inspect this project and choose the best implementation lane.",
+    "Use $laneorchestrator to inspect this project and choose the implementation model and thinking.",
     "Use $laneorchestrator to plan and verify this high-risk change.",
 )
 

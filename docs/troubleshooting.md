@@ -18,7 +18,7 @@ The lifecycle operation left the existing object untouched. Compare it with the 
 
 ## A route pauses
 
-Luna may fall back to Terra. A missing or unknown Terra role pauses implementation. A high-risk route also pauses if required Sol planning or review is missing. Restore the required profile evidence and start a new route assessment; do not downgrade a high-risk route merely to continue.
+In adaptive mode, inspect the active host catalog and loaded profile settings. Astra selects another supported model/effort pair only within the requested policy; no silent substitution is allowed. An old profile with fixed model settings needs migration and a host reload. Unknown scope requires investigation, and consequential work still needs independent review. Legacy route commands retain their original fallback rules.
 
 ## Native Windows cannot apply a profile or configuration change
 

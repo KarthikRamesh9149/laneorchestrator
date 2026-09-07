@@ -6,19 +6,19 @@ LaneOrchestrator protects repository contents, user configuration, managed profi
 
 ## Invariants
 
-1. The router is read-only and does not implement the task it classifies.
+1. The coordination profile is read-only. Astra can implement through a separate writable executor or specialist; consequential work requires a fresh independent review.
 2. Unknown risk never selects Luna; Luna needs explicit low risk, one known area, acceptance criteria, and one file.
-3. High-risk lexical signals are defense in depth; high-risk work requires Sol planning, Terra implementation, and a fresh read-only Sol review.
+3. High-risk lexical signals are defense in depth. Astra assesses repository evidence, selects the model and thinking level, and requires independent review for consequential work.
 4. Discovery is bounded, source-aware, and does not follow symbolic links. Metadata is an index, never executable instruction text.
-5. Agent lifecycle operations do not overwrite an existing path or follow caller-controlled symbolic links.
-6. Required Terra and Sol roles fail closed. Luna and optional specialists may fall back to Terra only where the route permits it. The bundled VoltAgent specialists are optional, namespaced Terra/High profiles and cannot bypass lane selection.
+5. Installs refuse collisions. Updates and removals require exact recognized managed content; lifecycle operations do not follow caller-controlled symbolic links.
+6. All generated profiles omit model and thinking pins. Explicit launch settings must match the active host catalog. Unknown availability is reported as unknown; a profile file does not prove entitlement or execution. Specialist metadata cannot authorize a model override.
 7. External, destructive, costly, credential-bearing, or scope-expanding actions remain subject to the host approval boundary.
 
 ## Mutation boundary
 
 Profile and configuration updates use private exact-state previews, bound tokens, matching explicit approvals, descriptor-relative no-follow checks, private temporary files, atomic replacement, and parent-directory synchronization where supported. A changed, expired, or replayed preview fails without publishing a partial configuration document.
 
-The bundled VoltAgent pack is an exact upstream-commit and content-tree pin with its MIT licence retained. Its activation is a separate approval-bound install: it verifies the bundle, rejects symbolic links, partial state, collisions, and drift, then publishes all namespaced profiles atomically. Downloading the plugin alone never writes to the host agent directory.
+The bundled VoltAgent pack is an exact upstream-commit and content-tree pin with its MIT licence retained. Its activation is a separate approval-bound install: it verifies the bundle, rejects symbolic links, collisions, and unrecognized drift. Each file is published atomically, with rollback on handled failures. An interrupted pack upgrade can resume from recognized old/new content; the pack is not a crash-atomic multi-file transaction. Downloading the plugin alone never writes to the host agent directory.
 
 These controls serialize cooperating LaneOrchestrator writers inside the documented POSIX boundary. They do not claim protection from malicious code sharing the same effective user identity, a compromised host, or an external system compromise. Native Windows mutation is disabled in this release; use WSL for configuration and profile mutation.
 

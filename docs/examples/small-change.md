@@ -1,6 +1,8 @@
 # Small change example
 
-Objective: fix a README typo in one known file with explicit acceptance criteria. The following route decision is generated from the current routing policy's `data.route` shape.
+> Legacy `route` compatibility example. The default `orchestrate` workflow now asks Astra to choose the model and thinking level; see [routing concepts](../concepts.md).
+
+Objective: fix a README typo in one known file with explicit acceptance criteria. The following route decision is generated from the legacy routing policy's `data.route` shape.
 
 ```json
 {

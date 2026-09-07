@@ -6,17 +6,25 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ### Added
 
-- Add the read-only `orchestrate` command and schema-v1 route card combining lane workflow, role evidence, trusted specialist metadata, fallback, and verification requirements.
-- Add a reviewed 50-case corpus against the complete rendered 172-profile pack and a distinct 200-scenario routing, ranking, adversarial, model, and context evaluation.
-
-### Security
-
-- Route SAML assertions, signing keys, path traversal, and arbitrary file reads through mandatory Sol planning and review.
-- Fix schema-v1 control-model identities to Sol/Luna/Terra/Sol while retaining supported reasoning-effort configuration, and automatically suppress unscoped high-risk specialist selection.
+- Astra-led task assessment and host-validated model/thinking selection, with adaptive, all-Astra and manual presets.
+- Per-task model and thinking support for all four core profiles and 172 bundled specialists.
+- Exact legacy specialist upgrades, recognized partial-state recovery and reviewed uninstall.
+- Opt-in live implementation smoke checks and separate fixture review, with sanitized evidence and explicit runtime-observation limits.
+- Astra README tour and reproducible landscape/social launch media production tools.
 
 ### Changed
 
-- Publish validated specialist model and reasoning effort as structured metadata and improve conservative natural-language ranking without weakening source, vendor, stuffing, or abstention guards.
+- Routine implementation uses Sol or Terra with thinking chosen by Astra; small scoped work uses Luna/high or Terra/high. Demanding work can use Astra.
+- Default orchestration returns schema-2 assessment evidence awaiting an Astra decision. Legacy `route` and `orchestrate --legacy` preserve the prior fixed-lane contract.
+- Schema-1 configurations remain readable; reviewed writes use schema 2. Model preferences no longer require profile regeneration after migration.
+- Setup and lifecycle previews expose complete proposed content and exact destinations.
+- The bounded Luna executor can write within its workspace.
+
+### Security
+
+- Consequential implementations require a separate independent review, including Astra implementations.
+- Preserve bounded metadata discovery, upstream content pins, explicit lifecycle approval, exact-state checks and user-edit refusal.
+- Unsupported host model/thinking combinations are rejected without silent substitution. Disk profile readiness remains separate from host-loaded availability and execution evidence.
 
 ## [0.2.4] - 2026-08-13
 
