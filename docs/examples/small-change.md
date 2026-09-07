@@ -1,24 +1,21 @@
-# Small change example
+# Small change: correct a README typo
 
-> Legacy `route` compatibility example. The default `orchestrate` workflow now asks Astra to choose the model and thinking level; see [routing concepts](../concepts.md).
+## Request
 
-Objective: fix a README typo in one known file with explicit acceptance criteria. The following route decision is generated from the legacy routing policy's `data.route` shape.
+> `$laneorchestrator Correct “instalation” in the README installation heading. Keep the rest unchanged.`
 
-```json
-{
-  "assessment": {
-    "acceptance_criteria": true,
-    "files": 1,
-    "known_area": true,
-    "risk": "low"
-  },
-  "lane": "luna",
-  "model": "gpt-5.6-luna",
-  "reason": "bounded known-area task",
-  "reasoning_effort": "high",
-  "schema_version": 1,
-  "signals": []
-}
-```
+## What Astra inspects
 
-This is a requested lane, not permission to skip verification. If the Luna role is unavailable, the effective route may use Terra; if a required role is unknown, the command reports failure. See [normal feature](normal-feature.md) and [commands](../commands.md).
+The heading exists, the change is in one file, the replacement is explicit, and no behavior or public interface changes. There is no need to invent a larger implementation workflow.
+
+## Selection and execution
+
+An appropriate adaptive choice is a core executor using **Luna/high**; **Terra/high** is also allowed. Astra chooses from host-supported settings. A specialist is optional for this task.
+
+The executor edits the heading and inspects the diff. It does not add a test that simply repeats the replacement string. If the heading is generated or the request actually changes installation semantics, Astra reassesses the expanded scope.
+
+## Completion evidence
+
+The handoff identifies the corrected heading and confirms that the diff contains only the intended edit. It does not claim a test suite ran unless it did.
+
+This is an illustrative workflow, not a recording or model benchmark. Existing integrations can consult the [legacy route payload](legacy/small-change.md).

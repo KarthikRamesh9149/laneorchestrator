@@ -1,55 +1,82 @@
 # Getting started
 
-LaneOrchestrator is installed as a Codex plugin. From an arbitrary workspace, `$laneorchestrator` is the installed-user entry point; it resolves the installed plugin root before it invokes the bundled module. The direct CLI is useful for source-checkout development and host integrations that have already resolved that installed plugin root.
+This guide installs the Astra workflow from `main` and takes you through one task. `main` is a moving source channel; the published `v0.2.4` release does not contain Astra support. Existing users should start with [upgrading](upgrading.md).
 
-## Install
+## 1. Check prerequisites
 
-Use the marketplace commands shown in the [README](../README.md). They pin the reviewed source to the protected annotated `v0.2.4` release tag. That published release predates Astra; the adaptive behavior described here is currently on the source feature branch. The release ruleset blocks tag updates and deletion; review and explicitly select a new protected release tag for every upgrade.
+- Git and Python 3.9–3.14; the runtime uses only the Python standard library.
+- Codex with plugin marketplace and custom-agent support, signed in with access to the selected models.
+- macOS, Linux or WSL for setup. Native Windows supports read-only commands.
+- A normal user-owned source directory. Avoid a symlinked checkout or state directory.
 
-After installation, ask `$laneorchestrator` to route the work. Do not expect `python3 -m laneorchestrator` to work merely because a marketplace plugin is installed in an unrelated directory. The skill checks readiness before proceeding. For a complete first-run install, resolve the plugin root and run the interactive setup command:
+The active Codex host must expose Astra and the model/thinking pairs it selects. A plugin cannot grant model access. See [compatibility](compatibility.md).
+
+## 2. Install from a known directory
+
+From your source-projects directory:
 
 ```sh
+git clone --branch main https://github.com/KarthikRamesh9149/laneorchestrator.git
+cd laneorchestrator
+codex plugin marketplace add .
+codex plugin add laneorchestrator@laneorchestrator
 python3 -m laneorchestrator setup
 ```
 
-Setup previews all four control profiles and 172 bundled specialists (176 profiles total), asks once for `y` or `yes`, and verifies doctor plus specialist status afterward. It requires a POSIX/WSL TTY on both stdin and stdout; pipes and redirects are refused, and `setup --json` is a read-only readiness response with no prompt or target mutation. If the specialist stage fails after the control profiles succeed, rerun setup after resolving the reported collision or drift. The explicit profile and specialist preview/apply commands remain available below and in the [command reference](commands.md) for advanced, separately reviewed workflows.
+Here `.` is the cloned repository, which includes the marketplace manifest. Keep this checkout: it gives you a known working directory for setup, diagnostics and upgrades. If a marketplace named `laneorchestrator` is already registered, use the [upgrade guide](upgrading.md) instead of adding a competing source.
 
-If bundled profiles are not exposed by the host, the manual path shows a profile-install preview. Review the destinations and changes, then supply both the exact unexpired bound token and the matching explicit `approve:<approval_digest>` value from that preview only if you approve the apply step.
+Setup shows the proposed destinations and a review file with the full content of 176 profiles. Confirm with `y` or `yes` after reviewing it. Enter cancels. Run it interactively: pipes and redirected input are refused. A partial result retains the valid control installation; follow [SETUP_PARTIAL recovery](troubleshooting.md#setup-reports-setup_partial) before retrying.
 
-## Inspect readiness
+## 3. Confirm readiness and reload
 
-Run the following source-checkout commands from the source checkout or a resolved installed plugin root. They are read-only and return the stable JSON envelope when `--json` is supplied:
+Still inside the cloned `laneorchestrator` directory:
+
+```sh
+python3 -m laneorchestrator doctor --json
+python3 -m laneorchestrator status --json
+python3 -m laneorchestrator voltagent inventory --json
+```
+
+Look for no unresolved required-capability failures, recognized managed profiles, and 172 bundled specialists in inventory. Inventory describes the bundle; it does not prove that the host loaded those profiles. Open a **new Codex task** after installation. If it still exposes the old model-pinned profiles, reload the client and inspect again before dispatch.
+
+## 4. Complete a useful first task
+
+Open a small repository you can edit and send a request with a clear outcome. For example, in an app that already has a settings page:
+
+> `$laneorchestrator Add notification preferences to settings. Save per user and restore them after reload.`
+
+The skill should inspect the relevant code before deciding. An illustrative progress card is:
+
+```text
+Task: Persist notification preferences through the existing settings API
+Agent: Full-stack specialist
+Model / thinking: Sol / high
+Reason: Familiar architecture; UI state, persistence and defaults interact
+Verify: Reload, failed-save handling and a fresh Astra review
+```
+
+This is an example, not a promised choice for every repository. Different inspected scope can justify different settings. Do not include “use Astra” just to activate automatic selection.
+
+A useful final handoff names changed files, checks actually run, review results when required, and unresolved limitations. A printed model name or successful selection validation alone is not completion. See the [full example](examples/normal-feature.md).
+
+## Direct CLI versus installed skill
+
+In a project you want to change, use `$laneorchestrator`. The skill resolves its installed plugin root before invoking the module. Direct module commands must run inside this source checkout or a resolved installed plugin root; installing the plugin does not put a Python package in every workspace.
+
+For direct inspection from the source checkout:
 
 ```sh
 python3 -m laneorchestrator --help
 python3 -m laneorchestrator version --json
-python3 -m laneorchestrator doctor --json
-python3 -m laneorchestrator status --json
+python3 -m laneorchestrator setup --json
 ```
+
+`setup --json` is read-only and returns `SETUP_INTERACTIVE_REQUIRED`, not a completed installation. Use interactive setup to review and apply profiles.
 
 The version output contains matching package and manifest versions plus `schema_version: 1`. `doctor` reports environmental findings; `status` reports configuration and profile state without changing it. In a source checkout without a discoverable Codex CLI, `doctor --json` deliberately exits with a structured not-ready result: `ok: false`, no unstructured error, and a `CODEX_CLI` diagnostic. The installed `$laneorchestrator` workflow stops the affected work when a required capability cannot be established, while treating unknown model entitlement separately. A direct `route --json` command may still compute a local decision from its supplied facts, but it cannot prove host readiness; it cannot execute or authorize that route.
 
-## First route
+## Next steps
 
-In the adaptive source version, invoke `$laneorchestrator` with the task. Astra inspects scope, chooses expertise and model/thinking, validates the pair against the active host, and dispatches the authorized work. The following CLI example preserves the legacy route contract for compatibility.
+Read [upgrades and removal](upgrading.md), [configuration](configuration.md) or [troubleshooting](troubleshooting.md). The older `route` interface [may still compute a local decision](examples/legacy/small-change.md), but it cannot prove host readiness and cannot execute or authorize work.
 
-This bounded source-checkout example is suitable for inspecting route behavior in an environment where the four bundled profiles are available. A host integration must use the resolved installed plugin root for the same direct command:
-
-```sh
-python3 -m laneorchestrator route --json --objective "Fix a README typo" --known-area --acceptance-criteria --files 1 --risk-assessment low
-```
-
-The `route` result distinguishes the requested lane from the effective lane. If required role availability is unknown or missing, the result reports that failure instead of claiming a usable route. See [commands](commands.md) for flags and [troubleshooting](troubleshooting.md) for recovery.
-
-## Update or remove
-
-The marketplace source is pinned to the release tag you selected. `codex plugin marketplace upgrade laneorchestrator` refreshes that same configured source; it does **not** silently move a pinned installation to a newer tag. Review a newer release first, then switch deliberately:
-
-```sh
-codex plugin remove laneorchestrator@laneorchestrator
-codex plugin marketplace remove laneorchestrator
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref vX.Y.Z
-codex plugin add laneorchestrator@laneorchestrator
-```
-
-Replace `vX.Y.Z` with the reviewed release tag. To remove the plugin without installing a replacement, use only the first two commands. Either path removes the plugin registration and cache; it does not remove LaneOrchestrator-managed profiles or configuration. If you want to remove those separately, create a `profiles uninstall preview` and follow the reviewed lifecycle in the [command reference](commands.md#mutating-commands). Never delete managed profile files by hand.
+For removal, the sequence starts with `codex plugin remove laneorchestrator@laneorchestrator` and `codex plugin marketplace remove laneorchestrator`. This does not remove LaneOrchestrator-managed profiles or configuration; review `profiles uninstall preview` and specialist cleanup first as described in the upgrade guide. A marketplace refresh does **not** silently move a pinned installation to a different release tag.
