@@ -207,25 +207,17 @@ class UserJourneyTests(unittest.TestCase):
         self.assertEqual((self.state / "config.json").stat().st_mode & 0o777, 0o600)
 
     @unittest.skipUnless(os.name == "posix", "profile mutation is POSIX-only")
-    def test_managed_update_creates_private_backup(self) -> None:
+    def test_runtime_preference_change_requires_no_profile_regeneration(self):
         self.install_profiles()
         previous = (self.agents / "laneorchestrator-router.toml").read_bytes()
         preview = self.run_cli("configure", "preview", "--set", "router.reasoning_effort=low", "--json")
-        self.assertEqual(preview.returncode, 0, preview.stderr)
-        preview_data = self.payload(preview)["data"]
-        token = preview_data["token"]
-        approval = "approve:" + preview_data["approval_digest"]
-        self.assertEqual(self.run_cli(
-            "configure", "apply", "--token", token,
-            "--approval", approval, "--json",
-        ).returncode, 0)
-        self.preview_apply("update")
-        receipt = json.loads((self.state / "receipts.json").read_text())
-        entry = next(item for item in receipt["profiles"] if item["name"] == "laneorchestrator-router.toml")
-        backup = self.state / "backups" / (entry["name"] + "." + entry["prior_backup_sha256"] + ".bak")
-        self.assertEqual(entry["operation"], "update")
-        self.assertEqual(backup.read_bytes(), previous)
-        self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+        data = self.payload(preview)["data"]
+        applied = self.run_cli("configure", "apply", "--token", data["token"], "--approval", "approve:" + data["approval_digest"], "--json")
+        self.assertEqual(applied.returncode, 0)
+        self.assertEqual((self.agents / "laneorchestrator-router.toml").read_bytes(), previous)
+        self.assertFalse((self.state / "backups").exists())
+        self.assertEqual(set(self.payload(self.run_cli("status", "--json"))["data"]["managed_profile_state"].values()), {"managed"})
+
 
     @unittest.skipUnless(os.name == "posix", "profile mutation is POSIX-only")
     def test_drift_refusal_preserves_all_prior_bytes(self) -> None:

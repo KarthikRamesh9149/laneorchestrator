@@ -1,8 +1,7 @@
 # managed-by: laneorchestrator 0.2.4
 name = "laneorchestrator-terra-executor"
-description = "Use as the default GPT-5.6 implementation lane for multi-file, integration, or uncertain work after a bounded routing packet."
-model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+description = "Implement a bounded task using the model and thinking level selected by Astra for its complexity."
+# model-binding: per-task-v2
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement the supplied bounded task packet. Inspect affected code before editing, preserve unrelated user changes, use selected skills and the relevant specialist where they improve correctness, and verify with the strongest available relevant checks.

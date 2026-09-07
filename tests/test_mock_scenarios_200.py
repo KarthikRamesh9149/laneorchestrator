@@ -151,19 +151,19 @@ def _adversarial_cases() -> tuple[Scenario, ...]:
         Scenario("A45", "adversarial", "unknown reviewer fails closed", "reviewer-unknown"),
         Scenario("A46", "adversarial", "missing reviewer fails closed", "reviewer-missing"),
         Scenario("A47", "adversarial", "missing Luna uses approved Terra fallback", "luna-missing"),
-        Scenario("A48", "adversarial", "custom reviewer cannot weaken Sol boundary", "reviewer-config"),
-        Scenario("A49", "adversarial", "custom router cannot weaken Sol boundary", "router-config"),
-        Scenario("A50", "adversarial", "custom Terra role cannot weaken executor boundary", "terra-config"),
+        Scenario("A48", "adversarial", "reviewer config rejects invalid model identifiers", "reviewer-config"),
+        Scenario("A49", "adversarial", "router config rejects invalid model identifiers", "router-config"),
+        Scenario("A50", "adversarial", "executor config rejects invalid model identifiers", "terra-config"),
     )
     return high_risk + extra
 
 
 def _model_context_cases() -> tuple[Scenario, ...]:
     rows = (
-        ("M01", "default router is Sol/high", "default-router"), ("M02", "default small executor is Luna/high", "default-luna"),
+        ("M01", "default router is Astra/high", "default-router"), ("M02", "default small executor is Luna/high", "default-luna"),
         ("M03", "default implementer is Terra/high", "default-terra"), ("M04", "default reviewer is Sol/high", "default-reviewer"),
         ("M05", "rendered pack has 172 profiles", "pack-count"), ("M06", "rendered pack names are unique", "pack-unique"),
-        ("M07", "rendered specialist model is Terra", "pack-model"), ("M08", "rendered specialist effort is high", "pack-effort"),
+        ("M07", "rendered specialist model is chosen per task", "pack-model"), ("M08", "rendered specialist effort is high", "pack-effort"),
         ("M09", "Luna route resolves Luna model", "resolve-luna"), ("M10", "Terra route resolves Terra model", "resolve-terra"),
         ("M11", "high risk resolves plan/review lane", "resolve-sol"), ("M12", "identical route facts are deterministic", "route-repeat"),
         ("M13", "normal route payload exposes model", "route-model"), ("M14", "normal route payload exposes effort", "route-effort"),
@@ -175,8 +175,8 @@ def _model_context_cases() -> tuple[Scenario, ...]:
         ("M25", "route card carries fallback", "card-fallback"), ("M26", "route card carries verification requirements", "card-verification"),
         ("M27", "unscoped high-risk suppresses optional specialist", "unscoped"), ("M28", "scoped high-risk may select trusted specialist", "scoped"),
         ("M29", "optional specialist absence is non-blocking", "optional-absent"), ("M30", "specialist cannot override lane", "overlay-only"),
-        ("M31", "control config rejects Terra router", "config-router"), ("M32", "control config rejects Terra reviewer", "config-reviewer"),
-        ("M33", "control config rejects Sol executor", "config-luna"), ("M34", "control config rejects Luna main implementer", "config-terra"),
+        ("M31", "control config accepts Terra router", "config-router"), ("M32", "control config accepts Terra reviewer", "config-reviewer"),
+        ("M33", "control config accepts Sol executor", "config-luna"), ("M34", "control config accepts Luna main implementer", "config-terra"),
         ("M35", "control config permits supported effort tuning", "config-effort"), ("M36", "catalog metadata has structured model field", "metadata-model"),
         ("M37", "catalog metadata has structured effort field", "metadata-effort"), ("M38", "catalog metadata has structured source field", "metadata-source"),
         ("M39", "catalog metadata does not require parsing description", "metadata-no-description"), ("M40", "route-card output is deterministic", "card-repeat"),
@@ -283,7 +283,7 @@ class MockScenarios200Tests(unittest.TestCase):
                     self.assertTrue(result.ok); self.assertEqual(result.data["effective_lane"], "terra")
                 else:
                     role = {"reviewer-config": "independent_reviewer", "router-config": "router", "terra-config": "main_implementer"}[case.objective]
-                    invalid_model = "gpt-5.6-luna" if role == "main_implementer" else "gpt-5.6-terra"
+                    invalid_model = "INVALID MODEL"
                     payload = {"schema_version": 1, "roles": {role: {"model": invalid_model, "reasoning_effort": "high"}}}
                     with self.assertRaises(ConfigError):
                         validate_config_payload(payload)
@@ -317,13 +317,13 @@ class MockScenarios200Tests(unittest.TestCase):
         for case in (item for item in SCENARIOS if item.category == "model_context"):
             with self.subTest(id=case.identifier, description=case.description):
                 key = case.objective
-                if key == "default-router": self.assertEqual((DEFAULT_ROLES["router"].model, DEFAULT_ROLES["router"].reasoning_effort), ("gpt-5.6-sol", "high"))
+                if key == "default-router": self.assertEqual((DEFAULT_ROLES["router"].model, DEFAULT_ROLES["router"].reasoning_effort), ("gpt-6-astra", "high"))
                 elif key == "default-luna": self.assertEqual((DEFAULT_ROLES["small_task_executor"].model, DEFAULT_ROLES["small_task_executor"].reasoning_effort), ("gpt-5.6-luna", "high"))
                 elif key == "default-terra": self.assertEqual((DEFAULT_ROLES["main_implementer"].model, DEFAULT_ROLES["main_implementer"].reasoning_effort), ("gpt-5.6-terra", "high"))
                 elif key == "default-reviewer": self.assertEqual((DEFAULT_ROLES["independent_reviewer"].model, DEFAULT_ROLES["independent_reviewer"].reasoning_effort), ("gpt-5.6-sol", "high"))
                 elif key == "pack-count": self.assertEqual(len(render_pack()), 172)
                 elif key == "pack-unique": self.assertEqual(len(render_pack()), len(set(render_pack())))
-                elif key == "pack-model": self.assertTrue(all(('model = "' + PACK_MODEL + '"').encode() in value for value in render_pack().values()))
+                elif key == "pack-model": self.assertTrue(all(b'\nmodel = ' not in value for value in render_pack().values()))
                 elif key == "pack-effort": self.assertEqual(PACK_REASONING_EFFORT, "high")
                 elif key == "resolve-luna": self.assertEqual(self._resolved("luna").data["effective_model"], "gpt-5.6-luna")
                 elif key == "resolve-terra": self.assertEqual(self._resolved("terra").data["effective_model"], "gpt-5.6-terra")
@@ -331,7 +331,7 @@ class MockScenarios200Tests(unittest.TestCase):
                 elif key == "route-repeat": self.assertEqual(normal, recommend_route(RouteFacts("Add dashboard filter", True, True, 2, "normal")))
                 elif key == "route-model": self.assertEqual(normal["model"], "gpt-5.6-terra")
                 elif key == "route-effort": self.assertEqual(normal["reasoning_effort"], "high")
-                elif key == "workflow-planner": self.assertEqual((high_unscoped["workflow"]["planning"]["role"], high_unscoped["workflow"]["planning"]["model"]), ("router", "gpt-5.6-sol"))
+                elif key == "workflow-planner": self.assertEqual((high_unscoped["workflow"]["planning"]["role"], high_unscoped["workflow"]["planning"]["model"]), ("router", "gpt-6-astra"))
                 elif key == "workflow-terra": self.assertEqual((high_unscoped["workflow"]["implementation"]["role"], high_unscoped["workflow"]["implementation"]["model"]), ("main_implementer", "gpt-5.6-terra"))
                 elif key == "workflow-review": self.assertEqual((high_unscoped["workflow"]["independent_review"]["role"], high_unscoped["workflow"]["independent_review"]["model"], high_unscoped["workflow"]["independent_review"]["reasoning_effort"]), ("independent_reviewer", "gpt-5.6-sol", "high"))
                 elif key == "fallback-luna": self.assertEqual(luna_fallback.data["fallback"], "small_task_executor->main_implementer")
@@ -339,22 +339,22 @@ class MockScenarios200Tests(unittest.TestCase):
                 elif key == "card-specialist": self.assertEqual(card["selected_specialist"]["name"], "laneorchestrator-voltagent-kotlin-specialist")
                 elif key == "card-source": self.assertEqual(card["selected_specialist"]["source"], "user")
                 elif key == "card-availability": self.assertEqual(card["selected_specialist"]["availability"], "AVAILABLE")
-                elif key == "card-model": self.assertEqual(card["selected_specialist"]["model"], "gpt-5.6-terra")
-                elif key == "card-effort": self.assertEqual(card["selected_specialist"]["reasoning_effort"], "high")
+                elif key == "card-model": self.assertIsNone(card["selected_specialist"]["model"])
+                elif key == "card-effort": self.assertIsNone(card["selected_specialist"]["reasoning_effort"])
                 elif key == "card-fallback": self.assertIsNone(card["fallback"])
                 elif key == "card-verification": self.assertEqual(card["verification"]["required_roles"], ["router", "main_implementer"])
                 elif key == "unscoped": self.assertEqual((high_unscoped["selected_specialist"], high_unscoped["specialist_selection"]["reason"]), (None, "unscoped_high_risk"))
                 elif key == "scoped": self.assertEqual(high_scoped["selected_specialist"]["name"], "laneorchestrator-voltagent-security-auditor")
                 elif key == "optional-absent": self.assertEqual((no_specialist["selected_specialist"], no_specialist["fallback"]), (None, "continue_without_specialist"))
-                elif key == "overlay-only": self.assertEqual((card["route"]["lane"], card["selected_specialist"]["model"]), ("terra", "gpt-5.6-terra"))
+                elif key == "overlay-only": self.assertEqual((card["route"]["lane"], card["selected_specialist"]["model"]), ("terra", None))
                 elif key in {"config-router", "config-reviewer", "config-luna", "config-terra"}:
                     role = {"config-router": "router", "config-reviewer": "independent_reviewer", "config-luna": "small_task_executor", "config-terra": "main_implementer"}[key]
                     replacement = "gpt-5.6-sol" if key == "config-luna" else "gpt-5.6-luna" if key == "config-terra" else "gpt-5.6-terra"
                     payload = {"schema_version": 1, "roles": {role: {"model": replacement, "reasoning_effort": "high"}}}
-                    with self.assertRaises(ConfigError): validate_config_payload(payload)
+                    self.assertEqual(validate_config_payload(payload).roles[role].model, replacement)
                 elif key == "config-effort": self.assertEqual(validate_config_payload({"schema_version": 1, "roles": {"router": {"model": "gpt-5.6-sol", "reasoning_effort": "max"}}}).roles["router"].reasoning_effort, "max")
-                elif key == "metadata-model": self.assertEqual(card["selected_specialist"]["model"], "gpt-5.6-terra")
-                elif key == "metadata-effort": self.assertEqual(card["selected_specialist"]["reasoning_effort"], "high")
+                elif key == "metadata-model": self.assertIsNone(card["selected_specialist"]["model"])
+                elif key == "metadata-effort": self.assertIsNone(card["selected_specialist"]["reasoning_effort"])
                 elif key == "metadata-source": self.assertEqual(card["selected_specialist"]["source"], "user")
                 elif key == "metadata-no-description": self.assertNotIn("description", card["selected_specialist"])
                 elif key == "card-repeat": self.assertEqual(card, build_route_card(normal, config, evidence, self._pack, "Fix Kotlin coroutine cancellation", ("trusted repository context",)))

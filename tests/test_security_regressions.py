@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from dataclasses import replace
 from pathlib import Path
 
@@ -248,8 +249,8 @@ class SecurityRegressionTests(unittest.TestCase):
                 isolated = self.root / ("value-state-{0}".format(size))
                 isolated.mkdir(mode=0o700)
                 if size <= 128:
-                    with self.assertRaisesRegex(ConfigError, "control model"):
-                        preview_config({"router.model": "x" * size}, isolated, now=100)
+                    _, preview = preview_config({"router.model": "x" * size}, isolated, now=100)
+                    self.assertEqual(preview.data["proposed_values"]["router.model"], "x" * size)
                 elif size <= MAX_VALUE_CHARS:
                     with self.assertRaisesRegex(ConfigError, "invalid model identifier"):
                         preview_config({"router.model": "x" * size}, isolated, now=100)
@@ -321,6 +322,11 @@ class SecurityRegressionTests(unittest.TestCase):
         config = load_config(self.state)
         install, _ = preview_profiles("install", config, self.agents, self.state, now=100)
         apply_profiles("install", install, self.agents, self.state, now=101)
+        import laneorchestrator.profiles as profile_module
+        spec = profile_module._PROFILE_SPECS[PROFILE_NAMES[0]]
+        patcher = mock.patch.dict(profile_module._PROFILE_SPECS, {PROFILE_NAMES[0]: (*spec[:-1], spec[-1] + "\nConcurrent upgrade fixture.")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
         roles = dict(config.roles)
         roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")

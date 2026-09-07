@@ -117,6 +117,7 @@ class Capability:
     # They are optional for backwards-compatible skill and legacy-agent input.
     model: Optional[str] = None
     reasoning_effort: Optional[str] = None
+    model_binding: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -319,6 +320,7 @@ def read_agent(path: Path, root: Path, max_bytes: int, limits: DiscoveryLimits) 
         return None, bytes_read, "skipped agent metadata with oversized name or description"
     model = fields.get("model")
     reasoning_effort = fields.get("model_reasoning_effort")
+    model_binding = "per-task" if "model" not in fields and "model_reasoning_effort" not in fields else "profile"
     # Metadata is untrusted and must never become control data.  Preserve only
     # bounded values that satisfy the same lexical contract as role metadata.
     if model is not None and not is_valid_model_id(model):
@@ -327,7 +329,7 @@ def read_agent(path: Path, root: Path, max_bytes: int, limits: DiscoveryLimits) 
         reasoning_effort = None
     return Capability(
         "agent", name, description, str(path), source_for(root),
-        model=model, reasoning_effort=reasoning_effort,
+        model=model, reasoning_effort=reasoning_effort, model_binding=model_binding,
     ), bytes_read, None
 
 

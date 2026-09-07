@@ -30,8 +30,6 @@ from laneorchestrator.security import SecurityError, read_regular_nofollow
 PROFILE_FIELDS = (
     "name",
     "description",
-    "model",
-    "model_reasoning_effort",
     "sandbox_mode",
 )
 FIELD_RE = re.compile(

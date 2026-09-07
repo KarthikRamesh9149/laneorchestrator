@@ -40,7 +40,7 @@ REQUIRED = [
 AGENT_FIELD = re.compile(r'^\s*(name|model|model_reasoning_effort|sandbox_mode)\s*=\s*"(.+)"\s*$', re.MULTILINE)
 EXPECTED_MODELS = {
     "laneorchestrator-router.toml": ("gpt-5.6-sol", "read-only"),
-    "laneorchestrator-luna-executor.toml": ("gpt-5.6-luna", "read-only"),
+    "laneorchestrator-luna-executor.toml": ("gpt-5.6-luna", "workspace-write"),
     "laneorchestrator-terra-executor.toml": ("gpt-5.6-terra", "workspace-write"),
     "laneorchestrator-sol-reviewer.toml": ("gpt-5.6-sol", "read-only"),
 }
@@ -77,7 +77,7 @@ def main() -> int:
             fields = dict(AGENT_FIELD.findall(content))
         except (OSError, SecurityError, UnicodeError):
             fields = {}
-        if fields.get("model") != model or fields.get("model_reasoning_effort") != "high" or fields.get("sandbox_mode") != sandbox:
+        if "model" in fields or "model_reasoning_effort" in fields or fields.get("sandbox_mode") != sandbox:
             errors.append(f"invalid agent profile: agents/{filename}")
     try:
         inventory = pack_inventory()

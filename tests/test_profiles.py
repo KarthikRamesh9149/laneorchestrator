@@ -76,14 +76,15 @@ class ProfileRenderingTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(tuple(first), PROFILE_NAMES)
         self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.2.4\n") for value in first.values()))
-        self.assertIn('model = "gpt-5.6-sol"', render_profile("laneorchestrator-router.toml", config))
-        self.assertIn('model_reasoning_effort = "medium"', render_profile("laneorchestrator-terra-executor.toml", config))
+        self.assertNotIn('model = "gpt-5.6-sol"', render_profile("laneorchestrator-router.toml", config))
+        self.assertNotIn('model_reasoning_effort = "medium"', render_profile("laneorchestrator-terra-executor.toml", config))
 
-    def test_render_refuses_a_directly_constructed_reviewer_model_downgrade(self) -> None:
-        roles = dict(DEFAULT_ROLES)
-        roles["independent_reviewer"] = RoleConfig("gpt-5.6-terra", "high")
-        with self.assertRaisesRegex(ConfigError, "control model"):
-            render_profiles(EffectiveConfig(1, roles, "test"))
+    def test_reviewer_remains_read_only_across_model_preferences(self):
+        for model in ("gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-sol"):
+            roles = {**DEFAULT_ROLES, "independent_reviewer": RoleConfig(model, "medium")}
+            profile = render_profiles(EffectiveConfig(1, roles, "test"))["laneorchestrator-sol-reviewer.toml"]
+            self.assertIn(b'sandbox_mode = "read-only"', profile)
+            self.assertNotIn(b'\nmodel = ', profile)
 
     def test_default_render_matches_checked_in_templates_and_roles_are_isolated(self) -> None:
         root = Path(__file__).resolve().parents[1]
@@ -94,13 +95,13 @@ class ProfileRenderingTests(unittest.TestCase):
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = render_profiles(EffectiveConfig(1, roles, "file"))
-        self.assertNotEqual(changed[PROFILE_NAMES[0]], rendered[PROFILE_NAMES[0]])
+        self.assertEqual(changed[PROFILE_NAMES[0]], rendered[PROFILE_NAMES[0]])
         for name in PROFILE_NAMES[1:]:
             self.assertEqual(changed[name], rendered[name])
 
-    def test_luna_profile_is_read_only_at_the_host_boundary(self) -> None:
+    def test_bounded_executor_is_writable_at_the_host_boundary(self) -> None:
         rendered = render_profiles(EffectiveConfig(1, DEFAULT_ROLES, "defaults"))
-        self.assertIn(b'sandbox_mode = "read-only"', rendered["laneorchestrator-luna-executor.toml"])
+        self.assertIn(b'sandbox_mode = "workspace-write"', rendered["laneorchestrator-luna-executor.toml"])
 
     def test_unknown_profile_and_incomplete_config_are_rejected(self) -> None:
         config = load_config(Path("/definitely/missing/laneorchestrator-state"))
@@ -121,6 +122,12 @@ class ProfileLifecycleTests(unittest.TestCase):
         self.agents.mkdir(mode=0o700)
         self.state.mkdir(mode=0o700)
         self.config = load_config(self.state)
+
+    def advance_template(self):
+        spec = profiles_module._PROFILE_SPECS[PROFILE_NAMES[0]]
+        patcher = mock.patch.dict(profiles_module._PROFILE_SPECS, {PROFILE_NAMES[0]: (*spec[:-1], spec[-1] + "\nTemplate revision fixture.")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
@@ -208,6 +215,7 @@ class ProfileLifecycleTests(unittest.TestCase):
     def test_update_creates_private_exact_backups_and_new_receipt(self) -> None:
         self._preview_apply("install")
         before = {name: (self.agents / name).read_bytes() for name in PROFILE_NAMES}
+        self.advance_template()
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
@@ -220,10 +228,11 @@ class ProfileLifecycleTests(unittest.TestCase):
         backup = self.state / "backups" / (PROFILE_NAMES[0] + "." + router["prior_backup_sha256"] + ".bak")
         self.assertEqual(backup.read_bytes(), before[PROFILE_NAMES[0]])
         self.assertEqual(stat.S_IMODE(backup.stat().st_mode), 0o600)
-        self.assertIn('model_reasoning_effort = "ultra"', (self.agents / PROFILE_NAMES[0]).read_text())
+        self.assertIn('Template revision fixture.', (self.agents / PROFILE_NAMES[0]).read_text())
 
     def test_update_preview_does_not_create_backup_directory(self) -> None:
         self._preview_apply("install")
+        self.advance_template()
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")
@@ -358,7 +367,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
         self.assertEqual(
             set(inspect_profiles(self.config, self.agents, self.state).values()),
-            {"conflict"},
+            {"unchanged"},
         )
         receipt_path.write_bytes(original_receipt)
         changed = self.agents / PROFILE_NAMES[0]
@@ -390,15 +399,18 @@ class ProfileLifecycleTests(unittest.TestCase):
                     )
         self.agents.chmod(0o700)
 
-    def test_reusing_an_exact_content_addressed_backup_is_safe(self) -> None:
+    def test_reusing_an_exact_content_addressed_backup_is_safe(self):
         self._preview_apply("install")
-        roles_a = dict(DEFAULT_ROLES)
-        roles_a["router"] = RoleConfig("gpt-5.6-sol", "low")
-        config_a = EffectiveConfig(1, roles_a, "file")
-        self._preview_apply("update", config_a, now=200)
+        original = profiles_module._PROFILE_SPECS[PROFILE_NAMES[0]]
+        revised = (*original[:-1], original[-1] + "\nNew template.")
+        with mock.patch.dict(profiles_module._PROFILE_SPECS, {PROFILE_NAMES[0]: revised}):
+            self._preview_apply("update", self.config, now=200)
         self._preview_apply("update", self.config, now=300)
-        self._preview_apply("update", config_a, now=400)
-        self.assertIn('model_reasoning_effort = "low"', (self.agents / PROFILE_NAMES[0]).read_text())
+        before = sorted(path.name for path in (self.state / "backups").iterdir())
+        with mock.patch.dict(profiles_module._PROFILE_SPECS, {PROFILE_NAMES[0]: revised}):
+            self._preview_apply("update", self.config, now=400)
+        self.assertEqual(before, sorted(path.name for path in (self.state / "backups").iterdir()))
+        self.assertIn("New template.", (self.agents / PROFILE_NAMES[0]).read_text())
 
     def test_config_and_receipt_are_rechecked_at_apply(self) -> None:
         (self.state / "config.json").write_bytes(serialize_config(self.config))
@@ -500,6 +512,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         self._preview_apply("install")
         original_receipt = (self.state / "receipts.json").read_bytes()
         original_profiles = {name: (self.agents / name).read_bytes() for name in PROFILE_NAMES}
+        self.advance_template()
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
@@ -577,6 +590,7 @@ class ProfileLifecycleTests(unittest.TestCase):
 
     def test_concurrent_update_and_uninstall_never_leave_mixed_state(self) -> None:
         self._preview_apply("install")
+        self.advance_template()
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "ultra")
         changed = EffectiveConfig(1, roles, "file")
@@ -619,6 +633,7 @@ class ProfileLifecycleTests(unittest.TestCase):
         second_receipt = second_state / "receipts.json"
         second_receipt.write_bytes((self.state / "receipts.json").read_bytes())
         second_receipt.chmod(0o600)
+        self.advance_template()
         roles = dict(DEFAULT_ROLES)
         roles["router"] = RoleConfig("gpt-5.6-sol", "low")
         changed = EffectiveConfig(1, roles, "file")

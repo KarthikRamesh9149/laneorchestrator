@@ -23,7 +23,7 @@ def rendered_capabilities() -> list[Capability]:
         fields = dict(HEADER.findall(content.decode("utf-8")))
         capabilities.append(Capability(
             "agent", fields["name"], fields["description"], "rendered/" + filename,
-            "plugin-cache", model=fields["model"], reasoning_effort=fields["model_reasoning_effort"],
+            "plugin-cache", model=None, reasoning_effort=None, model_binding="per-task",
         ))
     return capabilities
 
@@ -48,9 +48,9 @@ class RealPackRankingTests(unittest.TestCase):
                 misses.append((case["id"], case["expected_specialist"], actual))
         self.assertEqual(misses, [])
 
-    def test_rendered_specialists_expose_structured_terra_high_metadata(self) -> None:
+    def test_rendered_specialists_expose_per_task_binding(self) -> None:
         self.assertEqual(len(self.capabilities), 172)
-        self.assertTrue(all(item.model == "gpt-5.6-terra" and item.reasoning_effort == "high" for item in self.capabilities))
+        self.assertTrue(all(item.model is None and item.reasoning_effort is None and item.model_binding == "per-task" for item in self.capabilities))
 
 
 if __name__ == "__main__":

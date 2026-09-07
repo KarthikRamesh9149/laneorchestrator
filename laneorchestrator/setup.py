@@ -18,7 +18,9 @@ from .profiles import (
     apply_profiles,
     ensure_agents_root,
     preview_profiles,
+    _write_at_locked,
 )
+from .security import open_parent_directory_nofollow, open_private_lock_at, close_private_lock
 from .voltagent import (
     PACK_AGENT_COUNT,
     PACK_PREFIX,
@@ -48,6 +50,7 @@ class SetupPreview:
     specialist_changes: int
     expires_in_seconds: int
     fingerprint: str
+    review_path: str = ""
 
     @property
     def total_changes(self) -> int:
@@ -172,6 +175,20 @@ def build_preview(
         int(profile_preview.data["expires_in_seconds"]),
         int(specialist_preview.data["expires_in_seconds"]),
     )
+    fingerprint = _combined_fingerprint(profile_digest, specialist_digest, agents_root, profile_changes, specialist_changes)
+    review_path = Path(state_root) / ("setup-review-" + fingerprint + ".json")
+    changes = [dict(change) for preview in (profile_preview, specialist_preview)
+               for change in preview.data.get("changes", ())]
+    review = (json.dumps({"fingerprint": fingerprint, "changes": changes}, indent=2) + "\n").encode("utf-8")
+    descriptor = open_parent_directory_nofollow(state_root)
+    lock_fd = -1
+    try:
+        lock_fd = open_private_lock_at(descriptor)
+        _write_at_locked(descriptor, review_path.name, review)
+    finally:
+        if lock_fd >= 0:
+            close_private_lock(lock_fd)
+        os.close(descriptor)
     return SetupPreview(
         profile_token=profile_token,
         profile_approval_digest=profile_digest,
@@ -187,6 +204,7 @@ def build_preview(
             profile_changes,
             specialist_changes,
         ),
+        review_path=os.fspath(review_path),
     )
 
 
@@ -209,6 +227,7 @@ def render_preview(preview: SetupPreview, agents_root: Path) -> str:
             ),
             "Preview expires in: {0} seconds".format(preview.expires_in_seconds),
             "Combined preview fingerprint: {0}".format(preview.fingerprint),
+            "Complete proposed content and destinations: {0}".format(preview.review_path),
         )
     )
 

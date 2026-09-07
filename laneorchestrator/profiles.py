@@ -38,6 +38,7 @@ PROFILE_NAMES = (
 )
 TEMPLATE_VERSION = "0.2.4"
 MANAGED_MARKER = "# managed-by: laneorchestrator {0}\n".format(TEMPLATE_VERSION)
+DYNAMIC_MARKER = "# model-binding: per-task-v2\n"
 RECEIPT_NAME = "receipts.json"
 PLANS_DIRECTORY = "plans"
 BACKUPS_DIRECTORY = "backups"
@@ -71,31 +72,31 @@ _PROFILE_SPECS = {
     "laneorchestrator-router.toml": (
         "router",
         "laneorchestrator-router",
-        "Use to inspect project context, select relevant skills and agents, classify GPT-5.6 execution lanes, and emit a bounded delegation packet before work begins.",
+        "Use Astra to inspect context and choose expertise, model, thinking, scope, and verification for each task.",
         "read-only",
         """Act as LaneOrchestrator's read-only control plane. Inspect the user's objective, current conversation, project instructions, repository state, and capability inventory before routing.
 
 Return a compact route card with: lane, evidence inspected, selected skills, selected specialist, bounded task packet, verification commands, safety status, and fallback if an intended profile/model is unavailable.
 
-Use Luna only for one known, low-risk local change with explicit acceptance criteria. Use Terra as the normal implementation lane. For architecture-sensitive, public-contract, security/auth, financial, data-integrity, migration, concurrency, or high-blast-radius work, require Sol planning, Terra implementation, and a fresh Sol review.
+Choose Luna/high or Terra/high for small, clearly scoped changes. Choose Sol or Terra for routine implementation, selecting any host-supported thinking level according to complexity and uncertainty. Prefer Astra for demanding implementation. Expertise and model are separate: any specialist may use any host-supported model and thinking combination when the task or user calls for it. Honor explicit user overrides. Consequential work requires a fresh independent reviewer.
 
 Never edit files, install capabilities, or hide uncertainty. Do not delegate merely because a capability name was mentioned; select it only when it materially improves the task.
 
-If Luna or an optional specialist is unavailable, fall back to Terra / High and report it. If Terra is unavailable, pause because implementation cannot proceed. If Sol is unavailable for required high-risk planning or independent review, pause rather than weakening the high-risk route.""",
+Pass model and reasoning_effort explicitly when spawning agents with a fresh bounded packet. Verify host support before dispatch. Never claim a model ran from a route card alone or silently substitute a missing model. Return unsupported settings for reassessment. Allow at most two automatic retries per packet.""",
     ),
     "laneorchestrator-luna-executor.toml": (
         "small_task_executor",
         "laneorchestrator-luna-executor",
         "Use only for router-approved, tightly scoped, low-risk tasks in one known area with explicit acceptance criteria.",
-        "read-only",
+        "workspace-write",
         """Implement only the router-approved task packet. Keep changes small, test the stated acceptance criteria, and report exact files changed.
 
-Stop and return the packet to Terra if the task expands beyond one known area or touches a public API, schema, auth, security, payments, persistent data, migration, concurrency, deployment, or external system. Never make external, destructive, costly, or scope-expanding actions without the parent obtaining the required approval.""",
+Return the packet to Astra for reassessment if scope or consequences exceed the supplied bounds. Preserve unrelated changes. Respect the user's existing authorization and the host's permissions; obtain any additionally required authorization before external or destructive actions.""",
     ),
     "laneorchestrator-terra-executor.toml": (
         "main_implementer",
         "laneorchestrator-terra-executor",
-        "Use as the default GPT-5.6 implementation lane for multi-file, integration, or uncertain work after a bounded routing packet.",
+        "Implement a bounded task using the model and thinking level selected by Astra for its complexity.",
         "workspace-write",
         """Implement the supplied bounded task packet. Inspect affected code before editing, preserve unrelated user changes, use selected skills and the relevant specialist where they improve correctness, and verify with the strongest available relevant checks.
 
@@ -150,7 +151,7 @@ def ensure_agents_root(agents_root: Path) -> Path:
 def _validate_config(config: EffectiveConfig) -> None:
     if not isinstance(config, EffectiveConfig):
         raise ValueError("config must be an EffectiveConfig")
-    if config.schema_version != 1 or set(config.roles) != set(LOGICAL_ROLES):
+    if config.schema_version not in (1, 2) or set(config.roles) != set(LOGICAL_ROLES):
         raise ValueError("config must define every logical role")
     # The canonical serializer validates model and effort values as well.
     serialize_config(config)
@@ -169,8 +170,7 @@ def render_profile(name: str, config: EffectiveConfig) -> str:
         MANAGED_MARKER
         + 'name = "{0}"\n'.format(profile_name)
         + 'description = "{0}"\n'.format(description)
-        + 'model = "{0}"\n'.format(role_config.model)
-        + 'model_reasoning_effort = "{0}"\n'.format(role_config.reasoning_effort)
+        + DYNAMIC_MARKER
         + 'sandbox_mode = "{0}"\n'.format(sandbox_mode)
         + 'developer_instructions = """\n{0}\n"""\n'.format(instructions)
     )
@@ -470,7 +470,7 @@ def _load_receipt(content: Optional[bytes], agents_root: Path) -> Optional[Mappi
         seen.add(name)
         if not isinstance(entry["destination"], str) or entry["destination"] != os.fspath(agents_root / name):
             raise ProfileConflict("receipt destination does not match the requested agents root")
-        if not isinstance(entry["template_version"], str) or entry["template_version"] != TEMPLATE_VERSION:
+        if not isinstance(entry["template_version"], str) or entry["template_version"] not in ("0.2.0", "0.2.1", "0.2.2", "0.2.3", TEMPLATE_VERSION):
             raise ProfileConflict("receipt template version is unsupported")
         for key in ("content_sha256", "config_sha256"):
             if not isinstance(entry[key], str) or _HASH_RE.fullmatch(entry[key]) is None:
@@ -707,7 +707,6 @@ def _build_preview(
             entries = _verify_receipt_matches(receipt, profiles)
             if all(
                 _sha256(rendered[name]) == entries[name]["content_sha256"]
-                and entries[name]["config_sha256"] == config_hash
                 for name in PROFILE_NAMES
             ):
                 return tuple(operations), 0
@@ -755,8 +754,6 @@ def _build_preview(
                 raise ProfileConflict("existing profile backup does not match its hash")
             replace_profile_observation(name, prior, rendered[name])
         if changed == 0:
-            if any(entry["config_sha256"] != config_hash for entry in entries.values()):
-                raise ProfileConflict("receipt configuration hash does not match current configuration")
             return tuple(operations), 0
         new_receipt = _receipt_content(
             action,
@@ -812,6 +809,18 @@ def preview_profiles(
             "approval_digest": approval_digest(load_plan(token, "profiles.{0}".format(action), plans_root, now=now)),
             "phase": "preview",
             "profiles": list(PROFILE_NAMES),
+            "changes": [
+                {
+                    "destination": operation.path,
+                    "before_sha256": operation.before_sha256,
+                    "after_sha256": operation.after_sha256,
+                    "proposed_content": None if operation.content_b64 is None else base64.b64decode(operation.content_b64).decode("utf-8"),
+                    "mode": "0600",
+                }
+                for operation in operations
+                if operation.before_sha256 != operation.after_sha256
+                and Path(operation.path).name in PROFILE_NAMES
+            ],
             "token": token,
         },
     )
@@ -1121,10 +1130,8 @@ def inspect_profiles(
     statuses: Dict[str, str] = {}
     entries = _receipt_entries(receipt) if receipt is not None and _active_receipt(receipt) else {}
     expected_config_hash = _sha256(serialize_config(config))
-    config_drift = bool(entries) and any(
-        entry["config_sha256"] != expected_config_hash
-        for entry in entries.values()
-    )
+    # Runtime model preferences are not embedded in per-task profiles.
+    config_drift = False
     for name in PROFILE_NAMES:
         content = profiles[name]
         try:

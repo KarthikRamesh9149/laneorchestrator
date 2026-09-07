@@ -1015,7 +1015,7 @@ class DoctorContractTests(unittest.TestCase):
         self.assertEqual(diagnostic.level, Level.FAIL)
         self.assertEqual(diagnostic.evidence["inspection"], "bad_mode")
 
-    def test_configuration_and_receipt_hash_drift_blocks_managed_state(self) -> None:
+    def test_preferences_do_not_drift_profiles_but_content_hash_drift_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, agents, env = _profile_fixture(Path(temporary))
             changed_roles = dict(DEFAULT_ROLES)
@@ -1023,15 +1023,15 @@ class DoctorContractTests(unittest.TestCase):
             changed = EffectiveConfig(1, changed_roles, "file")
             _write(state / "config.json", serialize_config(changed))
             result = run_doctor(repo, state, agents, env=env)
-            self.assertEqual(_diagnostic(result, "INSTALLED_PROFILES").level, Level.FAIL)
-            self.assertIn("drift", set(_diagnostic(result, "INSTALLED_PROFILES").evidence["profiles"].values()))
+            self.assertEqual(_diagnostic(result, "INSTALLED_PROFILES").level, Level.PASS)
+            self.assertEqual(set(_diagnostic(result, "INSTALLED_PROFILES").evidence["profiles"].values()), {"managed"})
 
         with tempfile.TemporaryDirectory() as temporary:
             repo, state, agents, env = _profile_fixture(Path(temporary))
             receipt_path = state / "receipts.json"
             receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
             for entry in receipt["profiles"]:
-                entry["config_sha256"] = "0" * 64
+                entry["content_sha256"] = "0" * 64
             _write(receipt_path, (json.dumps(receipt) + "\n").encode("utf-8"))
             result = run_doctor(repo, state, agents, env=env)
             self.assertEqual(_diagnostic(result, "INSTALLED_PROFILES").level, Level.FAIL)

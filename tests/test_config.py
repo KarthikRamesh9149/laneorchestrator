@@ -38,7 +38,7 @@ class ConfigTests(unittest.TestCase):
         config = load_config(self.state_root)
         self.assertEqual(config.source, "defaults")
         self.assertEqual(config.roles, DEFAULT_ROLES)
-        self.assertEqual(config.roles["router"].model, "gpt-5.6-sol")
+        self.assertEqual(config.roles["router"].model, "gpt-6-astra")
         self.assertEqual(config.roles["small_task_executor"].model, "gpt-5.6-luna")
         self.assertEqual(config.roles["main_implementer"].model, "gpt-5.6-terra")
         self.assertEqual(config.roles["independent_reviewer"].model, "gpt-5.6-sol")
@@ -53,38 +53,16 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(serialized, serialize_config(config))
         self.assertEqual(json.loads(serialized), json.loads((FIXTURES / "valid.json").read_text(encoding="utf-8")))
 
-    def test_control_roles_are_pinned_to_the_published_models(self) -> None:
-        """Configuration cannot weaken a control-plane lane or its review boundary."""
-
-        expected = {
-            "router": "gpt-5.6-sol",
-            "small_task_executor": "gpt-5.6-luna",
-            "main_implementer": "gpt-5.6-terra",
-            "independent_reviewer": "gpt-5.6-sol",
-        }
-        for role, model in expected.items():
-            with self.subTest(role=role, violation="model"):
-                payload = {"schema_version": 1, "roles": {role: {"model": "gpt-5.6-terra", "reasoning_effort": "high"}}}
-                if model == "gpt-5.6-terra":
-                    payload["roles"][role]["model"] = "gpt-5.6-sol"
-                with self.assertRaisesRegex(ConfigError, "control model"):
-                    validate_config_payload(payload)
-            with self.subTest(role=role, allowed_configuration="reasoning effort"):
+    def test_control_roles_accept_model_preferences_without_changing_responsibilities(self):
+        for role in DEFAULT_ROLES:
+            for model in ("gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"):
                 payload = {"schema_version": 1, "roles": {role: {"model": model, "reasoning_effort": "medium"}}}
-                self.assertEqual(
-                    validate_config_payload(payload).roles[role].reasoning_effort,
-                    "medium",
-                )
+                self.assertEqual(validate_config_payload(payload).roles[role].model, model)
 
-    def test_configure_preview_refuses_a_reviewer_downgrade_without_writing_state(self) -> None:
-        with mock.patch("laneorchestrator.config.ensure_private_directory") as directory:
-            with self.assertRaisesRegex(ConfigError, "control model"):
-                preview_config(
-                    {"independent_reviewer.model": "gpt-5.6-terra"},
-                    self.state_root,
-                    now=100,
-                )
-        directory.assert_not_called()
+    def test_configuration_preview_exposes_actual_preferences_without_applying(self):
+        _, preview = preview_config({"independent_reviewer.model": "gpt-6-astra"}, self.state_root.resolve(), now=100)
+        self.assertEqual(preview.data["proposed_values"]["independent_reviewer.model"], "gpt-6-astra")
+        self.assertIn('"model":"gpt-6-astra"', preview.data["proposed_content"])
         self.assertFalse((self.state_root / "config.json").exists())
 
     def test_rejects_unknown_fields_and_unknown_roles(self) -> None:
@@ -123,7 +101,7 @@ class ConfigTests(unittest.TestCase):
         candidates = [
             None,
             [],
-            {"schema_version": 2, "roles": {}},
+            {"schema_version": 3, "roles": {}},
             {"schema_version": 1.0, "roles": {}},
             {"schema_version": True, "roles": {}},
             {"schema_version": 1, "roles": []},

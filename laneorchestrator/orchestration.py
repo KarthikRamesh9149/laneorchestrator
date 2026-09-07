@@ -10,6 +10,8 @@ from dataclasses import asdict
 from typing import Dict, Mapping, Optional, Sequence
 
 from .discovery import Capability, TRUSTED_SOURCES, rank
+from .adaptive import policy
+from .routing import RouteFacts, high_risk_signals, validate_route_facts
 from .models import (
     Availability,
     EffectiveConfig,
@@ -23,6 +25,56 @@ ROUTING_ROLE = "router"
 LUNA_ROLE = "small_task_executor"
 TERRA_ROLE = "main_implementer"
 REVIEW_ROLE = "independent_reviewer"
+
+
+def build_adaptive_card(facts: RouteFacts, config: EffectiveConfig,
+                        evidence: Mapping[str, RoleEvidence],
+                        candidates: Sequence[Capability], context: Sequence[str]) -> Dict[str, object]:
+    """Scope evidence and expertise for Astra without pretending to select a model.
+
+    The CLI supplies deterministic constraints. Astra performs the semantic task
+    assessment and submits a selection to the host-supported dispatch validator.
+    The legacy v1 keyword router remains available for existing integrations.
+    """
+
+    validate_route_facts(facts)
+    signals = high_risk_signals(facts.objective)
+    investigate = facts.risk == "unknown" or not facts.known_area or not facts.acceptance_criteria
+    consequential = facts.risk == "high" or bool(signals)
+    kind = "investigation" if investigate else "small" if facts.risk == "low" and facts.files == 1 and not consequential else "routine"
+    required = [ROUTING_ROLE]
+    if not investigate:
+        required.append(LUNA_ROLE if kind == "small" else TERRA_ROLE)
+        if consequential:
+            required.append(REVIEW_ROLE)
+    selected = None
+    if context:
+        for candidate in rank(facts.objective, candidates, context):
+            selected = _specialist_payload(candidate)
+            if selected is not None:
+                selected["availability"] = Availability.UNKNOWN.value
+                selected["profile_discovered"] = True
+                selected["runtime_observed"] = False
+                break
+    selection_policy = policy()
+    selection_policy["preset"] = config.preset
+    return {
+        "schema_version": 2,
+        "task_kind": kind,
+        "assessment": {"risk": facts.risk, "files": facts.files, "known_area": facts.known_area,
+                       "acceptance_criteria": facts.acceptance_criteria, "risk_signals": signals},
+        "policy": selection_policy,
+        "configured_preferences": {role: {"model": value.model, "reasoning_effort": value.reasoning_effort}
+                                   for role, value in config.roles.items()},
+        "selection_status": "awaiting_astra_decision",
+        "selected_specialist": selected,
+        "verification": {"independent_review_required": consequential,
+                         "required_roles": required, "strategy": "proportionate_to_changed_behavior"},
+        "role_evidence": _role_payload(evidence),
+        "execution": {"status": "not_dispatched", "runtime_observed": False,
+                      "profile_readiness": all(evidence[role].availability is Availability.AVAILABLE for role in required),
+                      "next_step": "inspect_scope" if investigate else "astra_select_model_and_thinking"},
+    }
 
 
 def _role_payload(evidence: Mapping[str, RoleEvidence]) -> Dict[str, Dict[str, Optional[str]]]:
@@ -56,11 +108,10 @@ def _specialist_payload(candidate: Capability) -> Optional[Dict[str, object]]:
 
     model = getattr(candidate, "model", None)
     effort = getattr(candidate, "reasoning_effort", None)
-    if (
-        candidate.source not in TRUSTED_SOURCES
-        or not is_valid_model_id(model)
-        or not is_valid_reasoning_effort(effort)
-    ):
+    dynamic = getattr(candidate, "model_binding", "unknown") == "per-task"
+    if candidate.source not in TRUSTED_SOURCES or (not dynamic and (
+        not is_valid_model_id(model) or not is_valid_reasoning_effort(effort)
+    )):
         return None
     return {
         "name": candidate.name,
@@ -71,6 +122,7 @@ def _specialist_payload(candidate: Capability) -> Optional[Dict[str, object]]:
         "matched_terms": list(candidate.matched_terms),
         "model": model,
         "reasoning_effort": effort,
+        "model_binding": "per-task" if dynamic else "profile",
         "availability": Availability.AVAILABLE.value,
     }
 
