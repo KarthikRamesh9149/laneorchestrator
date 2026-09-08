@@ -133,6 +133,11 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--acceptance-criteria", action="store_true")
     orchestrate.add_argument("--files", type=positive_file_count, default=2)
     orchestrate.add_argument("--risk-assessment", choices=VALID_RISKS, default="unknown")
+    orchestrate.add_argument("--change-scope", choices=("behavior", "editorial"), default="behavior",
+                             help="Host-inspected scope; editorial means non-operational wording only")
+    orchestrate.add_argument("--read-only-task", action="store_true", help="Assess/review without an implementation stage")
+    orchestrate.add_argument("--require-independent-review", action="store_true",
+                             help="Require review based on inspected consequences or user instruction")
     orchestrate.add_argument("--context", action="append", default=[])
     orchestrate.add_argument("--agents-root", action="append", default=[])
     orchestrate.add_argument("--legacy", action="store_true", help="Return the deprecated fixed-lane v1 card")
@@ -395,7 +400,9 @@ def handle_orchestrate(args: argparse.Namespace) -> CommandResult:
     config = load_config(state)
     if not getattr(args, "legacy", False):
         from .orchestration import build_adaptive_card
-        facts = RouteFacts(args.objective.strip(), args.known_area, args.acceptance_criteria, args.files, args.risk_assessment)
+        facts = RouteFacts(args.objective.strip(), args.known_area, args.acceptance_criteria, args.files,
+                           args.risk_assessment, getattr(args, "change_scope", "behavior"),
+                           getattr(args, "read_only_task", False), getattr(args, "require_independent_review", False))
         evidence = inspect_role_evidence(config, agents)
         card = build_adaptive_card(facts, config, evidence, _orchestration_candidates(args), args.context)
         return command_result("orchestrate", data={"route_card": card})

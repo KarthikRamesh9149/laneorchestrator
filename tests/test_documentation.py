@@ -69,6 +69,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json",
     "python3 -m laneorchestrator benchmark --json",
     "python3 -m unittest tests.test_acceptance_100 -v",
+    "python3 scripts/evaluate_astra.py --output /tmp/astra-contracts.json",
     "python3 scripts/healthcheck.py",
     "python3 scripts/check_docs.py",
     "sh scripts/validate.sh",
@@ -198,6 +199,8 @@ class DocumentationTests(unittest.TestCase):
                 arguments = shlex.split(command)
                 if arguments[0] == "python3":
                     arguments[0] = sys.executable
+                if command.startswith("python3 scripts/evaluate_astra.py"):
+                    arguments[-1] = str(home / "astra-contracts.json")
                 if command.startswith("python3 -m laneorchestrator voltagent install apply"):
                     arguments = [
                         sys.executable, "-m", "laneorchestrator", "voltagent", "install", "apply",
@@ -207,6 +210,12 @@ class DocumentationTests(unittest.TestCase):
                     arguments, cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )
                 self.assertNotIn("Traceback", result.stderr, command)
+                if command.startswith("python3 scripts/evaluate_astra.py"):
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    evaluated = json.loads((home / "astra-contracts.json").read_text())
+                    self.assertEqual(evaluated["counts"], {"U": {"passed": 200, "total": 200},
+                                                          "E": {"passed": 100, "total": 100}})
+                    continue
                 if command == "python3 -m laneorchestrator --help":
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertIn("usage: laneorchestrator", result.stdout)
