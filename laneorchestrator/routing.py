@@ -115,8 +115,8 @@ def high_risk_signals(objective: str) -> List[str]:
     return sorted(term for term in HIGH_RISK_TERMS | HIGH_RISK_PHRASES if contains_term(normalized, term))
 
 
-def adaptive_risk_signals(objective: str) -> List[str]:
-    """Unicode-aware lexical evidence for the adaptive (v2) contract."""
+def _adaptive_text(objective: str) -> str:
+    """Normalize the same visible text for both risk and scope backstops."""
     # Detect compatibility-width text, invisible format characters and common
     # Latin/Cyrillic lookalikes without treating every non-English task as risky.
     # This is a lexical backstop, not a substitute for Astra's semantic review.
@@ -126,7 +126,12 @@ def adaptive_risk_signals(objective: str) -> List[str]:
         'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y',
         'х': 'x', 'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd',
     }))
-    return high_risk_signals(visible)
+    return visible
+
+
+def adaptive_risk_signals(objective: str) -> List[str]:
+    """Unicode-aware lexical evidence for the adaptive (v2) contract."""
+    return high_risk_signals(_adaptive_text(objective))
 
 
 def has_editorial_target(objective: str) -> bool:
@@ -135,14 +140,27 @@ def has_editorial_target(objective: str) -> bool:
     This backstop is intentionally conservative and is not proof of inspected
     scope. Astra still checks the actual diff and mixed behavioral changes.
     """
-    normalized = unicodedata.normalize('NFKC', objective).casefold()
+    normalized = _adaptive_text(objective)
+    if set(adaptive_risk_signals(normalized)) & {'password', 'secret', 'secrets', 'credential', 'credentials', 'access token', 'api key', 'private key', 'signing key'}:
+        return False
     targets = {'typo', 'spelling', 'heading', 'sentence', 'comment', 'caption',
                'glossary', 'wording', 'documentation', 'readme', 'description', 'reference'}
-    clauses = re.split(r'\b(?:and|also|then|plus)\b|[;\n]', normalized)
-    for clause in clauses:
-        if adaptive_risk_signals(clause) and not set(normalize(clause).split()) & targets:
-            return False
-    return bool(set(normalize(normalized).split()) & targets)
+    words = set(normalize(normalized).split())
+    # Positive vocabulary for a narrow wording-only objective, not an expanding
+    # behavioral verb denylist. Unknown phrasing retains review when risk words
+    # are present. This gate never affects ordinary low-risk tasks without them.
+    editorial_words = targets | {
+        'fix', 'correct', 'rename', 'update', 'add', 'please', 'one', 'a', 'an',
+        'the', 'in', 'of', 'for', 'from', 'to', 'about', 'describing', 'with',
+        'and', 'spelling', 'punctuation', 'misspelled', 'misleading', 'stale',
+        'security', 'guide', 'authentication', 'authorization', 'oauth',
+        'password', 'privacy', 'policy', 'invoice', 'help', 'page', 'schema',
+        'file', 'index', 'clinician', 'command', 'example', 'contributor',
+        'architecture', 'overview', 'unit', 'test', 'benchmark', 'event',
+        'name', 'adapter', 'database', 'data', 'store', 'sol', 'terra', 'low',
+        'high', 'using',
+    }
+    return bool(words & targets) and words.issubset(editorial_words)
 
 
 def is_bounded_low_risk_objective(objective: str) -> bool:

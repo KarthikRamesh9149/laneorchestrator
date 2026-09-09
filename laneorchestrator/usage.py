@@ -33,7 +33,7 @@ def assess_usage(ledger, packet, max_calls=8, max_retries=2, max_tokens=None):
     calls = ledger['calls']
     if not isinstance(calls, list) or len(calls) > 1000:
         raise ValueError('calls must contain at most 1000 records')
-    seen, packets, agents = set(), Counter(), {}
+    seen, packets, agents, packet_usage = set(), Counter(), {}, {}
     totals = dict(input_tokens=0, output_tokens=0, cached_input_tokens=0)
     unknown = 0
     for call in calls:
@@ -48,12 +48,15 @@ def assess_usage(ledger, packet, max_calls=8, max_retries=2, max_tokens=None):
         if call['status'] not in ('pending', 'completed', 'failed'):
             raise ValueError('invalid call status')
         packets[call['packet']] += 1
-        row = agents.setdefault(call['agent'], dict(calls=0, input_tokens=0, output_tokens=0, cached_input_tokens=0, unknown_calls=0))
-        row['calls'] += 1
+        rows = [group.setdefault(key, dict(calls=0, input_tokens=0, output_tokens=0, cached_input_tokens=0, unknown_calls=0))
+                for group, key in ((agents, call['agent']), (packet_usage, call['packet']))]
+        for row in rows:
+            row['calls'] += 1
         usage = call['usage']
         if usage is None:
             unknown += 1
-            row['unknown_calls'] += 1
+            for row in rows:
+                row['unknown_calls'] += 1
             continue
         if call['status'] == 'pending':
             raise ValueError('pending calls cannot declare final usage')
@@ -62,7 +65,8 @@ def assess_usage(ledger, packet, max_calls=8, max_retries=2, max_tokens=None):
         for key in totals:
             _integer(usage[key], key)
             totals[key] += usage[key]
-            row[key] += usage[key]
+            for row in rows:
+                row[key] += usage[key]
         if usage['cached_input_tokens'] > usage['input_tokens']:
             raise ValueError('cached input exceeds input')
     reasons = []
@@ -79,7 +83,7 @@ def assess_usage(ledger, packet, max_calls=8, max_retries=2, max_tokens=None):
     return dict(allowed=not reasons, stop_reasons=reasons, calls=len(calls),
                 packet_attempts=packets[packet], observed_tokens=observed,
                 token_coverage='complete' if not unknown else 'partial', unknown_calls=unknown,
-                totals=totals, agents=agents,
+                totals=totals, agents=agents, packets=packet_usage,
                 limits=dict(max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens),
                 enforcement='host_must_check_and_reserve_before_every_launch',
                 token_limit_kind='stop_after_observed_usage_not_server_hard_cap')

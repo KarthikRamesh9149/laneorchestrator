@@ -20,6 +20,7 @@ class UsageTests(unittest.TestCase):
         self.assertTrue(result['allowed'])
         self.assertEqual(result['observed_tokens'], 120)
         self.assertEqual(result['agents']['worker']['input_tokens'], 100)
+        self.assertEqual(result['packets']['task']['output_tokens'], 20)
         self.assertFalse(assess_usage(ledger, 'next', max_tokens=120)['allowed'])
 
     def test_unknown_failed_and_pending_calls_consume_budget(self):

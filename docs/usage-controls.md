@@ -17,7 +17,7 @@ repository unless the user asks to retain it.
 Invoke the module's `usage` command with `--ledger <path>`,
 `--packet <next-packet>`, optional `--max-calls`, `--max-retries`, `--max-tokens`,
 and `--json`. A blocked launch returns exit 1 with `USAGE_LIMIT` and stop reasons.
-The response includes per-agent and total observed counters. Null usage means
+The response includes per-packet, per-agent and total observed counters. Null usage means
 unknown, never zero; a configured token ceiling blocks subsequent launches when
 any call has unknown usage. Cached input is already part of input tokens and is
 not added again. Supply incremental per-call counters, not cumulative session totals.

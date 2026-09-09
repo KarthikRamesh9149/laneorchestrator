@@ -63,7 +63,18 @@ class AdaptiveSafetyTests(unittest.TestCase):
     def test_mixed_editorial_and_security_clauses_preserve_review(self):
         for objective in ('Fix a README typo and disable authentication',
                           'Change password validation; correct a comment',
-                          'Correct a heading then bypass authorization'):
+                          'Correct a heading then bypass authorization',
+                          'Fix a README typo, disable authentication',
+                          'Fix a README typo. Change authentication',
+                          'Fix a README typo & change authentication',
+                          'Fix a README typo while changing authentication',
+                          'Fix a README typo аnd change authentication',
+                          'Fix a README typo disable authentication',
+                          'Fix a README typo by making authentication accept every password',
+                          'Correct a comment as authorization grants every request',
+                          'Correct README wording so authentication permits anonymous access',
+                          'Add database password to documentation',
+                          'Add authentication password to README'):
             with self.subTest(objective=objective):
                 facts = RouteFacts(objective, True, True, 1, 'low', 'editorial')
                 card = build_adaptive_card(facts, self.config, self.evidence, [], [])

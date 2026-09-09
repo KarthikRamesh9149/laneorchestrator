@@ -23,6 +23,12 @@ Choose thinking based on ambiguity, reasoning depth, number of interacting compo
 
 For diagnosis, explanation or review without permission to implement, pass `--read-only-task` even when scope and acceptance criteria are known. The card then requires assessment only. Pass `--require-independent-review` when inspected context or a user requirement warrants review beyond the objective's lexical signals. This flag can only strengthen review. The card's review flag describes the eventual consequential change, while `required_roles` describes the current stage: investigation can preserve a future review requirement without starting an implementer or reviewer. These flags are caller-supplied facts, not authorization or proof of execution.
 
+The editorial exception uses a narrow positive English vocabulary. An unfamiliar
+word in a security-topic wording request conservatively keeps review; detected
+credential and secret terms are never waived by that exception. Astra can
+explain that limitation after inspecting scope. It does not affect ordinary
+low-risk requests without lexical risk signals and is not a semantic proof.
+
 A review-only request does not by itself require another reviewer to review that
 review. Set the independent-review requirement for an underlying consequential
 implementation or an explicit additional-review instruction. When there is no
