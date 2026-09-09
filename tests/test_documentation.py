@@ -128,8 +128,9 @@ class DocumentationTests(unittest.TestCase):
         for text in ("Astra-led orchestration", "172 bundled specialist agents", "docs/assets/laneorchestrator-product-demo.gif", "docs/assets/laneorchestrator-product-demo.mp4", "```mermaid", "Assesses scope, complexity, and risk", "No separate Volt download is required.", "Activate the bundled specialists"):
             self.assertIn(text, first)
         self.assertLess(first.index("docs/assets/laneorchestrator-product-demo.gif"), first.index("```mermaid"))
-        self.assertIn("--ref v0.2.4", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
-        self.assertIn("not included in that existing release", first)
+        self.assertIn("--ref v0.3.0", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
+        self.assertIn("v0.3.0 includes the Astra workflow", first)
+        self.assertIn("release assets and evidence", first)
         self.assertIn("git clone --branch main", first)
         self.assertIn("codex plugin marketplace add .", first)
         self.assertIn("docs/upgrading.md", first)

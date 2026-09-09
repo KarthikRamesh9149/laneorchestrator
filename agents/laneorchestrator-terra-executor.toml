@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.4
+# managed-by: laneorchestrator 0.3.0
 name = "laneorchestrator-terra-executor"
 description = "Implement a bounded task using the model and thinking level selected by Astra for its complexity."
 # model-binding: per-task-v2

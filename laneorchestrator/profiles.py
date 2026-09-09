@@ -36,7 +36,7 @@ PROFILE_NAMES = (
     "laneorchestrator-terra-executor.toml",
     "laneorchestrator-sol-reviewer.toml",
 )
-TEMPLATE_VERSION = "0.2.4"
+TEMPLATE_VERSION = "0.3.0"
 MANAGED_MARKER = "# managed-by: laneorchestrator {0}\n".format(TEMPLATE_VERSION)
 DYNAMIC_MARKER = "# model-binding: per-task-v2\n"
 RECEIPT_NAME = "receipts.json"
@@ -49,11 +49,21 @@ RECEIPT_SCHEMA_VERSION = 1
 _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 _ACTIONS = frozenset(("install", "adopt", "update", "uninstall"))
 _ACTIVE_OPERATIONS = frozenset(("install", "adopt", "update"))
-_V010_HASHES = {
-    "laneorchestrator-luna-executor.toml": "1de0a4bf0ed0b3f32b8597991b8cc4ea5b3581d0736b4e7bb2dae47a8e9a5567",
-    "laneorchestrator-router.toml": "c40f592272fb5ffe550c120fa48d1edb822a28b6b13085f9e30c8260c0d713a8",
-    "laneorchestrator-sol-reviewer.toml": "078a82c418f1688b87b341463dcc59cf89c720e9434d4f3b897b991aa6f1b408",
-    "laneorchestrator-terra-executor.toml": "5feb09a607e4b92b0cb251173e6ca9e6970f1fd3f256e2dcf58f90e6f972c88f",
+_LEGACY_PROFILE_HASHES = {
+    "laneorchestrator-luna-executor.toml": frozenset((
+        "1de0a4bf0ed0b3f32b8597991b8cc4ea5b3581d0736b4e7bb2dae47a8e9a5567",
+    )),
+    "laneorchestrator-router.toml": frozenset((
+        # Initial repository profile from commit 0620191, installed before v0.1.0.
+        "06b31988a6dcd6092cb43731f3d25a560dfb365d9895c675d45a38d3c5b43c39",
+        "c40f592272fb5ffe550c120fa48d1edb822a28b6b13085f9e30c8260c0d713a8",
+    )),
+    "laneorchestrator-sol-reviewer.toml": frozenset((
+        "078a82c418f1688b87b341463dcc59cf89c720e9434d4f3b897b991aa6f1b408",
+    )),
+    "laneorchestrator-terra-executor.toml": frozenset((
+        "5feb09a607e4b92b0cb251173e6ca9e6970f1fd3f256e2dcf58f90e6f972c88f",
+    )),
 }
 _RECEIPT_KEYS = frozenset(("schema_version", "profiles"))
 _RECEIPT_ENTRY_KEYS = frozenset(
@@ -470,7 +480,7 @@ def _load_receipt(content: Optional[bytes], agents_root: Path) -> Optional[Mappi
         seen.add(name)
         if not isinstance(entry["destination"], str) or entry["destination"] != os.fspath(agents_root / name):
             raise ProfileConflict("receipt destination does not match the requested agents root")
-        if not isinstance(entry["template_version"], str) or entry["template_version"] not in ("0.2.0", "0.2.1", "0.2.2", "0.2.3", TEMPLATE_VERSION):
+        if not isinstance(entry["template_version"], str) or entry["template_version"] not in ("0.2.0", "0.2.1", "0.2.2", "0.2.3", "0.2.4", TEMPLATE_VERSION):
             raise ProfileConflict("receipt template version is unsupported")
         for key in ("content_sha256", "config_sha256"):
             if not isinstance(entry[key], str) or _HASH_RE.fullmatch(entry[key]) is None:
@@ -649,7 +659,7 @@ def is_adoptable_profile(name: str, content: Optional[bytes]) -> bool:
         return False
     marker = MANAGED_MARKER.encode("utf-8")
     candidate = content[len(marker) :] if content.startswith(marker) else content
-    return _sha256(candidate) == _V010_HASHES[name]
+    return _sha256(candidate) in _LEGACY_PROFILE_HASHES[name]
 
 
 def _build_preview(
@@ -712,7 +722,7 @@ def _build_preview(
                 return tuple(operations), 0
             raise ProfileConflict("profiles are already managed; use update")
         if any(profiles[name] is not None for name in PROFILE_NAMES):
-            raise ProfileConflict("unmanaged profile collision; use adopt only for exact v0.1.0 files")
+            raise ProfileConflict("unmanaged profile collision; use adopt only for exact recognized legacy files")
         for name in PROFILE_NAMES:
             replace_profile_observation(name, None, rendered[name])
         new_receipt = _receipt_content(action, agents_root, config_hash, rendered)
@@ -724,7 +734,7 @@ def _build_preview(
             raise ProfileConflict("profiles already have an active receipt")
         for name in PROFILE_NAMES:
             if not is_adoptable_profile(name, profiles[name]):
-                raise ProfileConflict("adoption requires an exact v0.1.0 bundled profile match")
+                raise ProfileConflict("adoption requires an exact recognized legacy profile match")
             replace_profile_observation(name, profiles[name], rendered[name])
         new_receipt = _receipt_content(action, agents_root, config_hash, rendered)
         replace_receipt_observation(new_receipt)

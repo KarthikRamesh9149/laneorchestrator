@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.4
+# managed-by: laneorchestrator 0.3.0
 name = "laneorchestrator-router"
 description = "Use Astra to inspect context and choose expertise, model, thinking, scope, and verification for each task."
 # model-binding: per-task-v2

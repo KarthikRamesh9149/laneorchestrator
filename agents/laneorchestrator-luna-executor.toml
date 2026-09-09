@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.4
+# managed-by: laneorchestrator 0.3.0
 name = "laneorchestrator-luna-executor"
 description = "Use only for router-approved, tightly scoped, low-risk tasks in one known area with explicit acceptance criteria."
 # model-binding: per-task-v2

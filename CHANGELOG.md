@@ -4,6 +4,12 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-09
+
+- Add an opt-in, bounded adaptive-versus-fixed executable workflow comparison,
+  with external verification, independent review and explicit usage evidence.
+- Support exact adoption of initial legacy profiles and migration from receipted
+  v0.2.4 installations; retain drift refusal and backup/uninstall checks.
 - Add host-ledger usage checks with per-agent counters, call and retry limits,
   unknown-usage handling, and explicit limits on token-budget enforcement.
 - Preserve independent review for mixed editorial/security clauses and clarify

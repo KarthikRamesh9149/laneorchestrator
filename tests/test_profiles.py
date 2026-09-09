@@ -75,7 +75,7 @@ class ProfileRenderingTests(unittest.TestCase):
         second = render_profiles(config)
         self.assertEqual(first, second)
         self.assertEqual(tuple(first), PROFILE_NAMES)
-        self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.2.4\n") for value in first.values()))
+        self.assertTrue(all(value.startswith(b"# managed-by: laneorchestrator 0.3.0\n") for value in first.values()))
         self.assertNotIn('model = "gpt-5.6-sol"', render_profile("laneorchestrator-router.toml", config))
         self.assertNotIn('model_reasoning_effort = "medium"', render_profile("laneorchestrator-terra-executor.toml", config))
 
@@ -209,7 +209,7 @@ class ProfileLifecycleTests(unittest.TestCase):
             (other_agents / PROFILE_NAMES[0]).read_text() + "# near match\n",
             encoding="utf-8",
         )
-        with self.assertRaisesRegex(ProfileConflict, "exact v0.1.0"):
+        with self.assertRaisesRegex(ProfileConflict, "exact recognized legacy"):
             preview_profiles("adopt", self.config, other_agents, other_state, now=100)
 
     def test_update_creates_private_exact_backups_and_new_receipt(self) -> None:
@@ -702,7 +702,7 @@ class ProfileLifecycleTests(unittest.TestCase):
                 preview_profiles("install", self.config, self.agents, self.state, now=100)
         with mock.patch(
             "laneorchestrator.profiles.platform_mutation_supported",
-            return_value=(False, "native Windows mutation is unsupported in v0.2.4"),
+            return_value=(False, "native Windows mutation is unsupported in v0.3.0"),
         ):
             with self.assertRaisesRegex(ProfileConflict, "native Windows"):
                 preview_profiles("install", self.config, self.agents, self.state, now=100)

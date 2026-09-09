@@ -1,5 +1,9 @@
 # Command reference
 
+The `usage` command reports per-packet and per-agent counters and checks whether
+the next launch fits a host-owned call/retry/token policy. See
+[usage controls](usage-controls.md) for its ledger contract and enforcement limits.
+
 The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `policy`, `select`, `setup`, `doctor`, `status`, `version`, `configure`, `route`, `orchestrate`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
 
 ## Recommended first-run setup

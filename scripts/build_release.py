@@ -375,7 +375,7 @@ def _write_exclusive(path: Path, content: bytes) -> None:
 
 
 def build_release(root: Path, output: Path) -> ReleaseBuild:
-    """Build the exact v0.2.4 archive pair and strict checksum manifest."""
+    """Build the exact version-aligned archive pair and strict checksum manifest."""
 
     root = _release_root(root)
     version = release_version(root)

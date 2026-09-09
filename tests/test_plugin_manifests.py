@@ -8,9 +8,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_NAME = "laneorchestrator"
-PLUGIN_VERSION = "0.2.4"
+PLUGIN_VERSION = "0.3.0"
 SKILL_COMMANDS = (
-    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4",
+    "codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.3.0",
     "codex plugin add laneorchestrator@laneorchestrator",
 )
 README_COMMANDS = (

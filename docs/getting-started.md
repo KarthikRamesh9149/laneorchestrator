@@ -1,6 +1,8 @@
 # Getting started
 
-This guide installs the Astra workflow from `main` and takes you through one task. `main` is a moving source channel; the published `v0.2.4` release does not contain Astra support. Existing users should start with [upgrading](upgrading.md).
+This guide installs the Astra workflow from `main` and takes you through one task.
+`main` is a moving source channel; use a verified release tag for a pinned snapshot.
+Existing users should start with [upgrading](upgrading.md).
 
 ## 1. Check prerequisites
 
