@@ -30,6 +30,24 @@ router and every implementation so a stopped run remains inspectable. Per-call
 JSONL, stderr, schemas, changed sources, diffs, final responses, and verifier logs
 are retained beside it.
 
+If the only completed call is the router and its model selection is valid under
+the active routing policy, reuse that paid call with:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/benchmark_workflows.py \
+  --run \
+  --codex /Applications/ChatGPT.app/Contents/Resources/codex \
+  --resume-routing /private/tmp/laneorchestrator-workflow-benchmark \
+  --timeout 240 \
+  --max-observed-tokens 250000
+```
+
+Resume verifies the prior report's available fixture hashes and provenance,
+router JSON, event usage, and ledger before continuing. The paid router call
+remains call one of the hard eight-call total. A policy-valid decision that
+differs from the frozen authored rubric is retained as a routing failure rather
+than discarded; the authored independent-review requirement remains a floor.
+
 The run is sequential and has no retry path. Its maximum is eight model calls:
 one Astra/high routing call containing all three tasks plus frozen U006 read-only
 calibration, six implementation calls, and one fresh Sol/high review of all
@@ -53,9 +71,11 @@ harness does not call them inaccessible holdouts. A task passes only when the
 model call exits successfully, an editable source changes, no unexpected workspace
 files remain, tests pass, and test hashes stay unchanged.
 
-Benchmark subprocesses ignore user configuration, disable multi-agent fan-out,
-and skip host skill discovery. The routing prompt supplies the compact policy and
-active host catalog needed by this isolated comparison. Results therefore test
+Benchmark subprocesses ignore user configuration and request disabled multi-agent
+fan-out and skipped host skill discovery. Runtime evidence can still show host
+metadata loading, so these flags do not prove discovery was absent or reduce a
+call's input usage. The routing prompt supplies the compact policy and active host
+catalog needed by this isolated comparison. Results therefore test
 explicit model dispatch on these fixtures; they do not test installed named
 profiles, specialist discovery, desktop profile reloads, or production readiness.
 Requested model and reasoning settings remain separate from runtime-observed

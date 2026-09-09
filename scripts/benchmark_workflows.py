@@ -10,6 +10,7 @@ import os
 from pathlib import Path, PurePosixPath
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -98,7 +99,8 @@ def load_tasks(task_root=TASK_ROOT):
             raise BenchmarkError("expected task kinds must be nonempty")
         if type(expected["independent_review"]) is not bool:
             raise BenchmarkError("review rubric must be boolean")
-        test_paths = sorted(path for path in (manifest_path.parent / "tests").rglob("*") if path.is_file())
+        test_paths = sorted(path for path in (manifest_path.parent / "tests").rglob("*") if path.is_file()
+                            and "__pycache__" not in path.relative_to(manifest_path.parent).parts)
         if not test_paths or any(path.is_symlink() for path in test_paths):
             raise BenchmarkError("each task requires regular external verifier files")
         task = dict(task)
@@ -131,6 +133,53 @@ def load_calibration():
     if not isinstance(case, dict) or not isinstance(case.get("expected"), dict):
         raise BenchmarkError("missing frozen U006 calibration case")
     return case
+
+
+def _fixture_evidence(tasks):
+    return [{key: task[key] for key in ("id", "category", "title", "provenance", "test_hashes")}
+            for task in tasks]
+
+
+def _load_resume_evidence(output, tasks):
+    """Validate and reuse the one completed router call from a stopped run."""
+
+    report_path = output / "report.json"
+    final_path = output / "calls" / "call-01-router-final.json"
+    events_path = output / "calls" / "call-01-router-events.jsonl"
+    for path in (report_path, final_path, events_path):
+        if not path.is_file() or path.is_symlink():
+            raise BenchmarkError("resume requires regular prior evidence file: " + str(path))
+    prior_bytes = report_path.read_bytes()
+    prior = json.loads(prior_bytes)
+    if prior.get("fixtures") != _fixture_evidence(tasks):
+        raise BenchmarkError("resume fixture hashes or provenance differ from the prior report")
+    ledger = prior.get("usage_ledger")
+    if not isinstance(ledger, dict) or set(ledger) != {"schema_version", "calls"}:
+        raise BenchmarkError("resume report has no valid usage ledger")
+    if len(ledger.get("calls", [])) != 1:
+        raise BenchmarkError("resume requires exactly one prior call")
+    record = ledger["calls"][0]
+    if (not isinstance(record, dict) or record.get("id") != "call-01-router"
+            or record.get("packet") != "router" or record.get("status") != "completed"
+            or not isinstance(record.get("usage"), dict)):
+        raise BenchmarkError("resume prior call is not one completed router launch with usage")
+    usage, turns, observed_model, observed_effort = _event_usage(
+        events_path.read_text(encoding="utf-8", errors="replace")
+    )
+    if usage != record["usage"]:
+        raise BenchmarkError("resume router event usage differs from the prior ledger")
+    payload = _json_from_final(final_path)
+    call = {
+        "call_id": "call-01-router", "packet": "router", "requested_model": ROUTER_MODEL,
+        "requested_reasoning_effort": ROUTER_EFFORT, "runtime_observed_model": observed_model,
+        "runtime_observed_reasoning_effort": observed_effort,
+        "runtime_settings_match": _runtime_settings_match(
+            ROUTER_MODEL, ROUTER_EFFORT, observed_model, observed_effort),
+        "exit_code": None, "prior_ledger_status": record["status"], "timed_out": False,
+        "elapsed_seconds": None, "usage": usage, "completed_turns_observed": turns,
+        "automatic_retries": 0, "reused_prior_call": True,
+    }
+    return prior, ledger, payload, call, hashlib.sha256(prior_bytes).hexdigest()
 
 
 def routing_prompt(tasks, calibration):
@@ -209,15 +258,19 @@ def validate_decisions(payload, tasks):
         fields = {"id", "task_kind", "model", "reasoning_effort", "independent_review", "reason"}
         if not isinstance(row, dict) or set(row) != fields or type(row["independent_review"]) is not bool:
             raise BenchmarkError("router decision has invalid fields: " + task["id"])
-        if row["task_kind"] not in task["expected_routing"]["task_kinds"]:
-            raise BenchmarkError("router task kind differs from withheld authored rubric: " + task["id"])
-        if row["independent_review"] != task["expected_routing"]["independent_review"]:
-            raise BenchmarkError("router review flag differs from withheld authored rubric: " + task["id"])
         selection = validate_selection(
             {key: row[key] for key in ("model", "reasoning_effort", "reason")},
             HOST, task_kind=row["task_kind"], preset="astra-adaptive",
         )
-        validated.append(dict(row, **selection))
+        rubric_failures = []
+        if row["task_kind"] not in task["expected_routing"]["task_kinds"]:
+            rubric_failures.append("task_kind differs from withheld authored rubric")
+        if row["independent_review"] != task["expected_routing"]["independent_review"]:
+            rubric_failures.append("independent_review differs from withheld authored rubric")
+        validated.append(dict(row, **selection, authored_rubric={
+            "passed": not rubric_failures, "failures": rubric_failures,
+            "expected": task["expected_routing"],
+        }))
     return validated
 
 
@@ -265,7 +318,10 @@ def _event_usage(stdout):
         if event.get("type") == "turn.completed":
             completed += 1
             values = event.get("usage")
-            if not isinstance(values, dict) or any(type(values.get(key)) is not int for key in usage):
+            if (not isinstance(values, dict)
+                    or any(type(values.get(key)) is not int or not 0 <= values[key] <= 10**12
+                           for key in usage)
+                    or values.get("cached_input_tokens", 0) > values.get("input_tokens", -1)):
                 usage = None
             elif usage is not None:
                 for key in usage:
@@ -278,6 +334,21 @@ def _event_usage(stdout):
     if completed == 0:
         usage = None
     return usage, completed, observed_model, observed_effort
+
+
+def _runtime_settings_match(requested_model, requested_effort, observed_model, observed_effort):
+    if observed_model is None and observed_effort is None:
+        return None
+    return ((observed_model is None or observed_model == requested_model)
+            and (observed_effort is None or observed_effort == requested_effort))
+
+
+def _valid_call(call):
+    if call.get("timed_out") or call.get("runtime_settings_match") is False:
+        return False
+    if call.get("reused_prior_call"):
+        return call.get("prior_ledger_status") == "completed"
+    return call.get("exit_code") == 0
 
 
 def _communicate(command, prompt, timeout, cwd):
@@ -330,11 +401,14 @@ def _run_call(codex, call_dir, call_id, packet, cwd, model, effort, prompt, time
     events.write_text(stdout, encoding="utf-8")
     stderr_path.write_text(stderr, encoding="utf-8")
     usage, turns, observed_model, observed_effort = _event_usage(stdout)
-    record.update(status="failed" if timed_out or returncode != 0 else "completed", usage=usage)
+    settings_match = _runtime_settings_match(model, effort, observed_model, observed_effort)
+    record.update(status="failed" if timed_out or returncode != 0 or settings_match is False else "completed",
+                  usage=usage)
     return {
         "call_id": call_id, "packet": packet, "requested_model": model,
         "requested_reasoning_effort": effort, "runtime_observed_model": observed_model,
-        "runtime_observed_reasoning_effort": observed_effort, "exit_code": returncode,
+        "runtime_observed_reasoning_effort": observed_effort, "runtime_settings_match": settings_match,
+        "exit_code": returncode,
         "timed_out": timed_out, "elapsed_seconds": elapsed, "usage": usage,
         "completed_turns_observed": turns, "automatic_retries": 0,
         "final_path": final,
@@ -355,17 +429,62 @@ def _prepare_workspace(task, destination):
     return {relative: _sha256(destination / relative) for relative in task["editable_files"]}
 
 
+def _workspace_inventory(workspace, allowed):
+    """List unexpected nodes without following links or grading cache output."""
+
+    allowed_dirs = set()
+    for relative in allowed:
+        parent = PurePosixPath(relative).parent
+        while parent != PurePosixPath("."):
+            allowed_dirs.add(parent.as_posix())
+            parent = parent.parent
+    unexpected = []
+    for directory, dirnames, filenames in os.walk(str(workspace), followlinks=False):
+        root = Path(directory)
+        retained = []
+        for name in dirnames:
+            path = root / name
+            relative = path.relative_to(workspace).as_posix()
+            if path.is_symlink():
+                unexpected.append(relative)
+            elif name == ".git" and root == workspace:
+                continue
+            elif name == "__pycache__":
+                continue
+            else:
+                if relative not in allowed_dirs:
+                    unexpected.append(relative + "/")
+                retained.append(name)
+        dirnames[:] = retained
+        for name in filenames:
+            path = root / name
+            relative = path.relative_to(workspace).as_posix()
+            if relative not in allowed or path.is_symlink():
+                unexpected.append(relative)
+    return sorted(set(unexpected))
+
+
+def _is_regular_workspace_source(workspace, relative):
+    path = workspace / relative
+    try:
+        if not stat.S_ISREG(path.lstat().st_mode):
+            return False
+        parent = path.parent
+        while parent != workspace:
+            if parent.is_symlink() or not stat.S_ISDIR(parent.lstat().st_mode):
+                return False
+            parent = parent.parent
+    except OSError:
+        return False
+    return True
+
+
 def _verify_task(task, workspace, artifact_dir, baseline):
     artifact_dir.mkdir(parents=True)
     allowed = set(task["editable_files"])
-    actual = {
-        path.relative_to(workspace).as_posix() for path in workspace.rglob("*")
-        if path.is_file() and ".git" not in path.relative_to(workspace).parts
-        and "__pycache__" not in path.relative_to(workspace).parts
-    }
-    unexpected = sorted(actual - allowed)
+    unexpected = _workspace_inventory(workspace, allowed)
     invalid_sources = sorted(relative for relative in allowed if
-                             not (workspace / relative).is_file() or (workspace / relative).is_symlink())
+                             not _is_regular_workspace_source(workspace, relative))
     modified = not invalid_sources and any(
         _sha256(workspace / relative) != baseline[relative] for relative in allowed
     )
@@ -486,14 +605,14 @@ def _successful_comparison(tasks, report, tests_unchanged):
     if (not tests_unchanged or len(executions) != len(expected)
             or {(row['task_id'], row['arm']) for row in executions} != expected):
         return False
-    if not all(row['verification']['task_passed'] is True and row['call']['exit_code'] == 0
-               and not row['call']['timed_out'] for row in executions):
+    if not all(row['verification']['task_passed'] is True and _valid_call(row['call'])
+               for row in executions):
         return False
     required = {task['id'] for task in tasks if task['expected_routing']['independent_review']}
     if not required:
         return True
     review = report.get('independent_review')
-    if not review or review['call']['exit_code'] != 0 or not review['review_workspace_unchanged']:
+    if not review or not _valid_call(review['call']) or not review['review_workspace_unchanged']:
         return False
     payload = review.get('payload')
     rows = payload.get('reviews') if isinstance(payload, dict) else None
@@ -511,42 +630,56 @@ def execute(args, tasks, calibration):
     output = args.output.resolve()
     if output == ROOT or ROOT in output.parents:
         raise BenchmarkError("live output must be outside the source repository")
-    if output.exists() and any(output.iterdir()):
+    resuming = args.resume_routing is not None
+    if not resuming and output.exists() and any(output.iterdir()):
         raise BenchmarkError("live output directory must be absent or empty")
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=resuming)
     calls_dir = output / "calls"
     artifacts_dir = output / "artifacts"
-    calls_dir.mkdir()
-    artifacts_dir.mkdir()
-    ledger = {"schema_version": 1, "calls": []}
+    calls_dir.mkdir(exist_ok=resuming)
+    artifacts_dir.mkdir(exist_ok=resuming)
+    prior = None
+    routing_payload = None
+    routing_call = None
+    prior_report_sha256 = None
+    if resuming:
+        prior, ledger, routing_payload, routing_call, prior_report_sha256 = _load_resume_evidence(output, tasks)
+    else:
+        ledger = {"schema_version": 1, "calls": []}
     report = {
         "schema_version": 1,
         "scope": "Three repository-derived executable fixtures; not a benchmark of broad user-repository work.",
-        "status": "running", "live_calls": 0, "automatic_retries": 0,
+        "status": "running", "live_calls": len(ledger["calls"]), "automatic_retries": 0,
         "limits": {"max_calls": MAX_CALLS, "max_observed_tokens": args.max_observed_tokens,
                    "per_call_timeout_seconds": args.timeout,
                    "token_limit_kind": "stop before next call after observed usage reaches the ceiling; one call may overshoot"},
         "runtime_observation": "Requested settings are CLI arguments. Observed model/effort remain null unless emitted by runtime events.",
-        "host_discovery_boundary": "Benchmark subprocesses disable multi-agent features and host skill discovery; the compact prompt supplies the relevant routing policy. This does not test installed named profiles or automatic specialist discovery.",
+        "host_discovery_boundary": "Benchmark subprocesses request disabled multi-agent features and skipped host skill discovery, but runtime evidence may still show host metadata loading. This does not test installed named profiles or automatic specialist discovery.",
         "test_boundary": "Authoritative tests stay outside task workspaces and are write-protected in verifier copies. The host sandbox may still allow read access; this is not an inaccessible holdout claim.",
-        "fixtures": [{key: task[key] for key in ("id", "category", "title", "provenance", "test_hashes")}
-                     for task in tasks],
+        "fixtures": _fixture_evidence(tasks),
         "routing": None, "executions": [], "independent_review": None, "comparison": [],
     }
+    if resuming:
+        report["resume"] = {
+            "reused_router_call": True, "prior_report_sha256": prior_report_sha256,
+            "prior_status": prior.get("status"), "prior_error": prior.get("error"),
+            "available_fixture_hashes_and_provenance_matched": True,
+        }
     report_path = output / "report.json"
     _write_report(report_path, report)
     try:
         with tempfile.TemporaryDirectory(prefix="laneorchestrator-workflow-run-") as temporary:
             scratch = Path(temporary)
-            routing_call = _run_call(
-                args.codex, calls_dir, "call-01-router", "router", scratch, ROUTER_MODEL, ROUTER_EFFORT,
-                routing_prompt(tasks, calibration), args.timeout, ledger, args.max_observed_tokens,
-                schema=ROUTING_SCHEMA, sandbox="read-only",
-            )
-            report["live_calls"] = len(ledger["calls"])
-            if routing_call["exit_code"] != 0 or routing_call["timed_out"]:
-                raise BenchmarkError("routing call failed")
-            routing_payload = _json_from_final(routing_call.pop("final_path"))
+            if not resuming:
+                routing_call = _run_call(
+                    args.codex, calls_dir, "call-01-router", "router", scratch, ROUTER_MODEL, ROUTER_EFFORT,
+                    routing_prompt(tasks, calibration), args.timeout, ledger, args.max_observed_tokens,
+                    schema=ROUTING_SCHEMA, sandbox="read-only",
+                )
+                report["live_calls"] = len(ledger["calls"])
+                routing_payload = _json_from_final(routing_call.pop("final_path"))
+            if not _valid_call(routing_call):
+                raise BenchmarkError("routing call failed or observed settings differed")
             decisions = validate_decisions(routing_payload, tasks)
             try:
                 calibration_result = {"passed": True, "decision": validate_calibration(routing_payload["calibration"], calibration)}
@@ -554,12 +687,14 @@ def execute(args, tasks, calibration):
                 calibration_result = {"passed": False, "decision": routing_payload.get("calibration"), "error": str(error)}
             report["routing"] = {"call": routing_call, "decisions": decisions,
                                  "expected_rubric_withheld_from_router": True,
+                                 "authored_rubric_passed": all(
+                                     row["authored_rubric"]["passed"] for row in decisions),
                                  "calibration": calibration_result,
                                  "calibration_source": "benchmarks/astra-use-cases-v1.json#U006",
                                  "calibration_corpus_sha256": _sha256(CALIBRATION_PATH)}
             _write_report(report_path, report)
             decision_by_id = {row["id"]: row for row in decisions}
-            call_number = 2
+            call_number = len(ledger["calls"]) + 1
             for task in tasks:
                 for arm in ("adaptive", "fixed"):
                     decision = decision_by_id[task["id"]]
@@ -577,7 +712,7 @@ def execute(args, tasks, calibration):
                     artifact = artifacts_dir / task["id"] / arm
                     verification = _verify_task(task, workspace, artifact, baseline)
                     verification["task_passed"] = (
-                        verification["task_passed"] and call["exit_code"] == 0 and not call["timed_out"]
+                        verification["task_passed"] and _valid_call(call)
                     )
                     final_text = ""
                     if final_path.exists():
@@ -611,7 +746,7 @@ def execute(args, tasks, calibration):
                 review_final = review_call.pop("final_path")
                 after = {path.relative_to(review_workspace).as_posix(): _sha256(path)
                          for path in review_workspace.rglob("*") if path.is_file()}
-                review_payload = _json_from_final(review_final) if review_call["exit_code"] == 0 else None
+                review_payload = _json_from_final(review_final) if _valid_call(review_call) else None
                 report["independent_review"] = {
                     "call": review_call, "blind_arm_mapping": mappings, "payload": review_payload,
                     "review_workspace_unchanged": before == after, "single_fresh_combined_review": True,
@@ -650,6 +785,8 @@ def main():
     parser.add_argument("--run", action="store_true", help="Make live model calls")
     parser.add_argument("--codex", type=Path, help="Exact Codex CLI executable")
     parser.add_argument("--output", type=Path, help="New/empty external evidence directory")
+    parser.add_argument("--resume-routing", type=Path,
+                        help="Reuse the single completed router call in this prior report directory")
     parser.add_argument("--timeout", type=int, default=240, help="Hard seconds per call")
     parser.add_argument("--max-observed-tokens", type=int, default=DEFAULT_TOKEN_CEILING)
     args = parser.parse_args()
@@ -666,6 +803,10 @@ def main():
         return 0
     if args.codex is None or not args.codex.is_file() or not os.access(args.codex, os.X_OK):
         parser.error("--run requires an executable --codex path")
+    if args.resume_routing is not None:
+        if args.output is not None and args.output.resolve() != args.resume_routing.resolve():
+            parser.error("--output and --resume-routing must identify the same directory")
+        args.output = args.resume_routing
     if args.output is None:
         parser.error("--run requires --output")
     if type(args.timeout) is not int or not 30 <= args.timeout <= 900:

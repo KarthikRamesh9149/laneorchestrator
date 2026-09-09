@@ -38,11 +38,15 @@ class WorkflowFixtureTests(unittest.TestCase):
         commits = {task["provenance"]["commit"] for task in self.tasks}
         self.assertEqual(len(commits), 1)
         commit = next(iter(commits))
-        resolved = subprocess.run(
-            ["git", "cat-file", "-e", commit + "^{commit}"], cwd=workflow.ROOT,
-            capture_output=True,
-        )
-        self.assertEqual(resolved.returncode, 0)
+        self.assertRegex(commit, r"^[0-9a-f]{40}$")
+        self.assertTrue(all(task["provenance"]["repository"].startswith("https://github.com/")
+                            and task["provenance"]["source_paths"] for task in self.tasks))
+        if (workflow.ROOT / ".git").exists():
+            resolved = subprocess.run(
+                ["git", "cat-file", "-e", commit + "^{commit}"], cwd=workflow.ROOT,
+                capture_output=True,
+            )
+            self.assertEqual(resolved.returncode, 0)
         self.assertTrue(all(any(marker in task["provenance"]["adaptation"].casefold()
                                 for marker in ("fixture", "benchmark")) for task in self.tasks))
 
@@ -74,6 +78,22 @@ class WorkflowFixtureTests(unittest.TestCase):
         rows = workflow.validate_decisions(payload, self.tasks)
         self.assertEqual(len(rows), 3)
         self.assertEqual(workflow.validate_calibration(payload["calibration"], self.calibration)["action"], "review")
+
+    def test_policy_valid_route_preserves_authored_rubric_mismatch(self):
+        payload = {
+            "decisions": [
+                {"id": "bug-json-duplicates", "task_kind": "small", "model": "gpt-5.6-terra",
+                 "reasoning_effort": "high", "independent_review": False, "reason": "Fixture appears small."},
+                {"id": "feature-capability-ranking", "task_kind": "routine", "model": "gpt-5.6-terra",
+                 "reasoning_effort": "medium", "independent_review": False, "reason": "Routine feature."},
+                {"id": "refactor-route-summary", "task_kind": "small", "model": "gpt-5.6-luna",
+                 "reasoning_effort": "high", "independent_review": False, "reason": "Small refactor."},
+            ], "calibration": {},
+        }
+        rows = workflow.validate_decisions(payload, self.tasks)
+        bug = next(row for row in rows if row["id"] == "bug-json-duplicates")
+        self.assertFalse(bug["authored_rubric"]["passed"])
+        self.assertEqual(len(bug["authored_rubric"]["failures"]), 2)
 
     def test_router_review_semantics_and_policy_violations_fail_closed(self):
         row = {
@@ -133,6 +153,30 @@ class WorkflowExecutionSafetyTests(unittest.TestCase):
         self.assertEqual(usage, {"input_tokens": 10, "output_tokens": 3, "cached_input_tokens": 4})
         self.assertEqual((turns, model, effort), (1, None, None))
         self.assertIsNone(workflow._event_usage('{"type":"turn.completed"}')[0])
+        for values in (
+            {"input_tokens": -1, "output_tokens": 0, "cached_input_tokens": 0},
+            {"input_tokens": 1, "output_tokens": 0, "cached_input_tokens": 2},
+        ):
+            event = json.dumps({"type": "turn.completed", "usage": values})
+            self.assertIsNone(workflow._event_usage(event)[0])
+
+    def test_runtime_setting_mismatch_invalidates_call(self):
+        self.assertIsNone(workflow._runtime_settings_match("m", "high", None, None))
+        self.assertTrue(workflow._runtime_settings_match("m", "high", "m", "high"))
+        self.assertFalse(workflow._valid_call({
+            "exit_code": 0, "timed_out": False, "runtime_settings_match": False,
+        }))
+
+    def test_workspace_inventory_rejects_empty_directories_and_dangling_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "source.py").write_text("pass\n", encoding="utf-8")
+            (root / "empty").mkdir()
+            (root / "dangling").symlink_to(root / "missing")
+            (root / "__pycache__").mkdir()
+            (root / "__pycache__" / "source.pyc").write_bytes(b"cache")
+            unexpected = workflow._workspace_inventory(root, {"source.py"})
+        self.assertEqual(unexpected, ["dangling", "empty/"])
 
     def test_unknown_usage_stops_the_next_launch(self):
         ledger = {"schema_version": 1, "calls": [{
