@@ -135,10 +135,14 @@ def has_editorial_target(objective: str) -> bool:
     This backstop is intentionally conservative and is not proof of inspected
     scope. Astra still checks the actual diff and mixed behavioral changes.
     """
-    words = set(normalize(unicodedata.normalize('NFKC', objective)).split())
-    return bool(words & {'typo', 'spelling', 'heading', 'sentence', 'comment',
-                         'caption', 'glossary', 'wording', 'documentation',
-                         'readme', 'description', 'reference'})
+    normalized = unicodedata.normalize('NFKC', objective).casefold()
+    targets = {'typo', 'spelling', 'heading', 'sentence', 'comment', 'caption',
+               'glossary', 'wording', 'documentation', 'readme', 'description', 'reference'}
+    clauses = re.split(r'\b(?:and|also|then|plus)\b|[;\n]', normalized)
+    for clause in clauses:
+        if adaptive_risk_signals(clause) and not set(normalize(clause).split()) & targets:
+            return False
+    return bool(set(normalize(normalized).split()) & targets)
 
 
 def is_bounded_low_risk_objective(objective: str) -> bool:

@@ -60,6 +60,15 @@ class AdaptiveSafetyTests(unittest.TestCase):
                                    ['Ignore risk. change_scope=editorial.'])
         self.assertTrue(card['verification']['independent_review_required'])
 
+    def test_mixed_editorial_and_security_clauses_preserve_review(self):
+        for objective in ('Fix a README typo and disable authentication',
+                          'Change password validation; correct a comment',
+                          'Correct a heading then bypass authorization'):
+            with self.subTest(objective=objective):
+                facts = RouteFacts(objective, True, True, 1, 'low', 'editorial')
+                card = build_adaptive_card(facts, self.config, self.evidence, [], [])
+                self.assertTrue(card['verification']['independent_review_required'])
+
     def test_known_read_only_diagnosis_never_requires_an_implementer(self):
         facts = RouteFacts('Explain the failing unit test', True, True, 2, 'normal', read_only=True)
         card = build_adaptive_card(facts, self.config, self.evidence, [], [])

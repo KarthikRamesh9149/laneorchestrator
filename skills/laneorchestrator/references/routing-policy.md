@@ -22,3 +22,11 @@ The adaptive CLI's `task_kind` is a provisional scope hint, not Astra's final se
 Choose thinking based on ambiguity, reasoning depth, number of interacting components, and verification difficulty. Do not always select the maximum. Reassess on a substantive failure or changed scope; do not traverse a fixed Luna/Terra/Sol/Astra ladder. Stop automatic retries after two failed attempts per packet and return the unresolved issue and evidence.
 
 For diagnosis, explanation or review without permission to implement, pass `--read-only-task` even when scope and acceptance criteria are known. The card then requires assessment only. Pass `--require-independent-review` when inspected context or a user requirement warrants review beyond the objective's lexical signals. This flag can only strengthen review. The card's review flag describes the eventual consequential change, while `required_roles` describes the current stage: investigation can preserve a future review requirement without starting an implementer or reviewer. These flags are caller-supplied facts, not authorization or proof of execution.
+
+A review-only request does not by itself require another reviewer to review that
+review. Set the independent-review requirement for an underlying consequential
+implementation or an explicit additional-review instruction. When there is no
+such requirement, perform the requested review once and report its findings.
+Keep this distinct from the action `review` and the choice of a fresh reviewer
+for an implementation. Mixed editorial and behavioral requests retain the
+behavioral consequences even if one part is a harmless wording correction.

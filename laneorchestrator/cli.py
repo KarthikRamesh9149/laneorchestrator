@@ -45,7 +45,7 @@ from .setup import json_status as setup_json_status, render_result as render_set
 from .voltagent import PackError, apply_install as apply_voltagent_install, pack_inventory, pack_status, preview_install as preview_voltagent_install
 
 
-COMMANDS = ("setup", "doctor", "status", "configure", "route", "orchestrate", "catalog", "profiles", "voltagent", "benchmark", "version")
+COMMANDS = ("setup", "doctor", "status", "configure", "route", "orchestrate", "catalog", "profiles", "voltagent", "benchmark", "version", "policy", "select", "usage")
 PROFILE_ACTIONS = ("install", "update", "adopt", "uninstall")
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
@@ -105,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     _subparser(commands, "version")
     _subparser(commands, "setup")
     _subparser(commands, "policy")
+    usage = _subparser(commands, "usage")
+    usage.add_argument("--ledger", required=True)
+    usage.add_argument("--packet", required=True)
+    usage.add_argument("--max-calls", type=int, default=8)
+    usage.add_argument("--max-retries", type=int, default=2)
+    usage.add_argument("--max-tokens", type=int)
     select = _subparser(commands, "select")
     select.add_argument("--decision", required=True)
     select.add_argument("--host-models", required=True)
@@ -518,9 +524,22 @@ def handle_select(args: argparse.Namespace) -> CommandResult:
     })
 
 
+def handle_usage(args: argparse.Namespace) -> CommandResult:
+    from .usage import assess_usage
+    from .config import parse_config_bytes
+    from .security import read_regular_nofollow
+
+    ledger = parse_config_bytes(read_regular_nofollow(Path(args.ledger), 512 * 1024))
+    result = assess_usage(ledger, args.packet, args.max_calls, args.max_retries, args.max_tokens)
+    if not result['allowed']:
+        return command_result('usage', data=result, errors=[{'code': 'USAGE_LIMIT', 'message': 'Launch blocked by usage policy'}])
+    return command_result('usage', data=result)
+
+
 def dispatch(args: argparse.Namespace) -> CommandResult:
     handlers = {
         "policy": handle_policy,
+        "usage": handle_usage,
         "select": handle_select,
         "setup": handle_setup,
         "doctor": handle_doctor,

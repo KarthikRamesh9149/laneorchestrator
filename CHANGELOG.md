@@ -4,6 +4,11 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ## [Unreleased]
 
+- Add host-ledger usage checks with per-agent counters, call and retry limits,
+  unknown-usage handling, and explicit limits on token-budget enforcement.
+- Preserve independent review for mixed editorial/security clauses and clarify
+  that a review-only request does not automatically require recursive review.
+
 - Rebuild the Astra source quickstart, task-oriented documentation index, adaptive examples, migration recipes and contributor/support guidance. Keep the old fixed-lane examples explicitly isolated as compatibility references.
 
 ### Added
