@@ -48,6 +48,26 @@ remains call one of the hard eight-call total. A policy-valid decision that
 differs from the frozen authored rubric is retained as a routing failure rather
 than discarded; the authored independent-review requirement remains a floor.
 
+If a later call completed and the report stopped at the observed-token ceiling,
+continue only the missing execution suffix with `--resume-run`. For example, an
+explicitly authorised two-million-token ceiling uses:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/benchmark_workflows.py \
+  --run \
+  --codex /Applications/ChatGPT.app/Contents/Resources/codex \
+  --resume-run /private/tmp/laneorchestrator-workflow-benchmark \
+  --timeout 240 \
+  --max-observed-tokens 2000000
+```
+
+This mode accepts only a `budget_stopped` report whose calls form the exact
+router-plus-execution prefix. It validates event usage and the prior ledger,
+re-runs the external verifier against each saved source artifact, preserves all
+completed calls and results, then starts at the first missing arm. Cached input
+is already a subset of `input_tokens`, so the observed total counts input plus
+output once rather than adding cached input a second time.
+
 The run is sequential and has no retry path. Its maximum is eight model calls:
 one Astra/high routing call containing all three tasks plus frozen U006 read-only
 calibration, six implementation calls, and one fresh Sol/high review of all

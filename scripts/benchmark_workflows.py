@@ -182,6 +182,124 @@ def _load_resume_evidence(output, tasks):
     return prior, ledger, payload, call, hashlib.sha256(prior_bytes).hexdigest()
 
 
+def _execution_sequence(tasks):
+    return [(task["id"], arm) for task in tasks for arm in ("adaptive", "fixed")]
+
+
+def _remaining_execution_sequence(tasks, executions):
+    sequence = _execution_sequence(tasks)
+    completed = [(row.get("task_id"), row.get("arm")) for row in executions
+                 if isinstance(row, dict)]
+    if completed != sequence[:len(completed)]:
+        raise BenchmarkError("saved executions are not an exact workflow prefix")
+    return sequence[len(completed):]
+
+
+def _reverify_saved_execution(task, row, output, ledger_record):
+    expected_artifact = (output / "artifacts" / task["id"] / row["arm"]).resolve()
+    artifact = Path(row.get("artifact_directory", "")).resolve()
+    if artifact != expected_artifact or not artifact.is_dir() or artifact.is_symlink():
+        raise BenchmarkError("saved execution artifact directory is invalid")
+    allowed = set(task["editable_files"]) | {"changes.diff", "verification.txt", "final-response.txt"}
+    if _workspace_inventory(artifact, allowed):
+        raise BenchmarkError("saved execution artifact contains unexpected nodes")
+    call = row.get("call")
+    if not isinstance(call, dict) or call.get("call_id") != ledger_record.get("id"):
+        raise BenchmarkError("saved execution call does not match ledger order")
+    if (ledger_record.get("agent") != call["call_id"] or ledger_record.get("packet") != call.get("packet")
+            or ledger_record.get("status") != "completed"
+            or call.get("usage") != ledger_record.get("usage") or not _valid_call(call)):
+        raise BenchmarkError("saved execution call evidence is invalid")
+    events = output / "calls" / (call["call_id"] + "-events.jsonl")
+    final = output / "calls" / (call["call_id"] + "-final.json")
+    if any(not path.is_file() or path.is_symlink() for path in (events, final)):
+        raise BenchmarkError("saved execution call files are missing or linked")
+    usage, _, _, _ = _event_usage(events.read_text(encoding="utf-8", errors="replace"))
+    if usage != ledger_record.get("usage"):
+        raise BenchmarkError("saved execution event usage differs from ledger")
+    if (artifact / "final-response.txt").read_text(encoding="utf-8", errors="replace") != final.read_text(
+            encoding="utf-8", errors="replace")[:20_000]:
+        raise BenchmarkError("saved execution final response differs from call evidence")
+    if not row.get("verification", {}).get("task_passed"):
+        raise BenchmarkError("saved execution was not previously verified as passing")
+    with tempfile.TemporaryDirectory(prefix="laneorchestrator-workflow-resume-check-") as temporary:
+        root = Path(temporary)
+        workspace = root / "work"
+        baseline = _prepare_workspace(task, workspace)
+        for relative in task["editable_files"]:
+            source = artifact / relative
+            if not _is_regular_workspace_source(artifact, relative):
+                raise BenchmarkError("saved execution source is missing, linked, or non-regular")
+            shutil.copy2(source, workspace / relative)
+        fresh = _verify_task(task, workspace, root / "verification", baseline)
+    if not fresh["task_passed"]:
+        raise BenchmarkError("saved execution no longer passes the external verifier")
+    return {relative: _sha256(artifact / relative) for relative in task["editable_files"]}
+
+
+def _load_run_resume_evidence(output, tasks):
+    report_path = output / "report.json"
+    if not report_path.is_file() or report_path.is_symlink():
+        raise BenchmarkError("run resume requires a regular prior report")
+    prior_bytes = report_path.read_bytes()
+    prior = json.loads(prior_bytes)
+    if prior.get("status") != "budget_stopped":
+        raise BenchmarkError("run resume requires a budget_stopped report")
+    if prior.get("fixtures") != _fixture_evidence(tasks):
+        raise BenchmarkError("run resume fixture hashes or provenance differ from the prior report")
+    ledger = prior.get("usage_ledger")
+    executions = prior.get("executions")
+    if (not isinstance(ledger, dict) or set(ledger) != {"schema_version", "calls"}
+            or not isinstance(executions, list) or not 2 <= len(ledger.get("calls", [])) < MAX_CALLS
+            or len(ledger["calls"]) != 1 + len(executions)):
+        raise BenchmarkError("run resume requires one router plus a verified execution prefix")
+    _, _, payload, router_call, _ = _load_resume_evidence_from_ledger(
+        output, tasks, ledger["calls"][0], prior_bytes,
+    )
+    decisions = validate_decisions(payload, tasks)
+    if prior.get("routing", {}).get("decisions") != decisions:
+        raise BenchmarkError("saved routing decisions differ from original router output")
+    remaining = _remaining_execution_sequence(tasks, executions)
+    task_by_id = {task["id"]: task for task in tasks}
+    artifact_hashes = {}
+    for index, row in enumerate(executions, start=1):
+        task = task_by_id[row["task_id"]]
+        artifact_hashes[row["task_id"] + "/" + row["arm"]] = _reverify_saved_execution(
+            task, row, output, ledger["calls"][index],
+        )
+    return prior, ledger, payload, router_call, hashlib.sha256(prior_bytes).hexdigest(), remaining, artifact_hashes
+
+
+def _load_resume_evidence_from_ledger(output, tasks, record, prior_bytes):
+    """Shared router evidence validation for both recovery modes."""
+    report_path = output / "report.json"
+    final_path = output / "calls" / "call-01-router-final.json"
+    events_path = output / "calls" / "call-01-router-events.jsonl"
+    for path in (report_path, final_path, events_path):
+        if not path.is_file() or path.is_symlink():
+            raise BenchmarkError("resume requires regular prior evidence file: " + str(path))
+    if (not isinstance(record, dict) or record.get("id") != "call-01-router"
+            or record.get("packet") != "router" or record.get("status") != "completed"
+            or not isinstance(record.get("usage"), dict)):
+        raise BenchmarkError("resume prior call is not one completed router launch with usage")
+    usage, turns, observed_model, observed_effort = _event_usage(
+        events_path.read_text(encoding="utf-8", errors="replace"))
+    if usage != record["usage"]:
+        raise BenchmarkError("resume router event usage differs from the prior ledger")
+    payload = _json_from_final(final_path)
+    call = {
+        "call_id": "call-01-router", "packet": "router", "requested_model": ROUTER_MODEL,
+        "requested_reasoning_effort": ROUTER_EFFORT, "runtime_observed_model": observed_model,
+        "runtime_observed_reasoning_effort": observed_effort,
+        "runtime_settings_match": _runtime_settings_match(
+            ROUTER_MODEL, ROUTER_EFFORT, observed_model, observed_effort),
+        "exit_code": None, "prior_ledger_status": record["status"], "timed_out": False,
+        "elapsed_seconds": None, "usage": usage, "completed_turns_observed": turns,
+        "automatic_retries": 0, "reused_prior_call": True,
+    }
+    return json.loads(prior_bytes), None, payload, call, hashlib.sha256(prior_bytes).hexdigest()
+
+
 def routing_prompt(tasks, calibration):
     public_calibration = {key: calibration[key] for key in ("id", "category", "objective", "context", "facts")}
     return (
@@ -630,7 +748,9 @@ def execute(args, tasks, calibration):
     output = args.output.resolve()
     if output == ROOT or ROOT in output.parents:
         raise BenchmarkError("live output must be outside the source repository")
-    resuming = args.resume_routing is not None
+    resuming_routing = args.resume_routing is not None
+    resuming_run = args.resume_run is not None
+    resuming = resuming_routing or resuming_run
     if not resuming and output.exists() and any(output.iterdir()):
         raise BenchmarkError("live output directory must be absent or empty")
     output.mkdir(parents=True, exist_ok=resuming)
@@ -642,11 +762,17 @@ def execute(args, tasks, calibration):
     routing_payload = None
     routing_call = None
     prior_report_sha256 = None
-    if resuming:
+    remaining_sequence = _execution_sequence(tasks)
+    saved_artifact_hashes = {}
+    if resuming_run:
+        prior, ledger, routing_payload, routing_call, prior_report_sha256, remaining_sequence, saved_artifact_hashes = (
+            _load_run_resume_evidence(output, tasks)
+        )
+    elif resuming_routing:
         prior, ledger, routing_payload, routing_call, prior_report_sha256 = _load_resume_evidence(output, tasks)
     else:
         ledger = {"schema_version": 1, "calls": []}
-    report = {
+    report = dict(prior) if resuming_run else {
         "schema_version": 1,
         "scope": "Three repository-derived executable fixtures; not a benchmark of broad user-repository work.",
         "status": "running", "live_calls": len(ledger["calls"]), "automatic_retries": 0,
@@ -659,7 +785,22 @@ def execute(args, tasks, calibration):
         "fixtures": _fixture_evidence(tasks),
         "routing": None, "executions": [], "independent_review": None, "comparison": [],
     }
-    if resuming:
+    if resuming_run:
+        for key in ("stop_reason", "final_usage_assessment", "error"):
+            report.pop(key, None)
+        report["status"] = "running"
+        report["limits"] = {
+            "max_calls": MAX_CALLS, "max_observed_tokens": args.max_observed_tokens,
+            "per_call_timeout_seconds": args.timeout,
+            "token_limit_kind": "stop before next call after observed usage reaches the ceiling; one call may overshoot",
+        }
+        report["resume_run"] = {
+            "prior_report_sha256": prior_report_sha256, "prior_calls_preserved": len(ledger["calls"]),
+            "prior_executions_preserved": len(report["executions"]),
+            "saved_artifacts_reverified": saved_artifact_hashes,
+            "next_execution": list(remaining_sequence[0]) if remaining_sequence else None,
+        }
+    elif resuming_routing:
         report["resume"] = {
             "reused_router_call": True, "prior_report_sha256": prior_report_sha256,
             "prior_status": prior.get("status"), "prior_error": prior.get("error"),
@@ -695,8 +836,11 @@ def execute(args, tasks, calibration):
             _write_report(report_path, report)
             decision_by_id = {row["id"]: row for row in decisions}
             call_number = len(ledger["calls"]) + 1
+            completed = {(row["task_id"], row["arm"]) for row in report["executions"]}
             for task in tasks:
                 for arm in ("adaptive", "fixed"):
+                    if (task["id"], arm) in completed:
+                        continue
                     decision = decision_by_id[task["id"]]
                     model = decision["model"] if arm == "adaptive" else FIXED_MODEL
                     effort = decision["reasoning_effort"] if arm == "adaptive" else FIXED_EFFORT
@@ -787,6 +931,8 @@ def main():
     parser.add_argument("--output", type=Path, help="New/empty external evidence directory")
     parser.add_argument("--resume-routing", type=Path,
                         help="Reuse the single completed router call in this prior report directory")
+    parser.add_argument("--resume-run", type=Path,
+                        help="Continue a validated budget-stopped run without repeating completed calls")
     parser.add_argument("--timeout", type=int, default=240, help="Hard seconds per call")
     parser.add_argument("--max-observed-tokens", type=int, default=DEFAULT_TOKEN_CEILING)
     args = parser.parse_args()
@@ -803,10 +949,13 @@ def main():
         return 0
     if args.codex is None or not args.codex.is_file() or not os.access(args.codex, os.X_OK):
         parser.error("--run requires an executable --codex path")
-    if args.resume_routing is not None:
-        if args.output is not None and args.output.resolve() != args.resume_routing.resolve():
-            parser.error("--output and --resume-routing must identify the same directory")
-        args.output = args.resume_routing
+    if args.resume_routing is not None and args.resume_run is not None:
+        parser.error("choose only one resume mode")
+    resume_path = args.resume_run if args.resume_run is not None else args.resume_routing
+    if resume_path is not None:
+        if args.output is not None and args.output.resolve() != resume_path.resolve():
+            parser.error("--output and the resume directory must identify the same directory")
+        args.output = resume_path
     if args.output is None:
         parser.error("--run requires --output")
     if type(args.timeout) is not int or not 30 <= args.timeout <= 900:

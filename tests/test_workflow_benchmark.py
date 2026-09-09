@@ -188,6 +188,29 @@ class WorkflowExecutionSafetyTests(unittest.TestCase):
         self.assertFalse(assessment["allowed"])
         self.assertIn("token_usage_unknown", assessment["stop_reasons"])
 
+    def test_budget_resume_keeps_two_calls_and_starts_with_fixed_bug_arm(self):
+        tasks = workflow.load_tasks()
+        executions = [{"task_id": "bug-json-duplicates", "arm": "adaptive"}]
+        self.assertEqual(
+            workflow._remaining_execution_sequence(tasks, executions)[0],
+            ("bug-json-duplicates", "fixed"),
+        )
+        ledger = {"schema_version": 1, "calls": [
+            {"id": "call-01-router", "packet": "router", "agent": "call-01-router",
+             "status": "completed", "usage": {"input_tokens": 41818, "output_tokens": 608,
+                                                  "cached_input_tokens": 0}},
+            {"id": "call-02-bug-json-duplicates-adaptive", "packet": "bug-json-duplicates-adaptive",
+             "agent": "call-02-bug-json-duplicates-adaptive", "status": "completed",
+             "usage": {"input_tokens": 286868, "output_tokens": 2531,
+                       "cached_input_tokens": 246016}},
+        ]}
+        assessment = workflow.assess_usage(
+            ledger, "bug-json-duplicates-fixed", max_calls=8, max_retries=0, max_tokens=2_000_000,
+        )
+        self.assertTrue(assessment["allowed"])
+        self.assertEqual(assessment["calls"], 2)
+        self.assertEqual(assessment["observed_tokens"], 331825)
+
     def test_call_disables_agent_fanout_and_host_skill_discovery(self):
         captured = {}
 

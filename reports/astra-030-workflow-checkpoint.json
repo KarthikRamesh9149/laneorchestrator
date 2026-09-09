@@ -1,0 +1,366 @@
+{
+  "automatic_retries": 0,
+  "comparison": [
+    {
+      "complete": false,
+      "task_id": "bug-json-duplicates"
+    },
+    {
+      "complete": false,
+      "task_id": "feature-capability-ranking"
+    },
+    {
+      "complete": false,
+      "task_id": "refactor-route-summary"
+    }
+  ],
+  "executions": [
+    {
+      "arm": "adaptive",
+      "call": {
+        "automatic_retries": 0,
+        "call_id": "call-02-bug-json-duplicates-adaptive",
+        "completed_turns_observed": 1,
+        "elapsed_seconds": 63.208,
+        "exit_code": 0,
+        "packet": "bug-json-duplicates-adaptive",
+        "requested_model": "gpt-5.6-terra",
+        "requested_reasoning_effort": "high",
+        "runtime_observed_model": null,
+        "runtime_observed_reasoning_effort": null,
+        "runtime_settings_match": null,
+        "timed_out": false,
+        "usage": {
+          "cached_input_tokens": 246016,
+          "input_tokens": 286868,
+          "output_tokens": 2531
+        }
+      },
+      "category": "bug",
+      "task_id": "bug-json-duplicates",
+      "verification": {
+        "external_tests_unchanged": true,
+        "invalid_edited_sources": [],
+        "source_modified": true,
+        "task_passed": true,
+        "test_exit_code": 0,
+        "unexpected_workspace_files": [],
+        "verification_elapsed_seconds": 0.089
+      }
+    }
+  ],
+  "final_usage_assessment": {
+    "agents": {
+      "call-01-router": {
+        "cached_input_tokens": 0,
+        "calls": 1,
+        "input_tokens": 41818,
+        "output_tokens": 608,
+        "unknown_calls": 0
+      },
+      "call-02-bug-json-duplicates-adaptive": {
+        "cached_input_tokens": 246016,
+        "calls": 1,
+        "input_tokens": 286868,
+        "output_tokens": 2531,
+        "unknown_calls": 0
+      }
+    },
+    "allowed": false,
+    "calls": 2,
+    "enforcement": "host_must_check_and_reserve_before_every_launch",
+    "limits": {
+      "max_calls": 8,
+      "max_retries": 0,
+      "max_tokens": 250000
+    },
+    "observed_tokens": 331825,
+    "packet_attempts": 0,
+    "packets": {
+      "bug-json-duplicates-adaptive": {
+        "cached_input_tokens": 246016,
+        "calls": 1,
+        "input_tokens": 286868,
+        "output_tokens": 2531,
+        "unknown_calls": 0
+      },
+      "router": {
+        "cached_input_tokens": 0,
+        "calls": 1,
+        "input_tokens": 41818,
+        "output_tokens": 608,
+        "unknown_calls": 0
+      }
+    },
+    "stop_reasons": [
+      "observed_token_limit_reached"
+    ],
+    "token_coverage": "complete",
+    "token_limit_kind": "stop_after_observed_usage_not_server_hard_cap",
+    "totals": {
+      "cached_input_tokens": 246016,
+      "input_tokens": 328686,
+      "output_tokens": 3139
+    },
+    "unknown_calls": 0
+  },
+  "fixtures": [
+    {
+      "category": "bug",
+      "id": "bug-json-duplicates",
+      "provenance": {
+        "adaptation": "A deliberately regressed, dependency-free fixture of the repository's duplicate-key JSON boundary. It is representative repository code, not a claim about a current repository bug.",
+        "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+        "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+        "source_paths": [
+          "laneorchestrator/security.py"
+        ]
+      },
+      "test_hashes": {
+        "tests/test_json_guard.py": "23bcfddac0d41db6d1eecf9febb4fcba9e037a5bfe21c1d51c36aea779dcf302"
+      },
+      "title": "Reject duplicate JSON keys at every nesting level"
+    },
+    {
+      "category": "feature",
+      "id": "feature-capability-ranking",
+      "provenance": {
+        "adaptation": "A reduced feature fixture based on the repository's bounded capability ranking concepts. Its contract is benchmark-specific and does not reproduce the full production ranker.",
+        "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+        "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+        "source_paths": [
+          "laneorchestrator/discovery.py"
+        ]
+      },
+      "test_hashes": {
+        "tests/test_capability_rank.py": "49bbec005af845d3ab474d5836d417144e5dfc280e13b6640b1520012b91571d"
+      },
+      "title": "Add deterministic capability ranking"
+    },
+    {
+      "category": "refactor",
+      "id": "refactor-route-summary",
+      "provenance": {
+        "adaptation": "A benchmark-only extraction refactor modelled on repeated requested-selection report construction. It is representative code, not a copy of a current production function.",
+        "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+        "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+        "source_paths": [
+          "laneorchestrator/adaptive.py",
+          "scripts/evaluate_astra_live.py"
+        ]
+      },
+      "test_hashes": {
+        "tests/test_route_summary.py": "888f530ac742e7d1eeb80462387b7121259b5526590f5e01d98d243e3c5b99dc"
+      },
+      "title": "Extract shared route selection validation"
+    }
+  ],
+  "host_discovery_boundary": "Benchmark subprocesses request disabled multi-agent features and skipped host skill discovery, but runtime evidence may still show host metadata loading. This does not test installed named profiles or automatic specialist discovery.",
+  "independent_review": null,
+  "limits": {
+    "max_calls": 8,
+    "max_observed_tokens": 250000,
+    "per_call_timeout_seconds": 240,
+    "token_limit_kind": "stop before next call after observed usage reaches the ceiling; one call may overshoot"
+  },
+  "live_calls": 2,
+  "resume": {
+    "available_fixture_hashes_and_provenance_matched": true,
+    "prior_error": "router task kind differs from withheld authored rubric: bug-json-duplicates",
+    "prior_report_sha256": "b85245bea814f3dde8ea3727c11ceb8bdd624316d1f5730cc4cac10d5c92b6a8",
+    "prior_status": "failed",
+    "reused_router_call": true
+  },
+  "routing": {
+    "authored_rubric_passed": false,
+    "calibration": {
+      "decision": {
+        "action": "review",
+        "id": "U006",
+        "independent_review": false,
+        "model": "gpt-5.6-sol",
+        "output_checks": [
+          "Identify responsive layout regressions across the breakpoints covered by the existing test plan.",
+          "Check form state preservation, validation, and error rendering against acceptance criteria.",
+          "Check analytics event triggers and payloads for missing or duplicate events; report findings with file references."
+        ],
+        "reason": "The 14-file review spans interacting UI behaviors and merits high reasoning effort. Sol fits read-only review; the stated normal risk does not justify an additional independent reviewer.",
+        "reasoning_effort": "high",
+        "task_kind": "review"
+      },
+      "passed": true
+    },
+    "calibration_corpus_sha256": "3ca7ccc00cf73e5f09cefc5918c12749ab6e7d24cddcff9e7583c50dad64b632",
+    "calibration_source": "benchmarks/astra-use-cases-v1.json#U006",
+    "call": {
+      "automatic_retries": 0,
+      "call_id": "call-01-router",
+      "completed_turns_observed": 1,
+      "elapsed_seconds": null,
+      "exit_code": null,
+      "packet": "router",
+      "prior_ledger_status": "completed",
+      "requested_model": "gpt-6-astra",
+      "requested_reasoning_effort": "high",
+      "reused_prior_call": true,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "runtime_settings_match": null,
+      "timed_out": false,
+      "usage": {
+        "cached_input_tokens": 0,
+        "input_tokens": 41818,
+        "output_tokens": 608
+      }
+    },
+    "decisions": [
+      {
+        "authored_rubric": {
+          "expected": {
+            "independent_review": true,
+            "task_kinds": [
+              "routine",
+              "demanding"
+            ]
+          },
+          "failures": [
+            "task_kind differs from withheld authored rubric",
+            "independent_review differs from withheld authored rubric"
+          ],
+          "passed": false
+        },
+        "id": "bug-json-duplicates",
+        "independent_review": false,
+        "model": "gpt-5.6-terra",
+        "reason": "A bounded single-file parsing fix with explicit nesting, escaped-key, and value-semantics requirements. Terra/high suits the precision needed; the supplied fixture context does not establish consequences requiring fresh review.",
+        "reasoning_effort": "high",
+        "task_kind": "small"
+      },
+      {
+        "authored_rubric": {
+          "expected": {
+            "independent_review": false,
+            "task_kinds": [
+              "routine"
+            ]
+          },
+          "failures": [],
+          "passed": true
+        },
+        "id": "feature-capability-ranking",
+        "independent_review": false,
+        "model": "gpt-5.6-terra",
+        "reason": "Input validation, alias normalization, trust-based deduplication, deterministic ranking, and nonmutation form several interacting requirements. This is routine implementation work within one known file, without demonstrated high-impact consequences.",
+        "reasoning_effort": "medium",
+        "task_kind": "routine"
+      },
+      {
+        "authored_rubric": {
+          "expected": {
+            "independent_review": false,
+            "task_kinds": [
+              "small",
+              "routine"
+            ]
+          },
+          "failures": [],
+          "passed": true
+        },
+        "id": "refactor-route-summary",
+        "independent_review": false,
+        "model": "gpt-5.6-luna",
+        "reason": "Mechanical extraction in one file with explicit signature, error, payload, and call-count preservation requirements. Luna/high is sufficient for this small, low-risk refactor.",
+        "reasoning_effort": "high",
+        "task_kind": "small"
+      }
+    ],
+    "expected_rubric_withheld_from_router": true
+  },
+  "runtime_observation": "Requested settings are CLI arguments. Observed model/effort remain null unless emitted by runtime events.",
+  "schema_version": 1,
+  "scope": "Three repository-derived executable fixtures; not a benchmark of broad user-repository work.",
+  "status": "budget_stopped",
+  "stop_reason": {
+    "agents": {
+      "call-01-router": {
+        "cached_input_tokens": 0,
+        "calls": 1,
+        "input_tokens": 41818,
+        "output_tokens": 608,
+        "unknown_calls": 0
+      },
+      "call-02-bug-json-duplicates-adaptive": {
+        "cached_input_tokens": 246016,
+        "calls": 1,
+        "input_tokens": 286868,
+        "output_tokens": 2531,
+        "unknown_calls": 0
+      }
+    },
+    "allowed": false,
+    "calls": 2,
+    "enforcement": "host_must_check_and_reserve_before_every_launch",
+    "limits": {
+      "max_calls": 8,
+      "max_retries": 0,
+      "max_tokens": 250000
+    },
+    "observed_tokens": 331825,
+    "packet_attempts": 0,
+    "packets": {
+      "bug-json-duplicates-adaptive": {
+        "cached_input_tokens": 246016,
+        "calls": 1,
+        "input_tokens": 286868,
+        "output_tokens": 2531,
+        "unknown_calls": 0
+      },
+      "router": {
+        "cached_input_tokens": 0,
+        "calls": 1,
+        "input_tokens": 41818,
+        "output_tokens": 608,
+        "unknown_calls": 0
+      }
+    },
+    "stop_reasons": [
+      "observed_token_limit_reached"
+    ],
+    "token_coverage": "complete",
+    "token_limit_kind": "stop_after_observed_usage_not_server_hard_cap",
+    "totals": {
+      "cached_input_tokens": 246016,
+      "input_tokens": 328686,
+      "output_tokens": 3139
+    },
+    "unknown_calls": 0
+  },
+  "test_boundary": "Authoritative tests stay outside task workspaces and are write-protected in verifier copies. The host sandbox may still allow read access; this is not an inaccessible holdout claim.",
+  "usage_ledger": {
+    "calls": [
+      {
+        "agent": "call-01-router",
+        "id": "call-01-router",
+        "packet": "router",
+        "status": "completed",
+        "usage": {
+          "cached_input_tokens": 0,
+          "input_tokens": 41818,
+          "output_tokens": 608
+        }
+      },
+      {
+        "agent": "call-02-bug-json-duplicates-adaptive",
+        "id": "call-02-bug-json-duplicates-adaptive",
+        "packet": "bug-json-duplicates-adaptive",
+        "status": "completed",
+        "usage": {
+          "cached_input_tokens": 246016,
+          "input_tokens": 286868,
+          "output_tokens": 2531
+        }
+      }
+    ],
+    "schema_version": 1
+  }
+}
