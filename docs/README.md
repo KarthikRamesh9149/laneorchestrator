@@ -17,6 +17,7 @@ LaneOrchestrator turns a normal Codex request into scoped agent work. Astra choo
 ## Configure and integrate
 
 - [Configuration](configuration.md): presets, preferences and profile lifecycle.
+- [Usage controls](usage-controls.md): per-agent counters, bounded delegation and stop conditions.
 - [Commands](commands.md): module entry point, JSON, setup and advanced operations.
 - [Concepts](concepts.md): responsibilities, evidence and selection.
 - [Compatibility](compatibility.md): platforms, Python, host requirements and schemas.
@@ -26,6 +27,8 @@ LaneOrchestrator turns a normal Codex request into scoped agent work. Astra choo
 
 - [Live validation](live-validation.md) separates observed fixture results from unknown backend settings.
 - [Benchmarks](benchmarks.md) explains what the offline corpora measure.
+- [Workflow comparison](workflow-benchmark.md) runs a bounded adaptive-versus-fixed experiment on executable fixtures.
+- [User feedback](user-feedback.md) gives a short protocol for trying the skill on your own repository.
 - [Security model](security-model.md) and [threat model](threat-model.md) define trust boundaries.
 - [Contributing](../CONTRIBUTING.md), [support](../SUPPORT.md) and [roadmap](roadmap.md) explain how to help.
 - [Media production](media-production.md) documents the recreated launch workflows.

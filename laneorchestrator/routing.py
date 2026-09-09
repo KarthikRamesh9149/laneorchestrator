@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 import json
 import re
+import unicodedata
 from typing import Dict, List, Optional, Sequence
 
 
@@ -65,6 +66,9 @@ class RouteFacts:
     acceptance_criteria: bool
     files: int
     risk: str
+    change_scope: str = "behavior"
+    read_only: bool = False
+    require_review: bool = False
 
 
 def normalize(value: str) -> str:
@@ -90,6 +94,10 @@ def validate_route_facts(facts: RouteFacts) -> RouteFacts:
         raise ValueError("--files must be an integer")
     if type(facts.risk) is not str:
         raise ValueError("--risk-assessment must be a string")
+    if type(facts.change_scope) is not str or facts.change_scope not in ("behavior", "editorial"):
+        raise ValueError("--change-scope must be behavior or editorial")
+    if type(facts.read_only) is not bool or type(facts.require_review) is not bool:
+        raise ValueError("read-only and independent-review facts must be booleans")
     if not facts.objective.strip():
         raise ValueError("--objective must not be blank")
     if len(facts.objective.strip()) > MAX_OBJECTIVE_CHARS:
@@ -105,6 +113,54 @@ def high_risk_signals(objective: str) -> List[str]:
     """Return normalized, sorted high-risk terms and phrases from an objective."""
     normalized = normalize(objective)
     return sorted(term for term in HIGH_RISK_TERMS | HIGH_RISK_PHRASES if contains_term(normalized, term))
+
+
+def _adaptive_text(objective: str) -> str:
+    """Normalize the same visible text for both risk and scope backstops."""
+    # Detect compatibility-width text, invisible format characters and common
+    # Latin/Cyrillic lookalikes without treating every non-English task as risky.
+    # This is a lexical backstop, not a substitute for Astra's semantic review.
+    visible = ''.join(char for char in unicodedata.normalize('NFKC', objective).casefold()
+                      if unicodedata.category(char) != 'Cf')
+    visible = visible.translate(str.maketrans({
+        'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y',
+        'х': 'x', 'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd',
+    }))
+    return visible
+
+
+def adaptive_risk_signals(objective: str) -> List[str]:
+    """Unicode-aware lexical evidence for the adaptive (v2) contract."""
+    return high_risk_signals(_adaptive_text(objective))
+
+
+def has_editorial_target(objective: str) -> bool:
+    """Require visible editorial scope before discounting a risk-topic word.
+
+    This backstop is intentionally conservative and is not proof of inspected
+    scope. Astra still checks the actual diff and mixed behavioral changes.
+    """
+    normalized = _adaptive_text(objective)
+    if set(adaptive_risk_signals(normalized)) & {'password', 'secret', 'secrets', 'credential', 'credentials', 'access token', 'api key', 'private key', 'signing key'}:
+        return False
+    targets = {'typo', 'spelling', 'heading', 'sentence', 'comment', 'caption',
+               'glossary', 'wording', 'documentation', 'readme', 'description', 'reference'}
+    words = set(normalize(normalized).split())
+    # Positive vocabulary for a narrow wording-only objective, not an expanding
+    # behavioral verb denylist. Unknown phrasing retains review when risk words
+    # are present. This gate never affects ordinary low-risk tasks without them.
+    editorial_words = targets | {
+        'fix', 'correct', 'rename', 'update', 'add', 'please', 'one', 'a', 'an',
+        'the', 'in', 'of', 'for', 'from', 'to', 'about', 'describing', 'with',
+        'and', 'spelling', 'punctuation', 'misspelled', 'misleading', 'stale',
+        'security', 'guide', 'authentication', 'authorization', 'oauth',
+        'password', 'privacy', 'policy', 'invoice', 'help', 'page', 'schema',
+        'file', 'index', 'clinician', 'command', 'example', 'contributor',
+        'architecture', 'overview', 'unit', 'test', 'benchmark', 'event',
+        'name', 'adapter', 'database', 'data', 'store', 'sol', 'terra', 'low',
+        'high', 'using',
+    }
+    return bool(words & targets) and words.issubset(editorial_words)
 
 
 def is_bounded_low_risk_objective(objective: str) -> bool:

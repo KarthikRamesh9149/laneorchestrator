@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "bug-json-duplicates",
+  "category": "bug",
+  "title": "Reject duplicate JSON keys at every nesting level",
+  "prompt": "Fix json_guard.py so parse_json_object accepts one JSON object and rejects duplicate object keys at every nesting level with DuplicateJSONKeyError. JSON-equivalent escaped keys count as duplicates. Keep standard json.loads value semantics and reject a non-object top level with ValueError. Change only json_guard.py. Do not seek or edit benchmark tests. Run any checks available inside this task repository and keep the final response under 120 words.",
+  "editable_files": [
+    "json_guard.py"
+  ],
+  "test_command": [
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-v"
+  ],
+  "provenance": {
+    "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+    "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+    "source_paths": [
+      "laneorchestrator/security.py"
+    ],
+    "adaptation": "A deliberately regressed, dependency-free fixture of the repository's duplicate-key JSON boundary. It is representative repository code, not a claim about a current repository bug."
+  },
+  "expected_routing": {
+    "task_kinds": [
+      "routine",
+      "demanding"
+    ],
+    "independent_review": true
+  }
+}

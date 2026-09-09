@@ -1,5 +1,9 @@
 # Command reference
 
+The `usage` command reports per-packet and per-agent counters and checks whether
+the next launch fits a host-owned call/retry/token policy. See
+[usage controls](usage-controls.md) for its ledger contract and enforcement limits.
+
 The canonical module command is `python3 -m laneorchestrator` from a source checkout or a resolved installed plugin root. A marketplace-installed user in an arbitrary workspace should use `$laneorchestrator`, which resolves that root before using the module. Every command accepts `--json` for the schema-versioned result envelope. The public command names are `policy`, `select`, `setup`, `doctor`, `status`, `version`, `configure`, `route`, `orchestrate`, `catalog`, `profiles`, `voltagent`, and `benchmark`.
 
 ## Recommended first-run setup
@@ -54,6 +58,8 @@ Native Windows supports read-only commands only in this release. Use WSL for con
 ## Adaptive selection
 
 `policy --json` returns the configured selection preset and task preferences. `orchestrate --json` returns a schema-2 scope card with an explicit pending-decision status. `orchestrate --legacy` preserves the old schema-1 fixed-lane card.
+
+Adaptive scope facts include `--change-scope editorial` for inspected non-operational wording changes, `--read-only-task` for diagnosis or review without implementation, and `--require-independent-review` for consequences identified in context or an explicit user review requirement. Editorial scope suppresses lexical escalation only with low-risk, known-area and acceptance facts and a recognizable editorial target in the objective; risk signals remain visible. These are assertions from the invoking host, not permission grants or runtime evidence. See the [selection policy](../skills/laneorchestrator/references/routing-policy.md) for the exact boundaries.
 
 `select --decision <decision.json> --host-models <host-models.json> --task-kind routine --json` validates Astra's decision and returns explicit `model`, `reasoning_effort`, and fresh-context spawn settings. The decision file contains `model`, `reasoning_effort`, and `reason`. The host file maps model IDs to supported thinking levels. Both files are bounded, regular, non-symlink JSON. The CLI cannot authenticate arbitrary caller-supplied host evidence; the invoking host must obtain it from its active capabilities.
 

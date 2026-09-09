@@ -69,6 +69,7 @@ DOCUMENTED_LOCAL_COMMANDS = (
     "python3 -m laneorchestrator voltagent install apply --token <bound-token> --approval approve:<approval-digest> --json",
     "python3 -m laneorchestrator benchmark --json",
     "python3 -m unittest tests.test_acceptance_100 -v",
+    "python3 scripts/evaluate_astra.py --output /tmp/astra-contracts.json",
     "python3 scripts/healthcheck.py",
     "python3 scripts/check_docs.py",
     "sh scripts/validate.sh",
@@ -127,8 +128,9 @@ class DocumentationTests(unittest.TestCase):
         for text in ("Astra-led orchestration", "172 bundled specialist agents", "docs/assets/laneorchestrator-product-demo.gif", "docs/assets/laneorchestrator-product-demo.mp4", "```mermaid", "Assesses scope, complexity, and risk", "No separate Volt download is required.", "Activate the bundled specialists"):
             self.assertIn(text, first)
         self.assertLess(first.index("docs/assets/laneorchestrator-product-demo.gif"), first.index("```mermaid"))
-        self.assertIn("--ref v0.2.4", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
-        self.assertIn("not included in that existing release", first)
+        self.assertIn("--ref v0.3.0", (ROOT / "docs/upgrading.md").read_text(encoding="utf-8"))
+        self.assertIn("v0.3.0 includes the Astra workflow", first)
+        self.assertIn("release assets and evidence", first)
         self.assertIn("git clone --branch main", first)
         self.assertIn("codex plugin marketplace add .", first)
         self.assertIn("docs/upgrading.md", first)
@@ -198,6 +200,8 @@ class DocumentationTests(unittest.TestCase):
                 arguments = shlex.split(command)
                 if arguments[0] == "python3":
                     arguments[0] = sys.executable
+                if command.startswith("python3 scripts/evaluate_astra.py"):
+                    arguments[-1] = str(home / "astra-contracts.json")
                 if command.startswith("python3 -m laneorchestrator voltagent install apply"):
                     arguments = [
                         sys.executable, "-m", "laneorchestrator", "voltagent", "install", "apply",
@@ -207,6 +211,12 @@ class DocumentationTests(unittest.TestCase):
                     arguments, cwd=ROOT, env=environment, text=True, capture_output=True, check=False
                 )
                 self.assertNotIn("Traceback", result.stderr, command)
+                if command.startswith("python3 scripts/evaluate_astra.py"):
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    evaluated = json.loads((home / "astra-contracts.json").read_text())
+                    self.assertEqual(evaluated["counts"], {"U": {"passed": 200, "total": 200},
+                                                          "E": {"passed": 100, "total": 100}})
+                    continue
                 if command == "python3 -m laneorchestrator --help":
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertIn("usage: laneorchestrator", result.stdout)

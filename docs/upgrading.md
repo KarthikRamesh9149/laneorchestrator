@@ -4,21 +4,24 @@
 
 | Source | What it contains | Update behavior |
 | --- | --- | --- |
-| `main` | Astra-led adaptive orchestration, current documentation and the new demo | Moving source channel; inspect the commit and CI before updating |
+| `main` | The latest Astra source | Moving source channel; inspect the commit and CI before updating |
+| `v0.3.0` | Astra-led adaptive orchestration and per-task model/thinking selection | Pinned release channel; check its assets, attestation and release evidence |
 | `v0.2.4` | The previously published fixed-lane version | Immutable release; does not contain Astra support |
 
-Package and manifest versions on `main` still read `0.2.4` pending the next release. Use the Git commit as well as the version when reporting an Astra-source issue. Merging source changes does not publish a new release or change an existing tag.
+Use the Git commit as well as the version when reporting a source issue. Merging
+source changes does not publish a release or create a tag. Check the repository's
+release page for available tagged releases and their evidence.
 
-For the older published release only:
+After the verified `v0.3.0` release is public, install its pinned snapshot with:
 
 ```sh
-codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.2.4
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.3.0
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
-For current Astra behavior, follow the [source quickstart](getting-started.md). You can also register a Git marketplace with `--ref main`; the source-checkout route is documented first because it gives you an explicit directory for setup and recovery.
+Until then, follow the [source quickstart](getting-started.md) for current Astra behavior. You can also register a Git marketplace with `--ref main`; the source-checkout route is documented first because it gives you an explicit directory for setup and recovery. The existing `v0.2.4` command remains in its historical release notes.
 
-## Upgrade an existing installation to Astra
+## Upgrade an existing installation to v0.3.0
 
 1. Finish active work using the old profiles. Record the source/tag you currently use and keep any local edits.
 2. Obtain the current `main` checkout using the clone command in Getting Started. Review its commit, changelog and CI.
@@ -36,12 +39,14 @@ codex plugin marketplace add .
 codex plugin add laneorchestrator@laneorchestrator
 ```
 
-5. If you have no managed profiles, run the interactive `setup` command. If you already have old profiles, migrate **both** sets through the reviewed lifecycle below.
+5. If you have no managed profiles, run the interactive `setup` command. If you already have old profiles, migrate **both** sets through the reviewed lifecycle below. Exact v0.1.0 defaults and the repository's initial pre-v0.1.0 control profiles can use `profiles adopt preview`; unknown or user-edited files remain refused. Do not repair modes or overwrite files by hand.
 
 Every module command below runs from the checkout. Prefix the command fragments with `python3 -m laneorchestrator`.
 
 | Step | Command fragment | What to inspect |
 | --- | --- | --- |
+| Preview exact legacy adoption, when reported | `profiles adopt preview --json` | Four recognized legacy files, proposed v0.3.0 contents, private modes and receipt |
+| Apply exact legacy adoption | `profiles adopt apply --token <bound-token> --approval approve:<approval-digest> --json` | Use only the token and digest from the reviewed adoption preview |
 | Preview core migration | `profiles update preview --json` | Four destinations, proposed contents, exact changes |
 | Apply that preview | `profiles update apply --token <bound-token> --approval approve:<approval-digest> --json` | Use only the token and digest from the preview you just approved |
 | Preview specialist migration | `voltagent update preview --json` | All recognized old/current/missing specialist states |
@@ -67,4 +72,4 @@ Then remove the plugin and marketplace using the two removal commands above. Thi
 
 ## Recover from a failed migration
 
-Stop using expired previews. Inspect the error and current `status` output. For a known partial specialist state, create a fresh `voltagent update preview`; for a user-edited profile, compare and preserve your edits before deliberately reconciling it. See [troubleshooting](troubleshooting.md). Never remove a conflict merely because its filename starts with LaneOrchestrator.
+Stop using expired previews. Inspect the error and current `status` output. For a known partial specialist state, create a fresh `voltagent update preview`; for a recognized unreceipted historical control set, use `profiles adopt preview`; for a user-edited profile, compare and preserve your edits before deliberately reconciling it. See [troubleshooting](troubleshooting.md). Never remove a conflict merely because its filename starts with LaneOrchestrator.

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "feature-capability-ranking",
+  "category": "feature",
+  "title": "Add deterministic capability ranking",
+  "prompt": "Implement rank_capabilities in capability_rank.py. Tokenize ASCII letters/digits case-insensitively, normalize the reviewed aliases js->javascript, auth->authentication, k8s->kubernetes, and ignore the stop words already declared. Validate all inputs. Deduplicate capabilities by case-insensitive name, retaining the most trusted source (system, then user, then plugin-cache, then project). Rank by descending number of distinct query tokens matched in name plus description, then source trust, then case-insensitive name. Return at most limit new dictionaries with exactly name, source, score, and sorted matched_terms; score is the match count. Exclude zero-match candidates and do not mutate inputs. Change only capability_rank.py. Do not seek or edit benchmark tests. Run any checks available inside this task repository and keep the final response under 120 words.",
+  "editable_files": [
+    "capability_rank.py"
+  ],
+  "test_command": [
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-v"
+  ],
+  "provenance": {
+    "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+    "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+    "source_paths": [
+      "laneorchestrator/discovery.py"
+    ],
+    "adaptation": "A reduced feature fixture based on the repository's bounded capability ranking concepts. Its contract is benchmark-specific and does not reproduce the full production ranker."
+  },
+  "expected_routing": {
+    "task_kinds": [
+      "routine"
+    ],
+    "independent_review": false
+  }
+}

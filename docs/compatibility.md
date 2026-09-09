@@ -2,7 +2,7 @@
 
 ## Runtime contract
 
-LaneOrchestrator's support target is Python 3.9-3.14 with zero runtime dependencies beyond the Python standard library. The package and plugin manifests are versioned together at `0.2.4`, and the CLI JSON envelope retains schema version `1`. Adaptive orchestration payloads and new configuration writes use schema version `2`; schema-1 configurations remain readable.
+LaneOrchestrator's support target is Python 3.9-3.14 with zero runtime dependencies beyond the Python standard library. The package and plugin manifests are versioned together at `0.3.0`, and the CLI JSON envelope retains schema version `1`. Adaptive orchestration payloads and new configuration writes use schema version `2`; schema-1 configurations remain readable.
 
 The release CI matrix covers Ubuntu and macOS on Python 3.9 and 3.14, plus an explicit Windows 3.9/3.14 read-only control-plane partition. The `v0.2.3` release commit completed that matrix successfully on 2026-08-12. Later changes still require their own CI evidence; a past green run does not certify an untested revision.
 
@@ -14,12 +14,12 @@ macOS and Linux support the read-only control plane and POSIX mutation controls.
 
 ## Compatibility behavior
 
-The legacy `route.py`, `catalog.py`, and installer scripts are compatibility wrappers through version `0.2.4`. The canonical module interface is `python3 -m laneorchestrator` from a source checkout or resolved installed plugin root; marketplace users in an arbitrary workspace use `$laneorchestrator`. The guided setup command requires POSIX/WSL TTY input and output; its JSON form is read-only. Plugin removal does not remove managed profiles or configuration; lifecycle cleanup remains explicit and previewed.
+The legacy `route.py`, `catalog.py`, and installer scripts are compatibility wrappers through version `0.3.0`. The canonical module interface is `python3 -m laneorchestrator` from a source checkout or resolved installed plugin root; marketplace users in an arbitrary workspace use `$laneorchestrator`. The guided setup command requires POSIX/WSL TTY input and output; its JSON form is read-only. Plugin removal does not remove managed profiles or configuration; lifecycle cleanup remains explicit and previewed.
 
 See [getting started](getting-started.md), [commands](commands.md), and [security model](security-model.md).
 
 ## Source installation
 
-The current Astra workflow is available on `main`; the `v0.2.4` release predates it. The source quickstart uses a local marketplace registered from a known checkout. It requires Codex support for local plugin marketplaces and explicit model/effort dispatch. Check the active host rather than assuming every Codex client exposes the same capabilities.
+The current Astra workflow is available in the `v0.3.0` release candidate on `main`; `v0.2.4` remains the latest published release until the new tag and release evidence are public. The source quickstart uses a local marketplace registered from a known checkout. It requires Codex support for local plugin marketplaces and explicit model/effort dispatch. Check the active host rather than assuming every Codex client exposes the same capabilities.
 
 Model-neutral profiles must be loaded into a new task before they can accept per-task settings. The Python version, installed plugin files and disk profile status do not establish model entitlement or runtime-observed execution. See [upgrading](upgrading.md) and [live validation](live-validation.md).

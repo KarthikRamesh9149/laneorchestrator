@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "refactor-route-summary",
+  "category": "refactor",
+  "title": "Extract shared route selection validation",
+  "prompt": "Refactor route_summary.py to extract the duplicated model/reasoning validation and payload construction into a private function named _selection_payload(model, reasoning_effort). Both implementation_summary and review_summary must call that helper exactly once and preserve their public signatures, validation errors, returned keys, and values. Change only route_summary.py. Do not seek or edit benchmark tests. Run any checks available inside this task repository and keep the final response under 120 words.",
+  "editable_files": [
+    "route_summary.py"
+  ],
+  "test_command": [
+    "python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-v"
+  ],
+  "provenance": {
+    "repository": "https://github.com/KarthikRamesh9149/laneorchestrator.git",
+    "commit": "eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa",
+    "source_paths": [
+      "laneorchestrator/adaptive.py",
+      "scripts/evaluate_astra_live.py"
+    ],
+    "adaptation": "A benchmark-only extraction refactor modelled on repeated requested-selection report construction. It is representative code, not a copy of a current production function."
+  },
+  "expected_routing": {
+    "task_kinds": [
+      "small",
+      "routine"
+    ],
+    "independent_review": false
+  }
+}

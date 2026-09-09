@@ -1,5 +1,38 @@
 # LaneOrchestrator benchmark corpora
 
+## Adaptive scenario evaluation
+
+`astra-use-cases-v1.json` contains 200 distinct task packets and
+`astra-edge-cases-v1.json` contains 100 extreme edge packets. Each includes inspected
+scope facts and independently authored acceptable outcomes. These corpora target
+the current adaptive contract, while the v1 corpora below cover legacy behavior.
+
+Run `python3 scripts/evaluate_astra.py --output /tmp/astra-contracts.json` for local
+checks of scope hints, review requirements, execution-evidence boundaries and
+exhaustive model/thinking validation against the published policy. The ordinary
+unit-test suite includes all 300 scenarios. The evaluator records corpus hashes
+and individual failures. Expected answers are not passed into the scope-card code.
+
+Offline checks cannot determine whether Astra would choose the best model or
+produce a correct implementation. Semantic model/effort ranges and concrete
+output acceptance checks are retained for a separate live assessment.
+`scripts/evaluate_astra_live.py` requires an explicit `--run`, an executable
+`--codex` path and an `--output` report path. It sends eight fixed packets in one
+read-only Astra call with expected answers withheld, no delegation and no automatic
+retries. It records usage and compares decisions against the frozen rubrics.
+Output-check quality still needs human review. It does not execute the tasks or
+prove backend model identity. Host catalogs in fixtures are test inputs, not an
+entitlement guarantee.
+
+Changing an expected outcome requires an explanation of the policy or labeling
+error. Do not weaken expectations merely to obtain a perfect score. A passing
+finite corpus is regression evidence, not proof of universal correctness.
+
+The [8 September evaluation report](../reports/2026-09-08-astra-300-evaluation.md)
+records the 300-case contract results, bounded live sample and remaining limits.
+
+## Legacy regression corpora
+
 `routing-corpus-v1.json` is a 200-case, reviewed regression corpus. It retains
 the 50 cases from `tests/test_routing_matrix.py` verbatim and adds exact totals
 of 40 bounded-low, 60 normal, 70 high-risk, 15 high-risk-evasion, and 15

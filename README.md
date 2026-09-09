@@ -57,7 +57,7 @@ LaneOrchestrator separates expertise from execution settings. A frontend special
 
 ## Start here
 
-**Use `main` for the Astra workflow described on this page.** It contains the latest source changes, not a new tagged release. The published `v0.2.4` predates Astra; these changes are **not included in that existing release**. See [release channels and upgrades](docs/upgrading.md) before upgrading an existing installation.
+**LaneOrchestrator v0.3.0 includes the Astra workflow.** Use a verified release tag for a pinned installation, or reviewed `main` source for the latest changes. Check the [release assets and evidence](https://github.com/KarthikRamesh9149/laneorchestrator/releases) before choosing a tag. The older `v0.2.4` predates Astra. See [release channels and upgrades](docs/upgrading.md) before upgrading an existing installation.
 
 You need Git, Python 3.9–3.14, a Codex client with plugin support, and access to the models selected by your host. Run setup on macOS, Linux, or WSL. Start in a directory where you keep source projects:
 
@@ -67,6 +67,13 @@ cd laneorchestrator
 codex plugin marketplace add .
 codex plugin add laneorchestrator@laneorchestrator
 python3 -m laneorchestrator setup
+```
+
+For the `v0.3.0` tagged release, the pinned installation is:
+
+```sh
+codex plugin marketplace add KarthikRamesh9149/laneorchestrator --ref v0.3.0
+codex plugin add laneorchestrator@laneorchestrator
 ```
 
 Review the proposed profile files and confirm once. Setup activates the four control profiles and 172 specialists. **No separate Volt download is required.** Open a new Codex task in the repository you want to change so the host can load the new profiles. Then describe the work:
@@ -158,12 +165,14 @@ The legacy `route` command and `orchestrate --legacy` retain the historical fixe
 - **No silent model substitution.** Unsupported settings require reassessment. Requested, accepted, and runtime-observed settings are separate evidence.
 - **Untrusted metadata stays untrusted.** Discovery is bounded, source-aware, and no-follow; prompt-injection text in metadata cannot change the control plane.
 - **Every mutation has evidence.** Profile and configuration changes use a preview, a short-lived bound token, and a matching approval value.
+- **Usage is checked before dispatch.** The host records each launch in a temporary ledger and enforces bounded calls and retries. Missing token counters remain unknown; the checker does not claim a provider-side token cap. See [usage controls](docs/usage-controls.md).
 
 For direct integration or source development, use `python3 -m laneorchestrator` only from a source checkout or a resolved installed plugin root—not an arbitrary workspace.
 
 ## Trust, safety, and release evidence
 
 - The protected annotated [`v0.2.4` release](https://github.com/KarthikRamesh9149/laneorchestrator/releases/tag/v0.2.4) includes deterministic archives and `SHA256SUMS`.
+- Release verification covers the protected tag workflow, exact archives, generated `SHA256SUMS`, attestation, and public installation. Source version strings alone do not establish those results.
 - The tag-triggered [release workflow](.github/workflows/release.yml) validates the repository, verifies generated assets, and emits GitHub artifact attestations.
 - Read the [security model](docs/security-model.md) and [threat model](docs/threat-model.md) for boundaries and known limitations.
 - Use the [security policy](SECURITY.md) to report a vulnerability privately; do not put sensitive reproduction details in an issue.
@@ -206,6 +215,7 @@ Follow [release channels, migration and removal](docs/upgrading.md). Updating a 
 - Start with [getting started](docs/getting-started.md), then see the [command reference](docs/commands.md), [concepts](docs/concepts.md), and [specialist catalog](docs/commands.md#read-only-commands).
 - Explore [small](docs/examples/small-change.md), [normal](docs/examples/normal-feature.md), and [high-risk](docs/examples/high-risk-change.md) route examples.
 - See [live execution evidence](docs/live-validation.md) and [launch media production](docs/media-production.md) for reproducibility and limitations.
+- Use the [feedback guide](docs/user-feedback.md) for an opt-in trial that keeps outcomes, corrections, and unknown usage separate.
 - Review [configuration and recovery](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [architecture](docs/architecture.md), and [benchmarks](docs/benchmarks.md).
 - Contributions should preserve the control-plane boundary and leave fresh verification evidence. Run `sh scripts/validate.sh` before opening a pull request; [CONTRIBUTING.md](CONTRIBUTING.md) explains the contribution, evidence, and rollback expectations.
 

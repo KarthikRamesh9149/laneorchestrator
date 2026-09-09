@@ -4,9 +4,22 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-09
+
+- Add an opt-in, bounded adaptive-versus-fixed executable workflow comparison,
+  with external verification, independent review and explicit usage evidence.
+- Support exact adoption of initial legacy profiles and migration from receipted
+  v0.2.4 installations; retain drift refusal and backup/uninstall checks.
+- Add host-ledger usage checks with per-agent counters, call and retry limits,
+  unknown-usage handling, and explicit limits on token-budget enforcement.
+- Preserve independent review for mixed editorial/security clauses and clarify
+  that a review-only request does not automatically require recursive review.
+
 - Rebuild the Astra source quickstart, task-oriented documentation index, adaptive examples, migration recipes and contributor/support guidance. Keep the old fixed-lane examples explicitly isolated as compatibility references.
 
 ### Added
+
+- A frozen 200-task and 100-extreme-case adaptive contract corpus, offline evaluator and bounded opt-in live decision sample. Contract scores do not claim end-to-end model accuracy.
 
 - Astra-led task assessment and host-validated model/thinking selection, with adaptive, all-Astra and manual presets.
 - Per-task model and thinking support for all four core profiles and 172 bundled specialists.
@@ -16,6 +29,9 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ### Changed
 
+- Adaptive cards accept an explicit host-inspected editorial scope, preserving risk evidence while avoiding unnecessary review for verified non-operational wording changes.
+- Read-only task intent prevents implementation stages even when the repository is understood; explicit context-based review requirements are preserved without changing the task's complexity classification.
+
 - Routine implementation uses Sol or Terra with thinking chosen by Astra; small scoped work uses Luna/high or Terra/high. Demanding work can use Astra.
 - Default orchestration returns schema-2 assessment evidence awaiting an Astra decision. Legacy `route` and `orchestrate --legacy` preserve the prior fixed-lane contract.
 - Schema-1 configurations remain readable; reviewed writes use schema 2. Model preferences no longer require profile regeneration after migration.
@@ -23,6 +39,8 @@ All notable changes are documented here. The project follows [Semantic Versionin
 - The bounded Luna executor can write within its workspace.
 
 ### Security
+
+- Adaptive risk detection normalizes compatibility-width text, invisible format characters and common Cyrillic lookalikes. Incomplete role evidence now returns a validation error instead of a lookup failure. Legacy routing behavior is preserved.
 
 - Consequential implementations require a separate independent review, including Astra implementations.
 - Preserve bounded metadata discovery, upstream content pins, explicit lifecycle approval, exact-state checks and user-edit refusal.

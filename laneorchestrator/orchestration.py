@@ -11,7 +11,7 @@ from typing import Dict, Mapping, Optional, Sequence
 
 from .discovery import Capability, TRUSTED_SOURCES, rank
 from .adaptive import policy
-from .routing import RouteFacts, high_risk_signals, validate_route_facts
+from .routing import RouteFacts, adaptive_risk_signals, has_editorial_target, validate_route_facts
 from .models import (
     Availability,
     EffectiveConfig,
@@ -38,14 +38,19 @@ def build_adaptive_card(facts: RouteFacts, config: EffectiveConfig,
     """
 
     validate_route_facts(facts)
-    signals = high_risk_signals(facts.objective)
-    investigate = facts.risk == "unknown" or not facts.known_area or not facts.acceptance_criteria
-    consequential = facts.risk == "high" or bool(signals)
+    if set(evidence) != set(config.roles):
+        raise ValueError("route evidence must cover every logical role")
+    signals = adaptive_risk_signals(facts.objective)
+    investigate = facts.read_only or facts.risk == "unknown" or not facts.known_area or not facts.acceptance_criteria
+    inspected_editorial = (facts.change_scope == "editorial" and facts.risk == "low"
+                          and not investigate and has_editorial_target(facts.objective))
+    consequential = facts.risk == "high" or (bool(signals) and not inspected_editorial)
+    review_required = facts.require_review or consequential
     kind = "investigation" if investigate else "small" if facts.risk == "low" and facts.files == 1 and not consequential else "routine"
     required = [ROUTING_ROLE]
     if not investigate:
         required.append(LUNA_ROLE if kind == "small" else TERRA_ROLE)
-        if consequential:
+        if review_required:
             required.append(REVIEW_ROLE)
     selected = None
     if context:
@@ -62,13 +67,16 @@ def build_adaptive_card(facts: RouteFacts, config: EffectiveConfig,
         "schema_version": 2,
         "task_kind": kind,
         "assessment": {"risk": facts.risk, "files": facts.files, "known_area": facts.known_area,
-                       "acceptance_criteria": facts.acceptance_criteria, "risk_signals": signals},
+                       "acceptance_criteria": facts.acceptance_criteria, "risk_signals": signals,
+                       "change_scope": facts.change_scope,
+                       "read_only": facts.read_only, "require_review": facts.require_review,
+                       "editorial_scope_asserted": inspected_editorial},
         "policy": selection_policy,
         "configured_preferences": {role: {"model": value.model, "reasoning_effort": value.reasoning_effort}
                                    for role, value in config.roles.items()},
         "selection_status": "awaiting_astra_decision",
         "selected_specialist": selected,
-        "verification": {"independent_review_required": consequential,
+        "verification": {"independent_review_required": review_required,
                          "required_roles": required, "strategy": "proportionate_to_changed_behavior"},
         "role_evidence": _role_payload(evidence),
         "execution": {"status": "not_dispatched", "runtime_observed": False,

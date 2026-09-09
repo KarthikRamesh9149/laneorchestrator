@@ -2,18 +2,19 @@
 
 This is an engineering direction, not a delivery-date or model-performance promise.
 
-## Available on main
+## v0.3.0 release line
 
 - Astra-led, task-specific model and thinking selection.
 - Model-neutral core and specialist profiles with reviewed migration.
 - Configuration previews, profile lifecycle controls and isolated execution evidence.
 - A source quickstart, adaptive workflow examples and recovery documentation.
 
-The published `v0.2.4` tag predates these Astra changes. See [release channels](upgrading.md).
+These Astra changes belong to the `v0.3.0` release line. Check the release assets
+and verification evidence when choosing a pinned installation. See [release channels](upgrading.md).
 
 ## Next priorities
 
-1. Package the Astra source changes into a new reviewed release with fresh platform and distribution evidence.
+1. Keep release gates and public pinned-installation checks reproducible for each release.
 2. Improve clean-install and migration usability from actual user reports.
 3. Expand execution evidence to cover host-loaded named profiles and routing quality, keeping accepted settings separate from runtime observations.
 4. Improve discovery relevance using versioned, reviewed evaluation cases.

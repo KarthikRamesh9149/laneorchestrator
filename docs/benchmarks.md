@@ -2,6 +2,8 @@
 
 These deterministic benchmarks measure the preserved legacy routing and catalog behavior. They do not measure Astra decision quality or demonstrate live agent execution.
 
+The separate [adaptive evaluation](../benchmarks/README.md#adaptive-scenario-evaluation) adds 200 normal task packets and 100 extreme edge packets to the offline regression suite. It checks scope, review requirements and model/thinking validation. A bounded opt-in live sample evaluates eight semantic decisions in one call; it does not execute those tasks. Keep these evidence types separate when reporting results.
+
 The committed benchmark is a regression evaluation for the current routing and capability-ranking policy. It does not establish that lexical ranking replaces repository-aware routing.
 
 ## Corpus and measurement

@@ -1,4 +1,4 @@
-# managed-by: laneorchestrator 0.2.4
+# managed-by: laneorchestrator 0.3.0
 name = "laneorchestrator-sol-reviewer"
 description = "Use as a fresh independent final reviewer for high-risk LaneOrchestrator changes after implementation and verification."
 # model-binding: per-task-v2

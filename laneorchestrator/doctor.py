@@ -828,7 +828,7 @@ def _validate_receipt(content: bytes, agents_root: Path) -> Mapping[str, object]
         seen.add(name)
         if entry["destination"] != os.fspath(agents_root / name):
             raise _InspectionError("receipt destination")
-        if entry["template_version"] not in ("0.2.0", "0.2.1", "0.2.2", "0.2.3", TEMPLATE_VERSION):
+        if entry["template_version"] not in ("0.2.0", "0.2.1", "0.2.2", "0.2.3", "0.2.4", TEMPLATE_VERSION):
             raise _InspectionError("receipt template")
         if not isinstance(entry["content_sha256"], str) or _HASH_RE.fullmatch(entry["content_sha256"]) is None:
             raise _InspectionError("receipt content hash")

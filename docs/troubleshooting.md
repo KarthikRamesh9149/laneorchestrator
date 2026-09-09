@@ -4,7 +4,7 @@ Start with the symptom below. Run module commands from the source checkout, not 
 
 ## I installed it but do not see Astra behavior
 
-Check the source you installed. The `v0.2.4` release predates Astra. Use the [source quickstart](getting-started.md) and [migration guide](upgrading.md). After migration, open a new Codex task; a running host can retain the old model-pinned profiles.
+Check the source you installed. Astra is in the `v0.3.0` release candidate on `main`; use the pinned tag only after its public release evidence is verified. Follow the [source quickstart](getting-started.md) and [migration guide](upgrading.md). After migration, open a new Codex task; a running host can retain the old model-pinned profiles.
 
 ## Python says no module named laneorchestrator
 
