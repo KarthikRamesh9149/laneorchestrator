@@ -28,6 +28,7 @@ LaneOrchestrator turns a normal Codex request into scoped agent work. Astra choo
 - [Live validation](live-validation.md) separates observed fixture results from unknown backend settings.
 - [Benchmarks](benchmarks.md) explains what the offline corpora measure.
 - [Workflow comparison](workflow-benchmark.md) runs a bounded adaptive-versus-fixed experiment on executable fixtures.
+- [Quality-per-budget pilot](../reports/2026-09-10-quality-per-budget-pilot.md) records the budget stop, retained failures and context-loading limitation.
 - [User feedback](user-feedback.md) gives a short protocol for trying the skill on your own repository.
 - [Security model](security-model.md) and [threat model](threat-model.md) define trust boundaries.
 - [Contributing](../CONTRIBUTING.md), [support](../SUPPORT.md) and [roadmap](roadmap.md) explain how to help.

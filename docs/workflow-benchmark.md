@@ -8,6 +8,28 @@ source paths at repository commit
 `eb2bb7a4b1fd7e02349c5de1d9e846c63d2afeaa`; they are not three full external
 repositories and do not measure the breadth of real user-repository work.
 
+The [bounded pilot](../reports/2026-09-10-quality-per-budget-pilot.md) stopped at
+five calls after crossing the selected observed-token threshold. It retained two
+external-test passes and two failures, with refactor and review work unrun. It
+does not establish an advantage over a fixed model or measure the later dispatch
+guidance changes.
+
+For a future fresh run, `--fixed-model gpt-6-astra --fixed-effort high` selects a
+fixed-Astra baseline. The default remains Terra/medium. The effort must appear in
+the benchmark's supported host snapshot. A resumed run preserves its recorded
+baseline; changing it requires a new experiment and budget. Dry plans show the
+chosen baseline without making calls.
+
+Use `--summarize <report.json>` to generate a public summary offline without
+launching agents or altering the original evidence. Completion of the experiment
+means all required attempts and valid review results were collected, not that
+every implementation passed. External-test passes, required-review acceptance,
+failures and unfinished tasks are separate outcomes. Missing counters and timing
+stay unknown. Implementation usage, coordination and shared review are reported
+separately; shared review is not assigned an invented per-workflow cost. Token
+counts across different models are not equivalent monetary costs, and no global
+winner is inferred from an incomplete or single-attempt fixture comparison.
+
 The default command only validates the local corpus and prints the call plan:
 
 ```sh
@@ -100,3 +122,10 @@ explicit model dispatch on these fixtures; they do not test installed named
 profiles, specialist discovery, desktop profile reloads, or production readiness.
 Requested model and reasoning settings remain separate from runtime-observed
 fields, which stay `null` unless Codex events expose them.
+
+In the measured CLI 0.153.4 runs, stderr still recorded a host skill scan despite
+the enabled discovery-skip flag. The CLI describes `--ignore-user-config` as
+skipping `config.toml` only. This evidence does not quantify the tokens injected by
+each host source or establish an alternative setting that removes them. Keep
+applicable instructions and focused task context; do not weaken the sandbox or
+silently change execution settings midway through an experiment to reduce usage.

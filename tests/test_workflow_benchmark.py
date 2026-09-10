@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import argparse
+import copy
 from pathlib import Path
 import subprocess
 import sys
@@ -142,6 +144,85 @@ def parse_json_object(data):
             self.assertTrue(result["external_tests_unchanged"])
             self.assertTrue((artifact / "changes.diff").read_text(encoding="utf-8"))
         self.assertEqual(task["test_hashes"], original_hashes)
+
+
+class WorkflowSummaryTests(unittest.TestCase):
+    def setUp(self):
+        self.tasks = [{"id": "task", "expected_routing": {"independent_review": True}}]
+        self.call = {"exit_code": 0, "elapsed_seconds": 2, "usage": {
+            "input_tokens": 10, "cached_input_tokens": 8, "output_tokens": 2}}
+        self.report = {"status": "completed", "fixture_tests_unchanged": True,
+                       "executions": [{"task_id": "task", "arm": arm,
+                            "call": dict(self.call, call_id=arm), "verification": {"task_passed": True}}
+                            for arm in ("adaptive", "fixed")],
+                       "independent_review": {"call": dict(self.call, call_id="review"),
+                           "review_workspace_unchanged": True,
+                           "blind_arm_mapping": {"task": workflow._blind_mapping("task")},
+                           "payload": {"reviews": [{"task_id": "task",
+                                "arm_a": {"verdict": "approve", "findings": []},
+                                "arm_b": {"verdict": "changes-requested", "findings": ["A defect"]}}]}}}
+
+    def test_completed_experiment_can_include_rejected_outputs(self):
+        summary = workflow.summarize_report(self.tasks, self.report)
+        self.assertTrue(summary["experiment_complete"])
+        self.assertFalse(summary["all_outputs_accepted"])
+        self.assertEqual(sorted(row["outcome"] for row in summary["outcomes"]), ["accepted", "review_rejected"])
+        self.assertEqual(summary["total_processing"]["observed_tokens"], 36)
+        self.assertEqual(summary["processing"]["shared_review"]["observed_tokens"], 12)
+        self.assertIsNone(summary["standalone_workflow_cost"])
+        self.assertIsNone(summary["overall_winner"])
+
+    def test_failures_and_missing_arms_remain_visible(self):
+        self.report["executions"][0]["call"]["exit_code"] = 1
+        self.report["executions"].pop()
+        self.report["independent_review"] = None
+        summary = workflow.summarize_report(self.tasks, self.report)
+        self.assertFalse(summary["experiment_complete"])
+        self.assertEqual([row["outcome"] for row in summary["outcomes"]], ["failed", "not_run"])
+        self.assertEqual(summary["total_processing"]["observed_tokens"], 12)
+        self.report["executions"][0]["call"]["exit_code"] = 0
+        self.assertEqual(workflow.summarize_report(self.tasks, self.report)["outcomes"][0]["outcome"], "review_pending")
+
+    def test_unknown_usage_and_timing_never_become_zero(self):
+        calls = [self.call, {"usage": None, "elapsed_seconds": None}]
+        totals = workflow._processing_totals(calls)
+        self.assertIsNone(totals["observed_tokens"])
+        self.assertIsNone(totals["model_call_seconds"])
+        self.assertEqual(totals["known_usage_subtotal"]["input_tokens"], 10)
+        self.assertEqual(totals["unknown_usage_calls"], 1)
+        self.assertIsNone(workflow._processing_totals([{"usage": {
+            "input_tokens": 1, "cached_input_tokens": 2, "output_tokens": 0}}])["usage"])
+
+    def test_summary_is_nonmutating_and_excludes_private_prose(self):
+        self.report["executions"][0]["artifact_directory"] = "/private/task"
+        self.report["independent_review"]["payload"]["reviews"][0]["arm_b"]["findings"] = ["private detail"]
+        before = copy.deepcopy(self.report)
+        rendered = json.dumps(workflow.summarize_report(self.tasks, self.report))
+        self.assertNotIn("/private/task", rendered)
+        self.assertNotIn("private detail", rendered)
+        self.assertEqual(self.report, before)
+        self.report["executions"].append(copy.deepcopy(self.report["executions"][0]))
+        with self.assertRaises(workflow.BenchmarkError):
+            workflow.summarize_report(self.tasks, self.report)
+
+    def test_resume_baseline_is_preserved_and_validated(self):
+        args = argparse.Namespace(fixed_model=None, fixed_effort=None)
+        self.assertEqual(workflow._resolve_fixed_baseline(args, {}), {
+            "model": "gpt-5.6-terra", "reasoning_effort": "medium"})
+        prior = {"fixed_baseline": {"model": "gpt-6-astra", "reasoning_effort": "high"}}
+        self.assertEqual(workflow._resolve_fixed_baseline(args, prior), prior["fixed_baseline"])
+        args.fixed_model = "gpt-5.6-terra"
+        with self.assertRaisesRegex(workflow.BenchmarkError, "cannot change"):
+            workflow._resolve_fixed_baseline(args, prior)
+        with self.assertRaisesRegex(workflow.BenchmarkError, "unsupported"):
+            workflow.validate_fixed_baseline("gpt-6-astra", "invented")
+
+    def test_pair_completion_does_not_depend_on_other_tasks(self):
+        rows = workflow._comparison(self.tasks, self.report["executions"], False)
+        self.assertTrue(rows[0]["complete"])
+        self.assertFalse(rows[0]["experiment_complete"])
+        self.report["independent_review"]["call"]["exit_code"] = 1
+        self.assertFalse(workflow._experiment_complete(self.tasks, self.report, True))
 
 
 class WorkflowExecutionSafetyTests(unittest.TestCase):

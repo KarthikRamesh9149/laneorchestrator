@@ -1,0 +1,216 @@
+{
+  "all_outputs_accepted": false,
+  "counts": {
+    "adaptive": {
+      "accepted": 0,
+      "external_test_passes": 1,
+      "failed": 1,
+      "not_run": 1,
+      "review_pending": 1,
+      "review_rejected": 0
+    },
+    "fixed": {
+      "accepted": 0,
+      "external_test_passes": 1,
+      "failed": 1,
+      "not_run": 1,
+      "review_pending": 1,
+      "review_rejected": 0
+    }
+  },
+  "experiment_complete": false,
+  "fixed_baseline": {
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "medium"
+  },
+  "interpretation": "Local evidence summary, not independent re-verification. Cached input is included in input. Shared review is not allocated to arms. Model-call seconds exclude verification. No causal or monetary advantage inferred.",
+  "limits": {
+    "max_calls": 8,
+    "max_observed_tokens": 1000000,
+    "per_call_timeout_seconds": 240,
+    "token_limit_kind": "stop before next call after observed usage reaches the ceiling; one call may overshoot"
+  },
+  "monetary_cost": null,
+  "outcomes": [
+    {
+      "arm": "adaptive",
+      "external_tests_passed": true,
+      "outcome": "review_pending",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "high",
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "bug-json-duplicates"
+    },
+    {
+      "arm": "fixed",
+      "external_tests_passed": true,
+      "outcome": "review_pending",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "medium",
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "bug-json-duplicates"
+    },
+    {
+      "arm": "adaptive",
+      "external_tests_passed": false,
+      "outcome": "failed",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "medium",
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "feature-capability-ranking"
+    },
+    {
+      "arm": "fixed",
+      "external_tests_passed": false,
+      "outcome": "failed",
+      "requested_model": "gpt-5.6-terra",
+      "requested_reasoning_effort": "medium",
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "feature-capability-ranking"
+    },
+    {
+      "arm": "adaptive",
+      "external_tests_passed": null,
+      "outcome": "not_run",
+      "requested_model": null,
+      "requested_reasoning_effort": null,
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "refactor-route-summary"
+    },
+    {
+      "arm": "fixed",
+      "external_tests_passed": null,
+      "outcome": "not_run",
+      "requested_model": null,
+      "requested_reasoning_effort": null,
+      "review_verdict": null,
+      "runtime_observed_model": null,
+      "runtime_observed_reasoning_effort": null,
+      "task_id": "refactor-route-summary"
+    }
+  ],
+  "overall_winner": null,
+  "processing": {
+    "adaptive_implementation": {
+      "calls": 2,
+      "known_model_call_seconds_subtotal": 160.978,
+      "known_usage_subtotal": {
+        "cached_input_tokens": 494080,
+        "input_tokens": 577600,
+        "output_tokens": 5969
+      },
+      "model_call_seconds": 160.978,
+      "observed_tokens": 583569,
+      "unknown_timing_calls": 0,
+      "unknown_usage_calls": 0,
+      "usage": {
+        "cached_input_tokens": 494080,
+        "input_tokens": 577600,
+        "output_tokens": 5969
+      }
+    },
+    "coordination": {
+      "calls": 1,
+      "known_model_call_seconds_subtotal": 0.0,
+      "known_usage_subtotal": {
+        "cached_input_tokens": 0,
+        "input_tokens": 41818,
+        "output_tokens": 608
+      },
+      "model_call_seconds": null,
+      "observed_tokens": 42426,
+      "unknown_timing_calls": 1,
+      "unknown_usage_calls": 0,
+      "usage": {
+        "cached_input_tokens": 0,
+        "input_tokens": 41818,
+        "output_tokens": 608
+      }
+    },
+    "fixed_implementation": {
+      "calls": 2,
+      "known_model_call_seconds_subtotal": 171.763,
+      "known_usage_subtotal": {
+        "cached_input_tokens": 562432,
+        "input_tokens": 624492,
+        "output_tokens": 7075
+      },
+      "model_call_seconds": 171.763,
+      "observed_tokens": 631567,
+      "unknown_timing_calls": 0,
+      "unknown_usage_calls": 0,
+      "usage": {
+        "cached_input_tokens": 562432,
+        "input_tokens": 624492,
+        "output_tokens": 7075
+      }
+    },
+    "shared_review": {
+      "calls": 0,
+      "known_model_call_seconds_subtotal": 0.0,
+      "known_usage_subtotal": {
+        "cached_input_tokens": 0,
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "model_call_seconds": 0.0,
+      "observed_tokens": 0,
+      "unknown_timing_calls": 0,
+      "unknown_usage_calls": 0,
+      "usage": {
+        "cached_input_tokens": 0,
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    "unattributed": {
+      "calls": 0,
+      "known_model_call_seconds_subtotal": 0.0,
+      "known_usage_subtotal": {
+        "cached_input_tokens": 0,
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "model_call_seconds": 0.0,
+      "observed_tokens": 0,
+      "unknown_timing_calls": 0,
+      "unknown_usage_calls": 0,
+      "usage": {
+        "cached_input_tokens": 0,
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  "schema_version": 1,
+  "source_status": "budget_stopped",
+  "standalone_workflow_cost": null,
+  "total_processing": {
+    "calls": 5,
+    "known_model_call_seconds_subtotal": 332.741,
+    "known_usage_subtotal": {
+      "cached_input_tokens": 1056512,
+      "input_tokens": 1243910,
+      "output_tokens": 13652
+    },
+    "model_call_seconds": null,
+    "observed_tokens": 1257562,
+    "unknown_timing_calls": 1,
+    "unknown_usage_calls": 0,
+    "usage": {
+      "cached_input_tokens": 1056512,
+      "input_tokens": 1243910,
+      "output_tokens": 13652
+    }
+  }
+}

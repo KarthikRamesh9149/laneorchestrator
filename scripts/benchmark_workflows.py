@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import shutil
@@ -31,6 +32,7 @@ MAX_CALLS = 8
 DEFAULT_TOKEN_CEILING = 250_000
 FIXED_MODEL = "gpt-5.6-terra"
 FIXED_EFFORT = "medium"
+FIXED_MODELS = ("gpt-5.6-terra", "gpt-6-astra")
 ROUTER_MODEL = "gpt-6-astra"
 ROUTER_EFFORT = "high"
 REVIEW_MODEL = "gpt-5.6-sol"
@@ -138,6 +140,38 @@ def load_calibration():
 def _fixture_evidence(tasks):
     return [{key: task[key] for key in ("id", "category", "title", "provenance", "test_hashes")}
             for task in tasks]
+
+
+def validate_fixed_baseline(model, effort):
+    if model not in FIXED_MODELS:
+        raise BenchmarkError("fixed model must be gpt-5.6-terra or gpt-6-astra")
+    if effort not in HOST.get(model, ()):
+        raise BenchmarkError("fixed effort is unsupported for the selected model")
+    return {"model": model, "reasoning_effort": effort}
+
+
+def _report_fixed_baseline(report):
+    """Old checkpoints predate this field and used Terra/medium."""
+    baseline = report.get("fixed_baseline") if isinstance(report, dict) else None
+    if baseline is None:
+        return {"model": FIXED_MODEL, "reasoning_effort": FIXED_EFFORT}
+    if not isinstance(baseline, dict) or set(baseline) != {"model", "reasoning_effort"}:
+        raise BenchmarkError("saved fixed baseline is invalid")
+    return validate_fixed_baseline(baseline["model"], baseline["reasoning_effort"])
+
+
+def _resolve_fixed_baseline(args, prior=None):
+    saved = _report_fixed_baseline(prior)
+    chosen = validate_fixed_baseline(args.fixed_model or saved["model"],
+                                     args.fixed_effort or saved["reasoning_effort"])
+    if prior is not None and chosen != saved:
+        raise BenchmarkError("fixed baseline cannot change while resuming a run")
+    for row in (prior or {}).get("executions", []):
+        if row.get("arm") == "fixed" and (
+                row["call"].get("requested_model") != saved["model"]
+                or row["call"].get("requested_reasoning_effort") != saved["reasoning_effort"]):
+            raise BenchmarkError("saved fixed call settings differ from baseline")
+    return chosen
 
 
 def _load_resume_evidence(output, tasks):
@@ -700,7 +734,8 @@ def _comparison(tasks, executions, complete):
             return None if usage is None else usage["input_tokens"] + usage["output_tokens"]
         adaptive_tokens, fixed_tokens = tokens(adaptive), tokens(fixed)
         rows.append({
-            "task_id": task["id"], "complete": complete,
+            "task_id": task["id"], "complete": True,
+            "experiment_complete": complete,
             "adaptive_task_passed": adaptive["verification"]["task_passed"],
             "fixed_task_passed": fixed["verification"]["task_passed"],
             "adaptive_elapsed_seconds": adaptive["call"]["elapsed_seconds"],
@@ -715,6 +750,121 @@ def _comparison(tasks, executions, complete):
 
 def _write_report(path, report):
     path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _review_results(tasks, report):
+    required = {task["id"] for task in tasks if task["expected_routing"]["independent_review"]}
+    review = report.get("independent_review") or {}
+    if not _valid_call(review.get("call", {})) or not review.get("review_workspace_unchanged"):
+        return {}
+    rows = (review.get("payload") or {}).get("reviews")
+    if (not isinstance(rows, list) or len(rows) != len(required)
+            or any(not isinstance(row, dict) for row in rows)
+            or {row.get("task_id") for row in rows} != required):
+        return {}
+    result = {}
+    for row in rows:
+        mapping = review.get("blind_arm_mapping", {}).get(row["task_id"])
+        if mapping != _blind_mapping(row["task_id"]):
+            return {}
+        for label, arm in mapping.items():
+            verdict = row.get("arm_" + label.lower())
+            if (not isinstance(verdict, dict) or verdict.get("verdict") not in ("approve", "changes-requested")
+                    or not isinstance(verdict.get("findings"), list)
+                    or any(not isinstance(item, str) for item in verdict["findings"])):
+                return {}
+            result[(row["task_id"], arm)] = verdict["verdict"]
+    return result
+
+
+def _experiment_complete(tasks, report, tests_unchanged):
+    expected = set(_execution_sequence(tasks))
+    executions = report.get("executions", [])
+    if (not tests_unchanged or len(executions) != len(expected)
+            or {(row["task_id"], row["arm"]) for row in executions} != expected
+            or any(type(row.get("verification", {}).get("task_passed")) is not bool for row in executions)):
+        return False
+    required = sum(task["expected_routing"]["independent_review"] for task in tasks) * 2
+    return len(_review_results(tasks, report)) == required
+
+
+def _processing_totals(calls):
+    keys = ("input_tokens", "cached_input_tokens", "output_tokens")
+    totals = dict.fromkeys(keys, 0)
+    unknown_usage = unknown_time = 0
+    seconds = 0.0
+    for call in calls:
+        usage = call.get("usage")
+        if (not isinstance(usage, dict) or any(type(usage.get(key)) is not int or usage[key] < 0 for key in keys)
+                or usage["cached_input_tokens"] > usage["input_tokens"]):
+            unknown_usage += 1
+        else:
+            for key in keys:
+                totals[key] += usage[key]
+        elapsed = call.get("elapsed_seconds")
+        if type(elapsed) not in (int, float) or not math.isfinite(elapsed) or elapsed < 0:
+            unknown_time += 1
+        else:
+            seconds += elapsed
+    return {"calls": len(calls), "usage": None if unknown_usage else totals,
+            "known_usage_subtotal": totals, "unknown_usage_calls": unknown_usage,
+            "observed_tokens": None if unknown_usage else totals["input_tokens"] + totals["output_tokens"],
+            "model_call_seconds": None if unknown_time else round(seconds, 3),
+            "known_model_call_seconds_subtotal": round(seconds, 3), "unknown_timing_calls": unknown_time}
+
+
+def summarize_report(tasks, report):
+    """Derive outcomes from local evidence without exposing paths or raw prose."""
+    executions = report.get("executions", [])
+    expected = set(_execution_sequence(tasks))
+    by_key = {(row["task_id"], row["arm"]): row for row in executions}
+    if len(by_key) != len(executions) or not set(by_key) <= expected:
+        raise BenchmarkError("summary contains duplicate or unknown execution arms")
+    reviews = _review_results(tasks, report)
+    groups = {"adaptive_implementation": [], "fixed_implementation": [],
+              "coordination": [], "shared_review": [], "unattributed": []}
+    for name, field in (("coordination", "routing"), ("shared_review", "independent_review")):
+        if report.get(field) and report[field].get("call"):
+            groups[name].append(report[field]["call"])
+    rows = []
+    for task in tasks:
+        for arm in ("adaptive", "fixed"):
+            execution = by_key.get((task["id"], arm))
+            call = execution["call"] if execution else None
+            passed = (execution.get("verification", {}).get("task_passed") is True
+                      and _valid_call(call)) if execution else None
+            review = reviews.get((task["id"], arm))
+            state = "not_run" if execution is None else "failed"
+            if passed:
+                state = ("accepted" if not task["expected_routing"]["independent_review"] or review == "approve"
+                         else "review_rejected" if review == "changes-requested" else "review_pending")
+            if call:
+                groups[arm + "_implementation"].append(call)
+            rows.append({"task_id": task["id"], "arm": arm, "outcome": state,
+                         "external_tests_passed": passed, "review_verdict": review,
+                         "requested_model": call.get("requested_model") if call else None,
+                         "requested_reasoning_effort": call.get("requested_reasoning_effort") if call else None,
+                         "runtime_observed_model": call.get("runtime_observed_model") if call else None,
+                         "runtime_observed_reasoning_effort": call.get("runtime_observed_reasoning_effort") if call else None})
+    known = {call.get("call_id") for calls in groups.values() for call in calls}
+    for record in report.get("usage_ledger", {}).get("calls", []):
+        if record.get("id") not in known:
+            groups["unattributed"].append({"usage": record.get("usage")})
+    complete = _experiment_complete(tasks, report, report.get("fixture_tests_unchanged") is True)
+    counts = {}
+    for arm in ("adaptive", "fixed"):
+        selected = [row for row in rows if row["arm"] == arm]
+        counts[arm] = {state: sum(row["outcome"] == state for row in selected)
+                       for state in ("accepted", "failed", "review_pending", "review_rejected", "not_run")}
+        counts[arm]["external_test_passes"] = sum(row["external_tests_passed"] is True for row in selected)
+    return {"schema_version": 1, "source_status": report.get("status"),
+            "experiment_complete": complete, "all_outputs_accepted": complete and all(row["outcome"] == "accepted" for row in rows),
+            "fixed_baseline": _report_fixed_baseline(report), "outcomes": rows, "counts": counts,
+            "processing": {key: _processing_totals(calls) for key, calls in groups.items()},
+            "total_processing": _processing_totals([call for calls in groups.values() for call in calls]),
+            "monetary_cost": None, "standalone_workflow_cost": None, "overall_winner": None,
+            "limits": report.get("limits"),
+            "interpretation": "Local evidence summary, not independent re-verification. Cached input is included in input. Shared review is not allocated to arms. Model-call seconds exclude verification. No causal or monetary advantage inferred."}
 
 
 def _successful_comparison(tasks, report, tests_unchanged):
@@ -772,6 +922,7 @@ def execute(args, tasks, calibration):
         prior, ledger, routing_payload, routing_call, prior_report_sha256 = _load_resume_evidence(output, tasks)
     else:
         ledger = {"schema_version": 1, "calls": []}
+    fixed_baseline = _resolve_fixed_baseline(args, prior)
     report = dict(prior) if resuming_run else {
         "schema_version": 1,
         "scope": "Three repository-derived executable fixtures; not a benchmark of broad user-repository work.",
@@ -783,8 +934,10 @@ def execute(args, tasks, calibration):
         "host_discovery_boundary": "Benchmark subprocesses request disabled multi-agent features and skipped host skill discovery, but runtime evidence may still show host metadata loading. This does not test installed named profiles or automatic specialist discovery.",
         "test_boundary": "Authoritative tests stay outside task workspaces and are write-protected in verifier copies. The host sandbox may still allow read access; this is not an inaccessible holdout claim.",
         "fixtures": _fixture_evidence(tasks),
+        "fixed_baseline": fixed_baseline,
         "routing": None, "executions": [], "independent_review": None, "comparison": [],
     }
+    report["fixed_baseline"] = fixed_baseline
     if resuming_run:
         for key in ("stop_reason", "final_usage_assessment", "error"):
             report.pop(key, None)
@@ -842,8 +995,8 @@ def execute(args, tasks, calibration):
                     if (task["id"], arm) in completed:
                         continue
                     decision = decision_by_id[task["id"]]
-                    model = decision["model"] if arm == "adaptive" else FIXED_MODEL
-                    effort = decision["reasoning_effort"] if arm == "adaptive" else FIXED_EFFORT
+                    model = decision["model"] if arm == "adaptive" else fixed_baseline["model"]
+                    effort = decision["reasoning_effort"] if arm == "adaptive" else fixed_baseline["reasoning_effort"]
                     workspace = scratch / task["id"] / arm
                     baseline = _prepare_workspace(task, workspace)
                     call = _run_call(
@@ -901,7 +1054,8 @@ def execute(args, tasks, calibration):
                 for path in (task["directory"] / "tests").rglob("*") if path.is_file()
                 and "__pycache__" not in path.relative_to(task["directory"]).parts
             } for task in tasks)
-            complete = _successful_comparison(tasks, report, fixture_hashes_unchanged)
+            complete = _experiment_complete(tasks, report, fixture_hashes_unchanged)
+            report["all_outputs_passed"] = _successful_comparison(tasks, report, fixture_hashes_unchanged)
             report["status"] = "completed" if complete else "failed"
             report["fixture_tests_unchanged"] = fixture_hashes_unchanged
             report["comparison"] = _comparison(tasks, report["executions"], complete)
@@ -919,6 +1073,7 @@ def execute(args, tasks, calibration):
     report["final_usage_assessment"] = assess_usage(
         ledger, "post-run", max_calls=MAX_CALLS, max_retries=0, max_tokens=args.max_observed_tokens,
     )
+    report["summary"] = summarize_report(tasks, report)
     _write_report(report_path, report)
     print(json.dumps({key: report[key] for key in ("status", "live_calls", "limits")}, sort_keys=True))
     return 0 if report["status"] == "completed" else 1
@@ -935,14 +1090,24 @@ def main():
                         help="Continue a validated budget-stopped run without repeating completed calls")
     parser.add_argument("--timeout", type=int, default=240, help="Hard seconds per call")
     parser.add_argument("--max-observed-tokens", type=int, default=DEFAULT_TOKEN_CEILING)
+    parser.add_argument("--fixed-model", choices=FIXED_MODELS)
+    parser.add_argument("--fixed-effort")
+    parser.add_argument("--summarize", type=Path, help="Summarize saved evidence offline without changing it")
     args = parser.parse_args()
     tasks = load_tasks()
     calibration = load_calibration()
+    if args.summarize:
+        if args.run or args.resume_run or args.resume_routing:
+            parser.error("--summarize cannot launch or resume calls")
+        print(json.dumps(summarize_report(tasks, json.loads(args.summarize.read_text())), indent=2, sort_keys=True))
+        return 0
+    fixed_baseline = _resolve_fixed_baseline(args)
     plan = {
         "status": "validated_plan", "fixtures": [task["id"] for task in tasks],
         "planned_calls": {"router": 1, "implementations": 6, "combined_review_max": 1,
                           "hard_total": MAX_CALLS},
         "automatic_retries": 0, "max_observed_tokens": args.max_observed_tokens,
+        "fixed_baseline": fixed_baseline,
     }
     if not args.run:
         print(json.dumps(plan, indent=2, sort_keys=True))
