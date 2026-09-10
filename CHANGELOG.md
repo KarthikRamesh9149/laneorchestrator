@@ -4,6 +4,15 @@ All notable changes are documented here. The project follows [Semantic Versionin
 
 ## [Unreleased]
 
+- Separate experiment completion, external-test results and review acceptance in
+  workflow reporting; expose coordination and shared-review overhead separately.
+- Add offline pilot summaries and a selectable fixed-Astra baseline for future
+  runs while preserving a resumed experiment's original settings.
+- Reduce repeated coordination and inspection in dispatch guidance, and require
+  explicit acceptance contracts where ambiguity affects verification.
+- Record the five-call budget-stopped pilot with retained failures and the
+  observed host discovery limitation; no efficiency advantage is claimed.
+
 ## [0.3.0] - 2026-09-09
 
 - Add an opt-in, bounded adaptive-versus-fixed executable workflow comparison,
