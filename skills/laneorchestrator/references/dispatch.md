@@ -30,6 +30,22 @@ Use the exact selected managed agent type from the active host. Pass the returne
 
 Verify that the host-loaded profile does not pin either setting. Disk migration is not proof that a running task reloaded its profiles. If the host still advertises fixed settings, explain that a new task or reload is required. Do not silently dispatch an old Terra/high profile and report Astra/xhigh.
 
+Keep each packet focused: the objective, owned files, relevant inspected findings,
+required interfaces, acceptance criteria and verification. Include exact input
+boundaries and error behaviour when they are part of the contract. If they are
+unspecified and materially affect correctness, resolve that ambiguity before
+implementation instead of inventing an expectation after grading the output.
+Retain applicable instructions and risk context, but do not copy an entire agent
+catalog, conversation or repository into every packet. Let workers read additional
+relevant code when needed rather than asking them to repeat completed discovery.
+
+Use one implementer for work that has no useful independent split. A current Astra
+coordinator does not need another Astra router. Parallelise only separable work
+with explicit ownership; independent review remains required for consequential
+changes even when it adds overhead. Change model or thinking only when a substantive
+failure, new scope or unresolved complexity warrants reassessment, not merely
+because another model is available. Preserve the original budget and retry ledger.
+
 Task model changes occur at dispatch boundaries. If the host cannot change a running agent's settings, start a replacement with a compact evidence handoff. Preserve unrelated working tree changes and ensure overlapping writers are not active together.
 
 ## Evidence
@@ -37,3 +53,11 @@ Task model changes occur at dispatch boundaries. If the host cannot change a run
 Track three distinct states: requested settings, host-accepted launch settings, and runtime-observed settings. Use host events or agent metadata for observations, never an agent's self-description. If the host does not expose the actual model or thinking level, say `unknown`; do not fabricate verification.
 
 `select` returns `validated_for_dispatch`, not `executed`. A launch error requires reassessment or the user's explicit permitted fallback. Do not claim completion until the requested artifact/change and relevant verification exist. Independent review must use a separate agent and the original acceptance criteria plus final diff.
+
+Report observed input, cached input and output separately, counting cached input
+only once within input totals. Attribute coordination and review explicitly;
+shared review cannot establish the cost of two standalone workflows. Do not treat
+model token counts as equivalent monetary costs. Host-injected context can remain
+even with a compact packet: an accepted discovery flag is not execution evidence
+that loading was skipped. See [workflow benchmark](../../../docs/workflow-benchmark.md)
+for the measured host limitation and the boundary of current comparisons.
